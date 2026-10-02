@@ -1,0 +1,9 @@
+Stage 1: 1584 satellites, 600 s, 1.0 s sample interval.
+Visible satellites min/max: 9 / 13. Candidate availability: 100.00% of samples.
+Use play(R.scenario) in the MATLAB desktop to animate.
+PASS: full constellation, time grid, motion, radius, visibility and viewer time update.
+Elapsed: 135.1 s. Minimum endpoint displacement: 4295.3 km.
+Stage 1: 1584 satellites, 2 s, 1.0 s sample interval.
+Visible satellites min/max: 0 / 0. Candidate availability: 0.00% of samples.
+Use play(R.scenario) in the MATLAB desktop to animate.
+PASS: 90-degree mask returns zero candidates without an error.
