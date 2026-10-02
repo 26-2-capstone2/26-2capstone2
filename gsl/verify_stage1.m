@@ -1,6 +1,7 @@
 function verify_stage1()
 % Run full reference case, verify numerical invariants and viewer time change.
 CFG = configGSL();
+CFG.enablePackets = false; % retain the original geometry regression test
 timer = tic;
 R = main_gsl_simulation(CFG);
 G = R.geometry;

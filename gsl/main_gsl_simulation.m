@@ -32,6 +32,14 @@ if CFG.exportResults
     writetable(satellites,fullfile(CFG.outputDir,'satellite_index.csv'));
 end
 if CFG.makePlots, plotResults(G,CFG); end
+% Keep existing geometry and figures intact; add the packet layer afterward.
+if isfield(CFG,'enablePackets') && CFG.enablePackets
+    L = computeLinkState(G,sats,CFG);
+    P = simulatePacketTransmission(L,CFG);
+    M = computePacketMetrics(P,CFG.rollingWindow_s);
+    R.linkState = L; R.packetTable = P; R.packetMetrics = M;
+    reportPacketResults(L,P,M,CFG);
+end
 if CFG.openViewer
     % All satellites participate in analysis and are shown as simple markers.
     % Access lines are visible only while geometric access exists.

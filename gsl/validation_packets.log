@@ -1,0 +1,29 @@
+PASS: 20/60 pps -> 12000/36000 packets; 5s windows -> 100/300; unknown PER stays unknown.
+PASS: outage vs loss, zero transmissions, all-success/all-loss accounting, one handover marker.
+PASS: true moving-window oracle, deterministic private RNG, invalid PER rejection.
+PASS: strict >4-degree hysteresis, forced switch, outage and reacquisition.
+ALL PACKET UNIT CHECKS PASSED. Synthetic test probabilities were not exported as research results.
+Stage 1: 1584 satellites, 600 s, 1.0 s sample interval.
+===== UDP Packet Summary (SIMULATION) =====
+Reference              : Ku-band DOWNLINK
+Simulation Time        : 600 s
+Packet Size            : 150 Bytes
+Packet Rate            : 20 packets/s
+Generated Packets      : 12000
+Transmitted Packets    : 12000
+Received Packets       : N/A
+Lost Packets           : N/A
+Not Transmitted        : 0
+Unresolved Outcomes    : 12000
+Packet Loss Ratio      : N/A %
+Packet Delivery Ratio  : N/A %
+Generated-to-Received  : N/A %
+Total Handovers        : 10
+Rolling window        : 5 s, (t-window,t]
+PER Source             : 
+N/A = undefined or unresolved; this is not measured UDP traffic.
+==========================================
+Visible satellites min/max: 9 / 13. Candidate availability: 100.00% of samples.
+Use play(R.scenario) in the MATLAB desktop to animate.
+PASS: full geometry integration, CSV/MAT roundtrip, range-rate/Doppler and SNR units.
+Full run 75.8 s; handovers=10; SNR range=[23.840, 26.206] dB; delay=[1.863, 2.447] ms.
