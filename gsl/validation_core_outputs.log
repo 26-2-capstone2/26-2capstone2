@@ -1,0 +1,30 @@
+===== GSL Simulation Summary =====
+Simulation Time       : 600 s
+
+Ground Station
+Latitude              : 37.0000 deg
+Longitude             : 128.0000 deg
+Altitude              : 0 m (WGS84)
+
+LEO Constellation
+Altitude              : 550 km
+Inclination           : 53 deg
+Min Elevation         : 25 deg
+
+UDP Traffic (simulated)
+Packet Size           : 150 Bytes
+Packet Rate           : 60 packets/s
+
+Packets
+Generated             : 36000
+Transmitted           : 36000
+Received              : N/A
+Lost                  : N/A
+Packet Loss Ratio     : N/A
+
+Handover
+Total Handovers       : 10
+==================================
+Packet loss unavailable: validated PER model required
+PASS: stress 36000 generated/transmitted; PER unavailable; three current figures.
+PASS: conditional fourth figure; synthetic fixture not exported.

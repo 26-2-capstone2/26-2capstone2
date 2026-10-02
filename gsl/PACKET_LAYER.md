@@ -23,7 +23,7 @@ MATLAB에서 이 파일과 `.m` 파일들이 있는 폴더를 Current Folder로 
 
 ```matlab
 R = main_gsl_simulation;
-play(R.scenario);
+playGSL(R);
 R.packetTable(1:10,:)
 R.packetMetrics
 ```
@@ -110,18 +110,19 @@ ECEF에서 고정 GS 속도는 0이며 `states(...,'CoordinateFrame','ecef')`의
 
 ## 그래프와 데이터
 
-기존 geometry figure/3D snapshot을 유지하고 다음을 추가합니다.
+2026-10-03 시각화 정리 이후에는 실제 satelliteScenarioViewer와 다음 핵심 Figure만 표시합니다. 이전 geometry figure/일반 3D snapshot은 기본 실행에서 생성하지 않습니다. 자세한 현재 표시 규칙은 README를 참고하세요.
 
-1. Serving / propagation delay / SNR: 세 패널. Serving과 SNR에 handover 점선.
-2. **Cumulative UDP Packet Transmission**: 네 누적 선. 겹치는 generated/transmitted는 실선/점선으로 구분하고 미정 received/lost는 범례에 N/A로 표시.
-3. **Rolling Packet Loss Ratio**: 5초 PLR과 handover 점선. PER 미정 시 설명만 표시하고 가짜 선은 그리지 않음.
+1. **GSL Serving Satellite and Handover**: serving elevation과 실제 위성 ID 범주 축, handover 점선.
+2. **GSL Link Performance**: propagation delay/SNR, 두 패널 모두 handover 점선.
+3. **Cumulative UDP Packet Transmission**: 네 누적 선. 미정 received/lost는 범례에 N/A로 표시.
+4. **Rolling Packet Loss Ratio**: 유효한 rolling PER 결과가 있을 때만 생성. 현재 기본값에서는 생성하지 않음.
 
 기본 출력 폴더는 `results_packets`입니다. `geometry_stage1.mat`와 기존 geometry CSV는 이전 형식 그대로 저장하며, 다음 파일을 추가합니다.
 
 - `link_state.csv`: 1초 link-state, serving/handover/지연/FSPL/SNR/raw·residual Doppler.
 - `packet_results.csv`: 패킷당 ID, time_s, serving_sat_id, generated/transmitted/received/lost, snr_dB, per, propagation_delay_ms, handover_event/state, transmission_delay_ms, outcome_pending/not_transmitted, rolling_loss_ratio_pct, 누적 4개 카운터.
 - `packet_results.mat`: 확장 table P, metrics M, link-state L, CFG. time_s는 숫자 초이며 MAT의 table/함수 핸들은 Python에서 직접 읽기 번거로우므로 **Python 연동은 CSV 권장**.
-- `packet_summary.txt`, `link_state.png`, `cumulative_packets.png`, `rolling_packet_loss.png`.
+- `packet_summary.txt`, `serving_handover.png`, `link_performance.png`, `cumulative_packets.png`; 유효한 PER가 있을 때만 `rolling_packet_loss.png`.
 
 CSV의 미정 수치(NaN)는 MATLAB 출력에서 빈 칸으로 저장될 수 있습니다. Python/pandas의 기본 NA 파싱을 유지하고, 빈 칸을 0으로 채우지 마세요. 시각은 기존 `CFG.startTime` UTC로부터의 초입니다. 패킷 ID와 위성 인덱스는 MATLAB의 1-based 정수입니다.
 

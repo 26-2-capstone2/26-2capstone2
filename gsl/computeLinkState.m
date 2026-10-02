@@ -1,7 +1,8 @@
-function L = computeLinkState(G,sats,CFG)
+function [L,D] = computeLinkState(G,sats,CFG)
 % Ku-band DOWNLINK reference; no interference/atmospheric/pointing losses.
 % Link availability here means serving+visibility, not an SNR threshold.
-[id,ho] = selectServingSatellite(G.elevation_deg,G.isVisible,CFG.handoverMargin_deg);
+[id,ho,D] = selectServingSatellite(G.elevation_deg,G.isVisible,CFG.handoverMargin_deg);
+D=addvars(D,G.time_s,'Before',1,'NewVariableNames','time_s');
 n = numel(id); valid = id>0; elev = nan(n,1); range = elev;
 idx = sub2ind(size(G.elevation_deg),find(valid),id(valid));
 elev(valid) = G.elevation_deg(idx); range(valid) = G.slantRange_m(idx);
@@ -14,6 +15,7 @@ fspl = 20*log10(4*pi*range*CFG.carrierFrequency_Hz/c_mps);
 snr = CFG.txEIRPDensity_dBW_per_MHz-60+CFG.rxGT_dB_per_K-fspl ...
     -10*log10(k_W_per_K_Hz)+10*log10(CFG.signalToNoiseBandwidthRatio);
 radial = nan(n,1);
+velocity = nan(n,3);
 % Fixed ground station has zero velocity in ECEF. states removes Earth rotation.
 a = CFG.earthEquatorialRadius_m; f = 1/298.257223563;
 e2 = f*(2-f); lat = deg2rad(CFG.gsLatitude_deg); lon = deg2rad(CFG.gsLongitude_deg);
@@ -27,6 +29,7 @@ for s = unique(id(valid)).'
     distance = vecnorm(los);
     assert(max(abs(distance(:)-range(rows)))<1,'GSL:Range','ECEF and aer range mismatch.');
     radial(rows) = sum(v(:,rows).*(los./distance),1).';
+    velocity(rows,:)=v(:,rows).';
 end
 doppler = -(radial/c_mps)*CFG.carrierFrequency_Hz;
 residual = nan(n,1); residual(valid)=0; % ideal compensation; no SNR penalty
@@ -35,4 +38,10 @@ L = table(G.time_s,id,valid,ho,elev,range,1000*range/c_mps,fspl,snr, ...
     'isLinkAvailable','handoverEvent','elevation_deg','slantRange_m', ...
     'propagationDelay_ms','fspl_dB','snr_dB','radialVelocity_mps', ...
     'rawDoppler_Hz','residualDoppler_Hz'});
+L.visibleCount=G.visibleCount;
+L.hasCandidate=G.hasCandidate;
+L.maxElevation_deg=G.maxElevation_deg;
+L.satelliteVelocityX_ECEF_mps=velocity(:,1);
+L.satelliteVelocityY_ECEF_mps=velocity(:,2);
+L.satelliteVelocityZ_ECEF_mps=velocity(:,3);
 end

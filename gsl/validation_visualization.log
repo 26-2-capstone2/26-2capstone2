@@ -37,6 +37,23 @@ Handover
 Total Handovers       : 10
 ==================================
 Packet loss unavailable: validated PER model required
-PASS: full geometry integration, CSV/MAT roundtrip, range-rate/Doppler and SNR units.
-Full run 55.3 s; handovers=10; SNR range=[23.840, 26.206] dB; delay=[1.863, 2.447] ms.
-PASS: supplementary elevation CSV roundtrip within 1e-10 deg.
+PASS: all pre-existing link-state columns and packet metrics unchanged.
+PASS: serving=7 at 476..489 s (not zero); candidate/serving invariant holds for all 601 samples.
+Checked viewer frame t=0 s.
+Checked viewer frame t=87 s.
+Checked viewer frame t=100 s.
+Checked viewer frame t=142 s.
+Checked viewer frame t=212 s.
+Checked viewer frame t=280 s.
+Checked viewer frame t=359 s.
+Checked viewer frame t=417 s.
+Checked viewer frame t=475 s.
+Checked viewer frame t=476 s.
+Checked viewer frame t=489 s.
+Checked viewer frame t=490 s.
+Checked viewer frame t=560 s.
+Checked viewer frame t=600 s.
+PASS: GS marker/label settings; unique red access; all handover frames; explicit refresh after native seek.
+PASS: 3 main figures; no PER loss figure; 12000 generated/transmitted; GS coordinates unchanged.
+PREVIEW_READY
+PASS: owned viewer cleanup; no background timers.

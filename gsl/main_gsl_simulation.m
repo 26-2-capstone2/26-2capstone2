@@ -1,6 +1,5 @@
 function R = main_gsl_simulation(CFG)
-% Run: R = main_gsl_simulation; then play(R.scenario).
-% Stage 1: orbit, GS, elevation, visibility and visualization only.
+% Run: R = main_gsl_simulation; then playGSL(R) for synchronized 3D playback.
 if nargin == 0, CFG = configGSL(); end
 assert(exist('satelliteScenario','file') ~= 0,'GSL:MissingToolbox', ...
     'satelliteScenario requires Aerospace Toolbox or Satellite Communications Toolbox.');
@@ -16,8 +15,8 @@ gs = groundStation(sc,CFG.gsLatitude_deg,CFG.gsLongitude_deg, ...
     'Altitude',CFG.gsAltitude_m,'Name',CFG.gsName, ...
     'MinElevationAngle',CFG.minElevation_deg);
 links = access(gs,sats); % only geometric access, not RF link closure
-fprintf('Stage 1: %d satellites, %.0f s, %.1f s sample interval.\n', ...
-    numel(sats),CFG.duration_s,CFG.channelUpdateStep_s);
+fprintf('===== Ground Station =====\nLatitude  : %.4f deg\nLongitude : %.4f deg\nAltitude  : %g m (WGS84)\n==========================\n', ...
+    CFG.gsLatitude_deg,CFG.gsLongitude_deg,CFG.gsAltitude_m);
 G = computeGeometry(sc,sats,gs,links,CFG);
 R = struct('config',CFG,'scenario',sc,'satellites',sats, ...
     'groundStation',gs,'access',links,'geometry',G,'viewer',[]);
@@ -26,27 +25,31 @@ if CFG.exportResults
     save(fullfile(CFG.outputDir,'geometry_stage1.mat'),'CFG','G','-v7');
     summary = table(G.time_s,G.visibleCount,G.hasCandidate,G.maxElevation_deg, ...
         'VariableNames',{'time_s','visibleSatelliteCount','hasCandidate','maxElevation_deg'});
+    [~,exampleIndex]=max(G.elevation_deg(1,:));
+    summary.fixedSatelliteIndex=repmat(exampleIndex,height(summary),1);
+    summary.fixedSatelliteElevation_deg=G.elevation_deg(:,exampleIndex);
     writetable(summary,fullfile(CFG.outputDir,'visibility_summary.csv'));
     satellites = table(G.satelliteIndex,G.satelliteName, ...
         'VariableNames',{'satelliteIndex','satelliteName'});
     writetable(satellites,fullfile(CFG.outputDir,'satellite_index.csv'));
 end
-if CFG.makePlots, plotResults(G,CFG); end
-% Keep existing geometry and figures intact; add the packet layer afterward.
+[L,D] = computeLinkState(G,sats,CFG);
+R.linkState=L;
+if CFG.debug
+    R.servingDebug=D;
+    disp(D(D.time_s>=470 & D.time_s<=492,:));
+    if CFG.exportResults, writetable(D,fullfile(CFG.outputDir,'serving_debug.csv')); end
+end
 if isfield(CFG,'enablePackets') && CFG.enablePackets
-    L = computeLinkState(G,sats,CFG);
     P = simulatePacketTransmission(L,CFG);
     M = computePacketMetrics(P,CFG.rollingWindow_s);
     R.linkState = L; R.packetTable = P; R.packetMetrics = M;
     reportPacketResults(L,P,M,CFG);
+else
+    if CFG.makePlots, plotResults(L,[],[],CFG); end
 end
 if CFG.openViewer
-    % All satellites participate in analysis and are shown as simple markers.
-    % Access lines are visible only while geometric access exists.
-    R.viewer = satelliteScenarioViewer(sc,'ShowDetails',false);
-    show(gs); show(links);
+    R.viewerController = GSLViewerController(sc,sats,gs,links,L,CFG);
+    R.viewer = R.viewerController.Viewer;
 end
-fprintf('Visible satellites min/max: %d / %d. Candidate availability: %.2f%% of samples.\n', ...
-    min(G.visibleCount),max(G.visibleCount),100*mean(G.hasCandidate));
-fprintf('Use play(R.scenario) in the MATLAB desktop to animate.\n');
 end
