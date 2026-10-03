@@ -44,6 +44,9 @@ if isfield(CFG,'enablePackets') && CFG.enablePackets
     P = simulatePacketTransmission(L,CFG);
     M = computePacketMetrics(P,CFG.rollingWindow_s);
     R.linkState = L; R.packetTable = P; R.packetMetrics = M;
+    width=max(0,min(L.time_s(2:end),CFG.duration_s)-L.time_s(1:end-1));
+    M.totalOutageDuration_s=sum(width.*double(~L.isLinkAvailable(1:end-1)));
+    R.packetMetrics=M;
     reportPacketResults(L,P,M,CFG);
 else
     if CFG.makePlots, plotResults(L,[],[],CFG); end
@@ -51,5 +54,6 @@ end
 if CFG.openViewer
     R.viewerController = GSLViewerController(sc,sats,gs,links,L,CFG);
     R.viewer = R.viewerController.Viewer;
+    if CFG.makePlots, attachGSLPlaybackControls(R); end
 end
 end

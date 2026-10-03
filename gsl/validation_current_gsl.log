@@ -1,0 +1,69 @@
+PASS: 160 Bytes; 20/60 pps; 12000/36000 packets; rolling throughput/window.
+PASS: BPSK BER/PER conversion, bandwidth conversion and size dependence.
+PASS: outage/link split; generated denominator; window oracle; all-outage.
+PASS: unknown outcomes stay N/A; window recovery; deterministic RNG; invalid PER.
+PASS: inclusive >=4 deg handover, forced switch, outage, reacquisition, ties.
+ALL PACKET UNIT CHECKS PASSED.
+===== Ground Station =====
+Latitude  : 37.0000 deg
+Longitude : 128.0000 deg
+Altitude  : 0 m (WGS84)
+==========================
+===== GSL Simulation Summary =====
+Time: 600 s | GS: 37.0000 N, 128.0000 E, 0 m
+UDP: 160 Bytes | 60 packets/s
+Packet model: Ideal uncoded BPSK/AWGN reference (not validated Starlink PER)
+Generated: 36000
+Attempted: 36000
+Received: 36000
+Lost (total): 0
+Overall failure (Lost/Generated): 0.000 %
+Outage loss: 0
+Link loss: 0
+Pending: 0
+Handovers: 10
+Outage duration: 0 s
+Average success (Received/Generated): 100.000 %
+Average received: 60 packets/s
+==================================
+PASS: active link frame t=0, serving=1555.
+PASS: active link frame t=87, serving=455.
+PASS: active link frame t=100, serving=1576.
+PASS: active link frame t=142, serving=476.
+PASS: active link frame t=212, serving=497.
+PASS: active link frame t=280, serving=1554.
+PASS: active link frame t=359, serving=1575.
+PASS: active link frame t=417, serving=475.
+PASS: active link frame t=475, serving=475.
+PASS: active link frame t=476, serving=7.
+PASS: active link frame t=489, serving=7.
+PASS: active link frame t=490, serving=496.
+PASS: active link frame t=560, serving=1553.
+PASS: active link frame t=600, serving=1553.
+PASS: 2 figures; playback controls; sequential playback; single active red link and old-color reset.
+PASS: full CSV accounting; 36000 packets; handovers=10; reference SNR range 23.840..26.206 dB.
+===== Ground Station =====
+Latitude  : 37.0000 deg
+Longitude : 128.0000 deg
+Altitude  : 0 m (WGS84)
+==========================
+===== GSL Simulation Summary =====
+Time: 2 s | GS: 37.0000 N, 128.0000 E, 0 m
+UDP: 160 Bytes | 60 packets/s
+Packet model: Ideal uncoded BPSK/AWGN reference (not validated Starlink PER)
+Generated: 120
+Attempted: 0
+Received: 0
+Lost (total): 120
+Overall failure (Lost/Generated): 100.000 %
+Outage loss: 120
+Link loss: 0
+Pending: 0
+Handovers: 0
+Outage duration: 2 s
+Average success (Received/Generated): 0.000 %
+Average received: 0 packets/s
+==================================
+PASS: REAL no-visible case: serving=none; no red link; 120 outage losses; 2s outage.
+PREVIEW_READY
+PASS: viewer cleanup.

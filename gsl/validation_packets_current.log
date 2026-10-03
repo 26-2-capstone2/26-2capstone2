@@ -1,0 +1,42 @@
+PASS: 160 Bytes; 20/60 pps; 12000/36000 packets; rolling throughput/window.
+PASS: BPSK BER/PER conversion, bandwidth conversion and size dependence.
+PASS: reference model at 10dB produces both success and link failure.
+PASS: outage/link split; generated denominator; window oracle; all-outage.
+PASS: unknown outcomes stay N/A; window recovery; deterministic RNG; invalid PER.
+PASS: inclusive >=4 deg handover, forced switch, outage, reacquisition, ties.
+ALL PACKET UNIT CHECKS PASSED.
+===== GSL Simulation Summary =====
+Time: 600 s | GS: 37.0000 N, 128.0000 E, 0 m
+UDP: 160 Bytes | 60 packets/s
+Packet model: Ideal uncoded BPSK/AWGN reference (not validated Starlink PER)
+Generated: 36000
+Attempted: 36000
+Received: 36000
+Lost (total): 0
+Overall failure (Lost/Generated): 0.000 %
+Outage loss: 0
+Link loss: 0
+Pending: 0
+Handovers: 10
+Outage duration: 0 s
+Average success (Received/Generated): 100.000 %
+Average received: 60 packets/s
+==================================
+===== GSL Simulation Summary =====
+Time: 600 s | GS: 37.0000 N, 128.0000 E, 0 m
+UDP: 160 Bytes | 60 packets/s
+Packet model: Ideal uncoded BPSK/AWGN reference (not validated Starlink PER)
+Generated: 36000
+Attempted: 36000
+Received: 36000
+Lost (total): 0
+Overall failure (Lost/Generated): 0.000 %
+Outage loss: 0
+Link loss: 0
+Pending: 0
+Handovers: 10
+Outage duration: 0 s
+Average success (Received/Generated): 100.000 %
+Average received: 60 packets/s
+==================================
+PASS: final plots and 60pps compatibility folder refreshed.

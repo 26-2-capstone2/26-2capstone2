@@ -19,7 +19,7 @@ for k = 1:numel(id)
         if old==0 || ~visible(k,old)
             chosen = best;
             condition(k)="acquire_or_old_not_visible";
-        elseif elevation_deg(k,best)>elevation_deg(k,old)+margin_deg
+        elseif best~=old && elevation_deg(k,best)>=elevation_deg(k,old)+margin_deg
             chosen = best;
             condition(k)="margin_exceeded";
         else

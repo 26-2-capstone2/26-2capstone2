@@ -1,149 +1,174 @@
 # LEO GSL Simulator for Real-Time UDP Traffic
 
-## Research context
+명지대학교 정보통신공학전공 캡스톤 연구 **“실시간 UDP 트래픽을 위한 강화학습 기반 LEO 위성 라우팅 – 지연·패킷 손실 최소화”**의 MATLAB GSL 부분입니다.
 
-명지대학교 정보통신공학전공 캡스톤 연구 주제는 **“실시간 UDP 트래픽을 위한 강화학습 기반 LEO 위성 라우팅 – 지연·패킷 손실 최소화”**입니다. 이 폴더는 전체 연구 중 **MATLAB 기반 Ground–Satellite Link(GSL)** 부분입니다.
+Ground User → Serving LEO Satellite → future Python ISL simulator → Destination GSL
 
-Ground User → Serving LEO Satellite → **future Python ISL simulator** → Destination GSL
+현재는 궤도/가시성/serving/handover, Ku-band downlink 참조 link state, 패킷 생성·송신 시도·수신/손실 시뮬레이션을 제공합니다. 실제 UDP 소켓이나 패킷 캡처 측정은 아닙니다.
 
-현재는 GSL 기하·참조 downlink 상태·패킷 단위 시뮬레이션을 구현합니다. 실제 UDP 소켓, ISL 라우팅, RL은 구현 범위에 포함하지 않습니다. 상위 구조의 Ground User 화살표와 별개로 RF 수치는 **Ku-band DOWNLINK 참조값**입니다. 실제 uplink 성능으로 해석하지 않습니다.
+## 실행
 
-## Ground Station
-
-기본 CONFIG는 **위도 37.0000°N, 경도 128.0000°E, 고도 0 m(WGS84 타원체 기준)**입니다. 임시 연구 예시 좌표이며 캠퍼스/실제 측량 지점을 뜻하지 않습니다. 이번 시각화 수정에서 좌표는 변경하지 않았습니다.
-
-`configGSL.m`의 `gsLatitude_deg / gsLongitude_deg / gsAltitude_m`를 수정할 수 있습니다. 실제 실행값은 시작/최종 요약, Figure 부제, MAT의 CFG에서 확인합니다.
-
-## Current main assumptions
-
-| 항목 | 설정 |
-|---|---|
-| Orbit | 이상화한 원형 Walker-Delta, two-body-keplerian |
-| Altitude / inclination | 550 km / 53° |
-| Constellation | 72면 × 22기 = 1,584기, phaseFactor F=39 |
-| Minimum elevation | 25° |
-| Serving | 가시 후보 중 최고 elevation, 기존 위성 대비 **4° 초과**일 때 전환 |
-| Forced switch | 기존 serving이 안 보이면 가시 후보로 전환 |
-| RF reference | Ku-band downlink, 12 GHz, EIRP density 12.88 dBW/MHz, G/T 13.7 dB/K |
-| Bandwidth assumption | 평탄한 PSD, 신호 대역폭=잡음 대역폭; 데이터율과 RF 대역폭을 혼동하지 않음 |
-| Channel | Clear-sky/free-space 참조; 대기/강우/간섭/추가 pointing loss 없음 |
-| Doppler | raw shift 계산, ideal compensation으로 residual=0 |
-| UDP | 150 Bytes, 20 packets/s baseline, 60 packets/s stress |
-| Time grid | 채널 1초 / 패킷 1/packetRate초; 기본 600초 |
-| PER | 검증 곡선 미확보; arbitrary PER/loss/penalty 사용 안 함 |
-
-550 km는 WGS84 적도반지름에 더해 정의한 궤도 반경입니다. F=39는 각도가 아니라 Walker 위상 인자이며 실제 Starlink TLE가 아닙니다. J2/항력/지형 가림은 모델링하지 않습니다.
-
-## Visualization meaning — 3D satelliteScenarioViewer
-
-- **노란 큰 marker + Ground Station 라벨**: GS.
-- **초록 선**: 가시 candidate/available GSL. RF 수신 성공을 보장하지 않으며 동시 데이터 송신을 의미하지 않습니다.
-- **빨간 굵은 선 + 빨간 위성 marker/라벨**: 현재 UDP 송신 시도에 사용하는 serving GSL 하나.
-- 나머지 위성은 작은 중립색 marker입니다. Viewer 제목에 색의 의미, 현재 시각과 serving ID를 표시합니다.
-
-요청한 **green dashed / red dashed**의 의미는 각각 candidate / active입니다. 그러나 **설치된 R2026a Access API에는 LineStyle이 없고 LineColor/LineWidth만 있습니다.** 따라서 실제 구현은 **초록 실선 / 빨간 굵은 실선**입니다. 존재하지 않는 속성을 사용하지 않습니다.
-
-동일 access 객체의 색을 바꾸므로 serving에 초록/빨간 선이 중복되지 않습니다. 이전 serving은 초록으로 복귀하고 새 serving 하나만 빨간색이 됩니다. 후보가 없으면 active link도 없습니다.
-
-`playGSL(R)`는 각 채널 시각과 링크 색을 순서대로 갱신합니다. 정확한 특정 시각 확인에는 `R.viewerController.setTime(476)`를 사용합니다. R2026a CurrentTime은 SetObservable이 아니며, timer로 native viewer 시간 이동과 색 갱신을 겹치면 이번 환경에서 그래픽 갱신 정지/비정상 종료가 관찰되어 background timer를 사용하지 않습니다.
-
-**색 동기화 재생은 반드시 `playGSL(R)`를 사용하세요.** Native viewer Play 또는 `play(R.scenario)`는 궤도만 재생하며 빨간 serving 색을 자동 갱신하지 않습니다. Native 시간 이동을 끝낸 뒤에는 `R.viewerController.refresh()`로 색을 갱신할 수 있습니다. 프레임마다 native graphics 갱신을 기다리므로 실제 재생 속도는 PC 성능에 따라 설정한 10배속보다 느릴 수 있습니다. Controller를 삭제하면 소유한 viewer도 닫힙니다.
-
-## Main outputs
-
-현재 PER 미정 상태에서는 **3D viewer + 일반 Figure 3개**만 생성합니다.
-
-1. **3D GSL Environment**: Earth, GS, 위성, candidate/serving 구분.
-2. **GSL Serving Satellite and Handover**: 실제 serving elevation + 25° 선, serving ID, handover 점선.
-3. **GSL Link Performance**: one-way propagation delay(ms), SNR(dB), 두 패널 모두 handover 점선.
-4. **Cumulative UDP Packet Transmission**: Generated/Transmitted/Received/Lost 누적.
-5. **Rolling Packet Loss Ratio**: 유효한 PER 기반 rolling 값이 있을 때만 별도 Figure. 기본 5초 이동 창.
-
-위성 ID는 물리적 크기가 아닌 식별자이므로 **동일 간격의 범주 축에 실제 ID를 표시**합니다. 기존 476~489초 구간은 **ID=7**이었으며 0이 아니었습니다. 과거 0~1,500 숫자 축에서는 7이 0처럼 보였습니다. 선택 로직은 강제로 바꾸지 않았고, `candidate count>0 ⇒ serving ID>0`를 모든 시각에서 검증합니다. 실제 no-serving은 **0 (none)** 항목입니다.
-
-최대 elevation, 임의 고정 위성 elevation, 후보 수/boolean, slant range, FSPL, ECEF 속도, radial velocity, transmission delay, raw Doppler는 메인 Figure에서 제외하고 내부 데이터/CSV/MAT에 유지합니다. 모든 위성의 elevation과 range는 geometry MAT에 보존합니다.
-
-## Packet definitions and limitations
-
-- **Generated**: application이 생성한 패킷 수.
-- **Transmitted**: serving+visibility가 유효하여 송신을 시도한 패킷 수. outage에서는 generated만 증가할 수 있습니다.
-- **Received**: 송신 후 PER 추첨에서 성공한 패킷.
-- **Lost**: 송신 후 PER 추첨에서 손실된 패킷. 미송신 패킷과 구별합니다.
-
-**현재 validated SNR→PER 모델이 없습니다. Received/Lost/PLR은 N/A이며 실제 연구 성능 결과로 사용할 수 없습니다.** 미정 송신 결과는 outcome_pending에 기록합니다. 가짜 0% loss 그래프나 handover/Elevation/Doppler에 따른 임의 손실은 만들지 않습니다.
-
-PER가 준비되면 `CFG.perModel`과 `CFG.perModelSource`를 설정합니다. 자세한 프레임 길이·SNR 정의·적용 범위 요건은 [패킷 모델 설명](PACKET_LAYER.md)을 참고하세요.
-
-PLR=Lost/Transmitted×100, PDR=Received/Transmitted×100. 분모가 0이거나 필요한 결과가 미정이면 NaN입니다. Rolling은 **(t−5초,t]**의 송신 패킷을 분모로 사용합니다. 판정이 완료되면 Lost+Received=Transmitted이며, 미정일 때는 resolved lost+resolved received+pending=transmitted입니다.
-
-카운터는 송신 시각에 귀속된 최종 패킷 결과이며, 지연 후 도착 시각의 실제 수신 이벤트 곡선이 아닙니다. 큐·재전송·handover 중단 시간은 추가하지 않았습니다.
-
-## Doppler / link budget
-
-Raw Doppler는 ECEF LOS와 상대속도로 계산합니다. 접근 양수/이탈 음수이고 ideal compensation으로 residual=0입니다. 현재 packet loss에 직접 영향을 주지 않습니다.
-
-`SNR = EIRP_density(dBW/MHz) − 60 + G/T − FSPL − 10log10(k) + 10log10(Bsignal/Bnoise)`
-
-이는 C/N이며 Eb/N0가 아닙니다. RF 절대 대역폭을 데이터율 50 Mbps로 대신하지 않습니다. [공식 link-budget 근거](https://www.mathworks.com/help/satcom/gs/satellite-link-budget.html), [ECEF states 정의](https://www.mathworks.com/help/satcom/ref/matlabshared.satellitescenario.satellite.states.html), [Access 표시 속성](https://www.mathworks.com/help/satcom/ref/matlabshared.satellitescenario.access.html).
-
-## MATLAB requirements and how to run
-
-실제 실행 확인: **MATLAB R2026a Update 5 + Aerospace Toolbox 26.1**. 이번 코드 실행에 Simulink, Communications Toolbox, Satellite Communications Toolbox를 추가로 사용하지 않았습니다. Windows viewer 표시를 실제 확인합니다. 다른 버전의 호환성은 별도 검증이 필요합니다.
-
-현재 폴더를 이 README와 .m 파일이 있는 곳으로 설정하세요.
+MATLAB Current Folder를 이 README와 .m 파일이 있는 기존 outputs/gsl 폴더로 설정하세요.
 
 ```matlab
 R = main_gsl_simulation;
-playGSL(R);                         % 프레임 동기화 3D 재생
-R.viewerController.setTime(476);    % serving ID 7 시각 확인
 ```
+
+**Serving / Handover Summary Figure의 “Play / Resume 3D GSL” 버튼**으로 재생하고 “Stop” 버튼으로 정지합니다. 또는:
 
 ```matlab
-CFG = configGSL();
-CFG.packetRate_pps = CFG.stressPacketRate_pps; % 60 pps stress
-CFG.outputDir = fullfile(pwd,'results_packets_stress');
-R = main_gsl_simulation(CFG);
+playGSL(R);
+R.viewerController.setTime(476);
 ```
 
-`CFG.openViewer=false`는 viewer를 끄고, `CFG.makePlots=false`는 일반 Figure를 끕니다. `CFG.debug=true`에서만 serving 선택 진단을 출력하고 serving_debug.csv를 저장합니다. 일반 실행에는 간결한 GS 정보와 최종 요약만 출력합니다.
+재생은 현재 viewer 시각에서 이어지고, 끝에 도달했으면 처음부터 시작합니다. 색·시각 갱신을 순서대로 수행하므로 PC 성능에 따라 설정한 재생 배속보다 느릴 수 있습니다. Ctrl+C 또는 viewer 닫기로도 중단할 수 있습니다.
 
-## Output files
+**Native viewer Play 및 play(R.scenario)는 serving 색을 자동 갱신하지 않습니다.** 이번 환경에서 native 시간 이동 중 background timer가 표시 속성을 바꾸면 그래픽 갱신 정지/비정상 종료가 관찰되어 timer를 쓰지 않습니다. 위 버튼 또는 playGSL을 사용하세요. Native 시간 이동을 완료한 뒤 R.viewerController.refresh()를 호출하면 현재 시각의 색을 갱신합니다.
 
-기본 `results_packets/`에 저장하며 같은 이름은 갱신됩니다.
+## 기본 가정
+
+| 항목 | 값 |
+|---|---|
+| 이상화한 Walker-Delta | 72 orbital planes × 22 = 1,584 satellites, F=39 |
+| 궤도 | 550 km, inclination 53°, 원형 two-body-keplerian |
+| GS | **37.0000°N, 128.0000°E, 0 m WGS84 타원체 고도** |
+| Minimum elevation | 25° |
+| Handover margin | 4° **이상(>=)** |
+| RF 참조 | Ku-band DOWNLINK, 12 GHz, clear sky |
+| EIRP density / G/T | 12.88 dBW/MHz / 13.7 dB/K |
+| Signal/noise bandwidth ratio | 1, 평탄한 PSD |
+| Packet reference noise bandwidth | **50 MHz**, 아래 BPSK 참조 모델을 위한 명시적 추가 가정 |
+| Link gross bit rate | 50 Mbps |
+| UDP | **160 Bytes, 60 packets/s**, 큐/재시도 없음 |
+| Simulation | 600 s, channel update 1 s, rolling window 5 s |
+| Doppler | raw shift 계산; ideal compensation, residual=0 |
+
+GS는 임시 연구 예시 좌표이며 캠퍼스/측량 좌표가 아닙니다. 좌표는 이번 수정에서 변경하지 않았습니다. 550 km는 WGS84 적도반지름에 더한 궤도 반경이며 F=39는 Walker 위상 인자입니다. 실제 Starlink TLE, J2, 항력, 지형 가림, 강우, 간섭, 추가 pointing loss를 반영하지 않습니다.
+
+## 연속 serving / handover
+
+매 채널 시각에 elevation >= minimum인 위성만 후보입니다.
+
+1. 기존 serving이 없거나 후보에서 벗어나면 최고 elevation 후보를 즉시 선택합니다.
+2. 기존 serving이 후보이면 유지하되, **다른 최고 후보가 기존 elevation + margin 이상이면** 전환합니다.
+3. 후보가 없으면 serving ID=0 (none), outage입니다.
+4. 0→위성 획득과 위성→0 단절은 handover 수에 포함하지 않고 위성→다른 위성 전환만 셉니다.
+5. 후보가 있으면 serving ID>0인지 매 실행 검증합니다. 동률은 가장 작은 MATLAB 배열 인덱스로 처리합니다.
+
+기존 strict >4° 조건을 요청대로 >=4°로 변경했습니다. 이전 위성은 기본 회색 marker/초록 access로 복귀하고 새 위성 하나만 빨간 marker/access로 강조합니다. 기존 active access의 색을 바꾸므로 같은 위성에 초록·빨강 링크를 겹쳐 생성하지 않습니다.
+
+## 3D 표시
+
+- 노란 큰 GS marker + Ground Station 라벨.
+- 초록 선: elevation 조건을 만족하는 가시 후보 GSL, 동시 UDP 전송을 뜻하지 않음.
+- 빨간 굵은 선 + 빨간 위성 marker/라벨: 현재 송신 시도에 사용하는 serving 하나.
+- 제목: 갱신한 시각, serving ID, 후보 수, 누적 handover 수, outage 여부.
+- ID=0/outage이면 빨간 active 링크가 없습니다.
+
+요청한 초록/빨간 **점선**에 대해 설치된 R2026a Access API를 확인했으나 공개 LineStyle 속성이 없습니다. 현재 지원되는 LineColor/LineWidth로 초록 실선과 빨간 굵은 실선을 구현합니다. 선의 실제 화면 패턴은 native renderer에 따릅니다.
+
+## 패킷 성공 모델 — 명시적인 참조 모델
+
+현재 기본 모델은 **ideal uncoded coherent BPSK over AWGN**입니다. 사용자 요청에 따라 미정 PER 상태에서 수신/손실 집계가 가능한 참조 모델을 추가했습니다. 실제 Starlink PHY/PER를 검증한 모델이나 실측 결과로 해석하면 안 됩니다.
+
+`Eb/N0 = 10^(SNR_C/N_dB/10) × Bnoise / Rbit`
+
+`BER = 0.5 × erfc(sqrt(Eb/N0))`
+
+독립 bit 오류와 한 bit 오류만 있어도 packet 실패라는 가정에서:
+
+`PER = 1 − (1−BER)^(8 × packetBytes)`
+
+작은 BER에서도 수치가 보존되도록 log1p/expm1으로 계산합니다. [MathWorks erfc의 BPSK BER 예제](https://www.mathworks.com/help/matlab/ref/erfc.html)와 [uncoded AWGN 식](https://www.mathworks.com/help/comm/ug/analytical-expressions-used-in-berawgn-function-and-bit-error-rate-analysis-app.html)을 참고합니다. erfc는 기본 MATLAB 함수이며 Communications Toolbox 함수는 호출하지 않습니다.
+
+**SNR=C/N을 Eb/N0로 무조건 동일시하지 않습니다.** Bnoise=50 MHz, Rbit=50 Mbps라는 참조 가정 때문에 기본값에서 두 선형 값의 비율이 1입니다. CFG.referenceNoiseBandwidth_Hz와 linkDataRate_bps를 수정하면 변환도 바뀝니다. 신호/잡음 RF 대역폭 비를 유지해야 합니다.
+
+기본 시나리오의 SNR 약 24~26 dB는 이 이상적인 모델에서 BER/PER가 극히 작아 유한 표본에서 **손실 0**이 나올 수 있습니다. 이것은 가정한 참조 모델의 결과입니다. Handover penalty, 임의 SNR penalty, burst loss를 넣어 손실 그래프를 인위적으로 만들지 않습니다.
+
+검증 곡선을 확보하면 CFG.perModel에 `@(snr) ...`를 넣고 CFG.perModelSource에 SNR 정의·프레임 길이·출처를 기록하세요. 비워두면 현재 크기/대역폭/속도로 BPSK 참조 모델을 계산합니다. 모델이 NaN을 반환하면 unresolved attempt로 보존하며 영향을 받는 수신/총손실/rolling 값은 N/A입니다.
+
+## Packet accounting
+
+패킷은 [0,T)에서 1/rate초마다 생성하며, 해당 채널 상태를 다음 채널 갱신까지 유지합니다. 같은 step에 생성되는 패킷마다 즉시 송신 여부를 결정합니다.
+
+- **Generated**: application 생성.
+- **Attempted / Transmitted**: 유효한 serving 링크에서 즉시 송신 시도. transmitted는 attempted의 호환 alias입니다.
+- **Received**: PER 기반 추첨 성공.
+- **Outage loss**: serving/링크가 없어 송신하지 못한 패킷.
+- **Link loss**: 송신을 시도했으나 PER 기반 추첨 실패.
+- **Lost**: outage loss + link loss.
+- **Pending**: 송신은 시도했지만 PER가 미정인 결과.
+
+`Generated = Attempted + OutageLoss`
+
+`Attempted = Received + LinkLoss + Pending`
+
+`Generated = Received + TotalLost + Pending` (resolved counts 기준)
+
+**Overall failure = Lost / Generated × 100**, success = Received / Generated × 100입니다. Outage-only 구간의 failure는 100%입니다. link loss / attempted는 별도 attemptedLinkLossRatio로 보존하고 attempted=0이면 NaN입니다.
+
+Rolling은 (t−5초,t]에 생성된 패킷을 분모로 합니다. 첫 5초는 실제 관측된 부분 창을 사용합니다. Throughput은 창 내 received 수를 실제 창 길이로 나눈 packets/s이며 시작 패킷의 시간 구간까지 포함합니다. 손실에 영향을 주는 미정 결과가 있는 창은 N/A입니다.
+
+고정 seed의 독립 RandStream을 사용해 재현 가능하며 MATLAB 전역 RNG를 바꾸지 않습니다. 패킷 크기는 간소화한 UDP datagram이며 IP/L2 overhead는 제외합니다. 카운터는 생성/송신 시각에 귀속한 최종 결과이며 지연 후 도착 시각의 소켓 수신 이벤트 곡선은 아닙니다.
+
+## 결과 화면 — viewer + 일반 Figure 2개
+
+1. **3D GSL**: GS, 후보, 단일 serving, handover 색 전환.
+2. **Serving / Handover Summary**: serving ID 범주 축 + 후보 수(0이면 outage), handover 세로 점선, 3D 재생/정지 버튼.
+3. **Packet Transmission Performance**, 3개 패널:
+   - generated / attempted / received / total lost 누적.
+   - rolling Lost/Generated failure ratio (%).
+   - rolling received throughput (packets/s).
+   - 각 패널의 handover 선은 상관관계 확인용이며 손실을 강제로 발생시키지 않습니다.
+
+위성별 elevation/SNR/delay/Doppler 그래프는 기본 출력에서 제외합니다. Elevation/range/FSPL/SNR/속도/radial velocity/raw Doppler/전송 지연은 CSV/MAT에 보존합니다. ID는 크기 비교 대상이 아니므로 동일 간격 범주 축을 쓰며 실제 no-serving은 0 (none)입니다.
+
+## 결과 파일
+
+기본 results_packets 폴더의 같은 파일을 갱신합니다.
 
 | 파일 | 내용 |
 |---|---|
-| geometry_stage1.mat | 기존 CFG/G 형식 유지. 모든 위성 elevation/range/visibility 및 시작·끝 위치 |
-| visibility_summary.csv | time_s, 후보 수/유무, constellation 최대 elevation, 기존 고정 예시 위성의 ID/elevation (보조 데이터) |
-| satellite_index.csv | MATLAB 위성 배열 인덱스와 이름; NORAD ID가 아님 |
-| link_state.csv | serving/handover/elevation, range/delay/FSPL/SNR, radial velocity/Doppler, ECEF 위성 속도, 후보 수/유무/최대 elevation |
-| packet_results.csv | 패킷 상태, SNR/PER/delay, handover, pending, 누적/rolling 지표 |
-| packet_results.mat | P/M/L/CFG; 패킷·link 상태 원본 |
-| packet_summary.txt | GS 좌표를 포함한 최종 요약 |
-| serving_handover.png | Figure 1 |
-| link_performance.png | Figure 2 |
-| cumulative_packets.png | Figure 3 |
-| rolling_packet_loss.png | 유효한 rolling PER 결과가 있을 때만 |
-| serving_debug.csv | debug=true일 때 선택 판단 이력 |
-| serving_audit_470_492.csv | verify_visualization 실행 시 해당 구간 진단 |
+| geometry_stage1.mat | CFG/G, 모든 위성 elevation/range/visibility, 시작/끝 ECEF 위치 |
+| visibility_summary.csv | 후보 수/유무, 최대 elevation, 고정 예시 위성 ID/elevation |
+| satellite_index.csv | MATLAB 배열 인덱스/이름, NORAD ID 아님 |
+| link_state.csv | serving/handover, 물리 상태, 후보, ECEF 속도 |
+| packet_results.csv | generated/attempted/transmitted/received/lost/outage_loss/link_loss/pending, PER, rolling, 누적 카운터 |
+| packet_results.mat | P/M/L/CFG |
+| packet_summary.txt | 최종 집계, handover/outage 기간/성공률/평균 throughput |
+| serving_handover.png | Figure B |
+| packet_performance.png | Figure C |
+| serving_debug.csv | CFG.debug=true일 때 선택 이력 |
 
-이전 버전의 visibility.png/environment_3d.png/link_state.png와 PER 없는 rolling_packet_loss.png는 같은 결과 폴더에서 정리합니다. Python은 CSV 사용을 권장합니다. NaN/빈칸은 미정이며 0으로 채우지 마세요. 모든 time_s는 CFG.startTime UTC로부터의 초입니다.
+과거 link_performance/cumulative_packets/rolling_packet_loss/visibility/environment_3d PNG는 해당 결과 폴더에서 정리합니다. results_packets_stress는 과거 호환 폴더이며 이제 기본값도 60pps입니다. 새 기본 결과는 results_packets를 사용하세요.
 
-## Verification
+## 검증과 요구사항
+
+실행 환경: **MATLAB R2026a Update 5 + Aerospace Toolbox**. Simulink/Communications Toolbox/Satellite Communications Toolbox 함수를 추가로 사용하지 않습니다.
 
 ```matlab
-verify_packets             % 카운터·rolling·hysteresis 경계조건
-verify_packet_integration  % geometry + RF 단위 + CSV/MAT
-verify_visualization      % viewer 색 전환/GS/3 Figure/ID=7/invariant
+verify_packets
+verify_packet_integration
+verify_visualization
 ```
 
-600초/20pps=12,000개, 60pps=36,000개를 검증합니다. 기본 시나리오는 handover 10회, 후보 9~13기, serving=0 구간 없음입니다. 기본 PER가 없으므로 수신/손실 성능은 아직 미정입니다. 검증 로그는 validation_visualization.log 및 기존 validation_packets*.log에 있습니다. 소프트웨어 테스트용 PER=0/1 값은 연구 결과로 내보내지 않습니다.
+현재 검증 로그: validation_packets_current.log, validation_current_gsl.log. 이전 validation_*.log는 과거 모델/버전 검증 이력입니다.
 
-## Future work
+경계 시험은 4° 정확한 차이, 후보 상실, outage/reacquisition, all-success/all-loss, 생성 분모의 moving-window oracle, 미정 PER, RNG 재현성과 invalid PER를 확인합니다. 3D 시험은 실제 1,584기 시나리오와 모든 handover 시각의 단일 빨간 링크, 이전 색 복귀를 확인하며, 별도 실제 90° mask 소형 시나리오로 serving=none/100% outage를 검증합니다. 테스트용 임의 확률은 연구 결과에 내보내지 않습니다.
 
-- 검증된 SNR→PER 모델과 패킷/코드블록 매핑
-- GSL → Python ISL 연동
-- E2E delay / jitter / deadline miss
-- RL routing
+## 향후 연구
 
-이전 버전은 Git 이력에서 확인하며 현재 실행 파일명과 경로는 유지합니다.
+실제 PHY/패킷 길이에 맞는 검증 SNR→PER, fading/강우/간섭, 실제 handover 중단 측정, Python ISL 연동, E2E delay/jitter/deadline miss, RL routing.
+
+## 이번 변경 파일
+
+- configGSL.m: 160 Bytes / 60pps 및 명시적 BPSK 참조 대역폭.
+- selectServingSatellite.m: >= margin, 후보 상실 즉시 전환/outage.
+- GSLViewerController.m: 단일 red target/이전 색 복귀, 시각·후보·handover·outage 제목.
+- main_gsl_simulation.m, playGSL.m, 신규 attachGSLPlaybackControls.m: 동기식 3D 재생/정지 버튼.
+- getPERfromSNR.m: 명시적 uncoded BPSK/AWGN 참조 BER→PER.
+- simulatePacketTransmission.m, computePacketMetrics.m: attempted, outage/link/total loss, generated 분모 rolling, throughput.
+- plotResults.m, reportPacketResults.m: 핵심 Figure 2개, CSV/MAT/최종 요약.
+- README.md, PACKET_LAYER.md 및 저장소 root README: 모델·정의·실행·제한.
+- verify_packets.m, verify_packet_integration.m, verify_visualization.m: 현재 모델의 경계·집계·실제 viewer 검증.
+- 신규 validation_packets_current.log, validation_current_gsl.log: 현재 실행 증거.

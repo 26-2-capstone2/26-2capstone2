@@ -67,7 +67,8 @@ classdef GSLViewerController < handle
                 end
             end
             obj.ServingIndex=chosen; obj.StateIndex=k; obj.LastTime=t;
-            obj.Viewer.Name=sprintf('3D GSL | Green: Candidate | Red: Active | GS: Yellow | t=%.1fs | Serving ID=%d',t,chosen);
+            obj.Viewer.Name=sprintf('3D GSL | t=%.1fs | Serving=%d | Candidates=%d | HO=%d | Outage=%d', ...
+                t,chosen,obj.LinkState.visibleCount(k),sum(obj.LinkState.handoverEvent(1:k)),chosen==0);
         end
         function delete(obj)
             if ~isempty(obj.Viewer) && isvalid(obj.Viewer), delete(obj.Viewer); end

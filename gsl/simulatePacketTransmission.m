@@ -14,7 +14,7 @@ assert(all(isfinite(L.time_s)) && all(diff(L.time_s)>0) && ...
 assert(all(isfinite(L.servingSatID) & L.servingSatID>=0 & mod(L.servingSatID,1)==0));
 assert(all(ismember(L.isLinkAvailable,[0 1])) && all(ismember(L.handoverEvent,[0 1])));
 t = (0:ceil(CFG.duration_s*CFG.packetRate_pps)-1).'/CFG.packetRate_pps;
-t = t(t<CFG.duration_s); % half-open [0,T): exactly 12000 packets for 600s/20pps
+t = t(t<CFG.duration_s); % half-open [0,T): duration*rate packets when the product is an integer
 n = numel(t); stateIndex = discretize(t,L.time_s);
 assert(all(isfinite(stateIndex)),'GSL:PacketTime','Packet outside channel time grid.');
 id = L.servingSatID(stateIndex);
@@ -23,7 +23,11 @@ snr = L.snr_dB(stateIndex); delay = L.propagationDelay_ms(stateIndex);
 per = nan(n,1); rx = zeros(n,1); lost = zeros(n,1);
 rx(tx) = NaN; lost(tx) = NaN; % untransmitted != PER loss; unresolved != success
 if any(tx)
-    estimate = CFG.perModel(snr(tx));
+    if isempty(CFG.perModel)
+        estimate=getPERfromSNR(snr(tx),CFG.packetSize_bytes,CFG.referenceNoiseBandwidth_Hz,CFG.linkDataRate_bps);
+    else
+        estimate=CFG.perModel(snr(tx));
+    end
     assert(isnumeric(estimate) && isreal(estimate) && numel(estimate)==sum(tx), ...
         'GSL:PERShape','PER model must return one real probability per transmitted packet.');
     estimate = estimate(:);
@@ -51,5 +55,11 @@ P = table((1:n).',t,id,true(n,1),tx,rx,lost,snr,per,delay, ...
     tx & isnan(per),~tx,'VariableNames',{'packet_id','time_s','serving_sat_id', ...
     'generated','transmitted','received','lost','snr_dB','per','propagation_delay_ms', ...
     'handover_event','handover_state','transmission_delay_ms','outcome_pending','not_transmitted'});
-% Eventual outcome attributed to send time. Not a receive-time arrival process.
+P.attempted=P.transmitted;
+P.link_loss=P.lost;
+P.outage_loss=~tx;
+P.lost=P.link_loss+double(P.outage_loss);
+P.packet_interval_s=repmat(1/CFG.packetRate_pps,n,1);
+% generated = received + lost + pending; total lost = outage + link loss.
+% Eventual outcomes attributed to generation/send time, not arrival time.
 end
