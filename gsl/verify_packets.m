@@ -1,83 +1,66 @@
 function verify_packets()
-% SOFTWARE fixtures below test accounting; they are not measured GSL results.
-C=configGSL(); C.makePlots=false; C.openViewer=false; C.exportResults=false;
-L=fixture((0:600).'); L.snr_dB(:)=25;
-P=simulatePacketTransmission(L,C); M=computePacketMetrics(P,5);
-assert(height(P)==36000 && M.generatedPackets==36000 && M.attemptedPackets==36000);
-assert(M.receivedPackets==36000 && M.lostPackets==0 && M.packetLossRatio==0);
-assert(all(M.rollingGeneratedPackets(P.time_s>=5)==300));
-assert(max(abs(M.rollingReceivedPacketsPerSecond-60))<1e-8);
-assert(all(abs(P.transmission_delay_ms-.0256)<1e-12));
-C.packetRate_pps=20; P=simulatePacketTransmission(L,C);
-assert(height(P)==12000);
-fprintf('PASS: 160 Bytes; 20/60 pps; 12000/36000 packets; rolling throughput/window.\n');
-p=getPERfromSNR([0 5 10 20],160,50e6,50e6);
-assert(all(diff(p)<0) && p(1)>.99 && p(3)>0 && p(3)<.01);
-small=getPERfromSNR(10,1,50e6,50e6);
-assert(abs(small-(1-(1-.5*erfc(sqrt(10)))^8))<1e-12);
-assert(getPERfromSNR(5,160,100e6,50e6)<getPERfromSNR(5,160,50e6,50e6));
-fprintf('PASS: BPSK BER/PER conversion, bandwidth conversion and size dependence.\n');
-% Moderate-SNR reference fixture checks actual Bernoulli link failures.
-C.duration_s=100; C.packetRate_pps=60; L=fixture((0:100).');
-P=simulatePacketTransmission(L,C); M=computePacketMetrics(P,5);
-assert(M.linkLossPackets>0 && M.receivedPackets>0 && M.outageLossPackets==0);
-assert(M.packetLossRatio==100*M.linkLossPackets/M.generatedPackets);
-fprintf('PASS: reference model at 10dB produces both success and link failure.\n');
-C.duration_s=10; C.packetRate_pps=60; L=fixture((0:10).');
-L.isLinkAvailable(L.time_s>=2 & L.time_s<4)=false; L.servingSatID(~L.isLinkAvailable)=0;
-L.handoverEvent(L.time_s==5)=true; L.servingSatID(L.time_s>=5)=2;
-C.perModel=@(s)zeros(size(s)); C.perModelSource='SOFTWARE TEST: success';
-P=simulatePacketTransmission(L,C); M=computePacketMetrics(P,5);
-assert(M.generatedPackets==600 && M.attemptedPackets==480 && M.receivedPackets==480);
-assert(M.outageLossPackets==120 && M.linkLossPackets==0 && M.lostPackets==120);
-assert(M.packetLossRatio==20 && M.averageSuccessRate_pct==80);
-assert(all(M.cumulativeReceived+M.cumulativeLost==M.cumulativeGenerated));
-assert(all(P.link_loss(~P.attempted)==0 & P.lost(~P.attempted)==1));
-assert(sum(P.handover_event)==1);
+% Source-curve numeric tests + deterministic software fixtures (not research data).
+C=configGSL(); C.duration_s=4;
+[p,e,cw,status]=getPERfromSNR([0;1;2],C);
+assert(all(isnan(p)) && all(isnan(e)) && all(isnan(cw)) && all(status=="MISSING_BANDWIDTH_OR_INFORMATION_RATE"));
+D=readtable(fullfile(fileparts(mfilename('fullpath')),'ar4ja_r12_k1024_cwer.csv'));
+assert(height(D)==22 && D.ebNo_dB(1)==0 && all(diff(D.codewordErrorRate)<=0));
+% Unit fixture ONLY: ratio 1 and a documented synthetic mapping. Never exported.
+F=C; F.noiseBandwidth_Hz=50e6; F.informationBitRate_bps=50e6;
+F.phyMappingSource='UNIT TEST ONLY: B/Rb=1; not a research bandwidth';
+[p,e,cw]=getPERfromSNR(D.ebNo_dB,F);
+assert(max(abs(cw-D.codewordErrorRate))<1e-12 && max(abs(e-D.ebNo_dB))<1e-12);
+assert(max(abs(p-(1-(1-cw).^2)))<1e-12);
+[~,e2,c2]=getPERfromSNR(4,setfield(F,'noiseBandwidth_Hz',25e6)); %#ok<SFLD>
+assert(abs(e2-(4+10*log10(.5)))<1e-12 && isfinite(c2));
+assert(all(isnan(getPERfromSNR([-1;3;24],F)))); % no endpoint clamping/extrapolation
+bad=F; bad.phyMappingSource=''; failed=false;
+try, getPERfromSNR(1,bad); catch ex, failed=strcmp(ex.identifier,'GSL:MissingPHYMappingSource'); end
+assert(failed);
+L=fixture([1;2;0;3;3],[false;true;false;false;false],[2;0;NaN;2;2]);
+rng(123); before=rng; P=simulatePacketTransmission(L,F); after=rng; assert(isequal(before,after));
+assert(isequal(P.packetID,(1:240).') && all(P.generated));
+assert(sum(P.handover_loss)==6 && sum(P.outage_loss)==60 && sum(P.phy_loss)==54);
+assert(all(P.lossCause(P.time_s>=1 & P.time_s<1.1)=="HANDOVER_LOSS"));
+assert(P.lossCause(find(abs(P.time_s-1.1)<1e-12,1))=="PHY_LOSS");
+M=computePacketMetrics(P,5);
+assert(M.generatedPackets==240 && M.receivedPackets==120 && M.lostPackets==120);
+assert(M.phyLossPackets==54 && M.handoverLossPackets==6 && M.outageLossPackets==60);
+assert(M.packetLossRatio==50 && M.averageReceivedPacketsPerSecond==30);
+% Outage has precedence even when an interruption overlaps that state.
+O=L; O.handoverEvent(3)=true; PO=simulatePacketTransmission(O,F);
+assert(all(PO.lossCause(PO.time_s>=2 & PO.time_s<2.1)=="OUTAGE_LOSS"));
+assert(sum(PO.handover_loss)==6);
+% Exact interval tests across a late floating-point endpoint and different rates.
+T=C; T.duration_s=600; T.packetRate_pps=60;
+H=fixture([1;2;2],[false;true;false],[2;2;2]); H.time_s=[0;359;600];
+PH=simulatePacketTransmission(H,T);
+assert(sum(PH.handover_loss)==6 && ~PH.handover_loss(find(abs(PH.time_s-359.1)<1e-12,1)));
+T.packetRate_pps=33; PH=simulatePacketTransmission(H,T); assert(sum(PH.handover_loss)==4);
+T.handoverInterruption_s=0; PH=simulatePacketTransmission(H,T); assert(~any(PH.handover_loss));
+% Unknown PHY accounting does not silently become success or zero loss.
+PU=simulatePacketTransmission(L,C); MU=computePacketMetrics(PU,1);
+assert(MU.pendingPackets==174 && MU.resolvedLostPackets==66 && isnan(MU.lostPackets));
+assert(isnan(MU.receivedPackets) && isnan(MU.phyLossPackets) && isnan(MU.packetLossRatio));
+assert(all(isnan(PU.received(PU.outcome_pending))));
+assert(all(PU.lossCause(PU.outcome_pending)=="UNRESOLVED_PHY"));
+% Rolling window oracle: (t-1,t], generated denominator; unresolved windows N/A.
+Q=computePacketMetrics(P,1);
 for k=1:height(P)
-    inside=P.time_s>P.time_s(k)-5+1e-12 & P.time_s<=P.time_s(k);
-    expected=100*sum(P.lost(inside))/sum(P.generated(inside));
-    assert(abs(M.rollingFailureRatio(k)-expected)<1e-9);
+    ix=P.time_s>P.time_s(k)-1+16*eps(max(1,abs(P.time_s(k)))) & P.time_s<=P.time_s(k);
+    assert(abs(Q.rollingPacketLossRatio(k)-100*sum(P.lost(ix))/sum(P.generated(ix)))<1e-10);
 end
-C.perModel=@(s)ones(size(s)); C.perModelSource='SOFTWARE TEST: link failure';
-P=simulatePacketTransmission(L,C); M=computePacketMetrics(P,5);
-assert(M.linkLossPackets==480 && M.outageLossPackets==120 && M.lostPackets==600);
-assert(M.packetLossRatio==100 && M.averageSuccessRate_pct==0);
-L.isLinkAvailable(:)=false; L.servingSatID(:)=0;
-P=simulatePacketTransmission(L,C); M=computePacketMetrics(P,5);
-assert(M.attemptedPackets==0 && M.lostPackets==600 && M.packetLossRatio==100);
-assert(M.linkLossPackets==0 && isnan(M.attemptedLinkLossRatio));
-fprintf('PASS: outage/link split; generated denominator; window oracle; all-outage.\n');
-L=fixture((0:10).'); C.perModel=@(s)nan(size(s)); C.perModelSource='UNKNOWN PER';
-P=simulatePacketTransmission(L,C); M=computePacketMetrics(P,5);
-assert(M.pendingPackets==600 && isnan(M.lostPackets) && all(isnan(M.rollingFailureRatio)));
-C.perModel=@(s)s*0; L.snr_dB(1:2)=NaN;
-P=simulatePacketTransmission(L,C); M=computePacketMetrics(P,5);
-assert(M.pendingPackets==120);
-assert(all(isnan(M.rollingFailureRatio(P.time_s<7-1/60))));
-assert(all(M.rollingFailureRatio(P.time_s>=7-1/60)==0));
-C.perModel=@(s).37*ones(size(s)); C.perModelSource='SOFTWARE TEST: RNG';
-L.snr_dB(:)=10; before=rng; A=simulatePacketTransmission(L,C); B=simulatePacketTransmission(L,C);
-assert(isequal(A.lost,B.lost) && isequal(before,rng));
-C.perModel=@(s)2*ones(size(s)); expectError(@()simulatePacketTransmission(L,C),'GSL:InvalidPER');
-C.perModel=@(s)zeros(size(s)); C.perModelSource='';
-expectError(@()simulatePacketTransmission(L,C),'GSL:MissingPERSource');
-fprintf('PASS: unknown outcomes stay N/A; window recovery; deterministic RNG; invalid PER.\n');
-el=[50 48;50 54;50 55;24 26;0 0;30 31;32 32];
-[id,ho]=selectServingSatellite(el,el>=25,4);
-assert(isequal(id,[1;2;2;2;0;2;2]) && isequal(find(ho),2));
-[id,ho]=selectServingSatellite([50 30;24 26],[true true;false true],4);
-assert(isequal(id,[1;2]) && ho(2));
-[id,~]=selectServingSatellite([50 50;50 50],true(2),0); assert(isequal(id,[1;1]));
-fprintf('PASS: inclusive >=4 deg handover, forced switch, outage, reacquisition, ties.\n');
-fprintf('ALL PACKET UNIT CHECKS PASSED.\n');
+assert(isfinite(MU.rollingPacketLossRatio(find(abs(PU.time_s-2.983333333333333)<1e-10,1))));
+% Strict 4-degree hysteresis: equality retains, greater switches.
+E=[40 39;40 44;40 44.01;24 45;24 24;30 29]; V=E>=25;
+[id,ho]=selectServingSatellite(E,V,4);
+assert(isequal(id,[1;1;2;2;0;1]) && isequal(ho,[false;false;true;false;false;false]));
+assert(all(id(any(V,2))>0));
+fprintf('PASS: actual JPL lookup; B/Rb units; no extrapolation; 2-codeword PER.\n');
+fprintf('PASS: continuous IDs; exclusive PHY/HO/outage causes; strict hysteresis; 100ms half-open boundaries.\n');
+fprintf('PASS: RNG isolation; rolling window oracle; unknown PHY stays N/A.\n');
 end
-function L=fixture(t)
-n=numel(t);
-L=table(t,ones(n,1),true(n,1),false(n,1),10*ones(n,1),2*ones(n,1), ...
-    'VariableNames',{'time_s','servingSatID','isLinkAvailable','handoverEvent','snr_dB','propagationDelay_ms'});
-end
-function expectError(fn,id)
-caught=false; try, fn(); catch e, assert(strcmp(e.identifier,id),e.message); caught=true; end
-assert(caught);
+function L=fixture(ids,ho,snr)
+n=numel(ids); L=table((0:n-1).',ids,ids>0,ho,snr,repmat(50,n,1),repmat(2,n,1), ...
+    'VariableNames',{'time_s','servingSatID','isLinkAvailable','handoverEvent','snr_dB','elevation_deg','propagationDelay_ms'});
 end

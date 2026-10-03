@@ -23,6 +23,10 @@ csv=readtable(fullfile(C.outputDir,'packet_results.csv'));
 assert(height(csv)==36000 && sum(csv.attempted)==M.attemptedPackets);
 saved=load(fullfile(C.outputDir,'packet_results.mat'));
 assert(isequaln(saved.P.lost,P.lost) && isequaln(saved.M,R.packetMetrics));
-assert(M.lostPackets==M.outageLossPackets+M.linkLossPackets);
+assert(isnan(M.lostPackets) && isnan(M.receivedPackets) && isnan(M.phyLossPackets));
+assert(M.handoverLossPackets==60 && M.outageLossPackets==0 && M.pendingPackets==35940);
+assert(M.confirmedLossLowerBound_pct==100*60/36000);
+assert(all(P.lossCause(P.handover_loss)=="HANDOVER_LOSS"));
+assert(isequal(P.packetID,(1:36000).'));
 fprintf('PASS: full geometry, CSV/MAT roundtrip, accounting, range-rate/Doppler and SNR units.\n');
 end

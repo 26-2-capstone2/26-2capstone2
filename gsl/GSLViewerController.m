@@ -53,18 +53,17 @@ classdef GSLViewerController < handle
             chosen=obj.LinkState.servingSatID(k);
             if ~obj.LinkState.isLinkAvailable(k), chosen=0; end
             old=obj.ServingIndex;
-            if chosen~=old
-                if old>0
+            if chosen~=old && old>0
                     obj.Links(old).LineColor=obj.Green; obj.Links(old).LineWidth=1;
                     obj.Satellites(old).MarkerColor=obj.Gray; obj.Satellites(old).MarkerSize=3;
                     obj.Satellites(old).ShowLabel=false;
-                end
-                if chosen>0
+            end
+            % Reapply the active state on every sampled runtime frame.
+            if chosen>0
                     obj.Links(chosen).LineColor=obj.Red; obj.Links(chosen).LineWidth=4;
                     obj.Satellites(chosen).MarkerColor=obj.Red; obj.Satellites(chosen).MarkerSize=10;
                     obj.Satellites(chosen).LabelFontColor=obj.Red;
                     obj.Satellites(chosen).ShowLabel=true;
-                end
             end
             obj.ServingIndex=chosen; obj.StateIndex=k; obj.LastTime=t;
             obj.Viewer.Name=sprintf('3D GSL | t=%.1fs | Serving=%d | Candidates=%d | HO=%d | Outage=%d', ...

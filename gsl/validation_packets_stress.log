@@ -1,26 +1,23 @@
-PASS: 20/60 pps -> 12000/36000 packets; 5s windows -> 100/300; unknown PER stays unknown.
-PASS: outage vs loss, zero transmissions, all-success/all-loss accounting, one handover marker.
-PASS: true moving-window oracle, deterministic private RNG, invalid PER rejection.
-PASS: unresolved outcomes expire from the rolling window without becoming false zero loss.
-PASS: strict >4-degree hysteresis, forced switch, outage and reacquisition.
-ALL PACKET UNIT CHECKS PASSED. Synthetic test probabilities were not exported as research results.
-===== UDP Packet Summary (SIMULATION) =====
-Reference              : Ku-band DOWNLINK
-Simulation Time        : 600 s
-Packet Size            : 150 Bytes
-Packet Rate            : 60 packets/s
-Generated Packets      : 36000
-Transmitted Packets    : 36000
-Received Packets       : N/A
-Lost Packets           : N/A
-Not Transmitted        : 0
-Unresolved Outcomes    : 36000
-Packet Loss Ratio      : N/A %
-Packet Delivery Ratio  : N/A %
-Generated-to-Received  : N/A %
-Total Handovers        : 10
-Rolling window        : 5 s, (t-window,t]
-PER Source             : 
-N/A = undefined or unresolved; this is not measured UDP traffic.
-==========================================
-PASS: 60 pps stress uses the same real 600-second geometry, 36000 packets, CSV roundtrip.
+Current additional 60 pps baseline run; verified by verify_session.
+===== GSL UDP SESSION RESULT =====
+Simulation Duration: 600 s
+Packet Size: 160 Bytes
+Packet Rate: 60 packets/s
+Generated Packets: 36000
+Received Packets: N/A
+Lost Packets: N/A
+Overall Packet Loss Ratio: N/A
+PHY Loss Packets: N/A
+Handover Loss Packets: 60
+Outage Loss Packets: 0
+Total Handovers: 10
+Total Outage Duration: 0 s
+Average Received Packets/s: N/A
+Unresolved PHY Packets: 35940
+Confirmed Lost Packets: 60
+Confirmed Loss Lower Bound: 0.166667 %
+PHY source: JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024
+Noise bandwidth: N/A Hz; information rate: N/A bit/s
+100 ms interruptions are applied only to actual serving handovers.
+N/A means unresolved PHY; it does not mean zero loss.
+==================================

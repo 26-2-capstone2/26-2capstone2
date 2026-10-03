@@ -1,59 +1,134 @@
-PASS: 20/60 pps -> 12000/36000 packets; 5s windows -> 100/300; unknown PER stays unknown.
-PASS: outage vs loss, zero transmissions, all-success/all-loss accounting, one handover marker.
-PASS: true moving-window oracle, deterministic private RNG, invalid PER rejection.
-PASS: unresolved outcomes expire from the rolling window without becoming false zero loss.
-PASS: strict >4-degree hysteresis, forced switch, outage and reacquisition.
-ALL PACKET UNIT CHECKS PASSED. Synthetic test probabilities were not exported as research results.
+PASS: actual JPL lookup; B/Rb units; no extrapolation; 2-codeword PER.
+PASS: continuous IDs; exclusive PHY/HO/outage causes; strict hysteresis; 100ms half-open boundaries.
+PASS: RNG isolation; rolling window oracle; unknown PHY stays N/A.
 ===== Ground Station =====
 Latitude  : 37.0000 deg
 Longitude : 128.0000 deg
 Altitude  : 0 m (WGS84)
 ==========================
-===== GSL Simulation Summary =====
-Simulation Time       : 600 s
-
-Ground Station
-Latitude              : 37.0000 deg
-Longitude             : 128.0000 deg
-Altitude              : 0 m (WGS84)
-
-LEO Constellation
-Altitude              : 550 km
-Inclination           : 53 deg
-Min Elevation         : 25 deg
-
-UDP Traffic (simulated)
-Packet Size           : 150 Bytes
-Packet Rate           : 20 packets/s
-
-Packets
-Generated             : 12000
-Transmitted           : 12000
-Received              : N/A
-Lost                  : N/A
-Packet Loss Ratio     : N/A
-
-Handover
-Total Handovers       : 10
+===== GSL UDP SESSION RESULT =====
+Simulation Duration: 600 s
+Packet Size: 160 Bytes
+Packet Rate: 60 packets/s
+Generated Packets: 36000
+Received Packets: N/A
+Lost Packets: N/A
+Overall Packet Loss Ratio: N/A
+PHY Loss Packets: N/A
+Handover Loss Packets: 60
+Outage Loss Packets: 0
+Total Handovers: 10
+Total Outage Duration: 0 s
+Average Received Packets/s: N/A
+Unresolved PHY Packets: 35940
+Confirmed Lost Packets: 60
+Confirmed Loss Lower Bound: 0.166667 %
+PHY source: JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024
+Noise bandwidth: N/A Hz; information rate: N/A bit/s
+100 ms interruptions are applied only to actual serving handovers.
+N/A means unresolved PHY; it does not mean zero loss.
 ==================================
-Packet loss unavailable: validated PER model required
-PASS: all pre-existing link-state columns and packet metrics unchanged.
-PASS: serving=7 at 476..489 s (not zero); candidate/serving invariant holds for all 601 samples.
-Checked viewer frame t=0 s.
-Checked viewer frame t=87 s.
-Checked viewer frame t=100 s.
-Checked viewer frame t=142 s.
-Checked viewer frame t=212 s.
-Checked viewer frame t=280 s.
-Checked viewer frame t=359 s.
-Checked viewer frame t=417 s.
-Checked viewer frame t=475 s.
-Checked viewer frame t=476 s.
-Checked viewer frame t=489 s.
-Checked viewer frame t=490 s.
-Checked viewer frame t=560 s.
-Checked viewer frame t=600 s.
-PASS: GS marker/label settings; unique red access; all handover frames; explicit refresh after native seek.
-PASS: 3 main figures; no PER loss figure; 12000 generated/transmitted; GS coordinates unchanged.
-PREVIEW_READY
-PASS: owned viewer cleanup; no background timers.
+PASS: full geometry, CSV/MAT roundtrip, accounting, range-rate/Doppler and SNR units.
+PASS: actual JPL lookup; B/Rb units; no extrapolation; 2-codeword PER.
+PASS: continuous IDs; exclusive PHY/HO/outage causes; strict hysteresis; 100ms half-open boundaries.
+PASS: RNG isolation; rolling window oracle; unknown PHY stays N/A.
+===== Ground Station =====
+Latitude  : 37.0000 deg
+Longitude : 128.0000 deg
+Altitude  : 0 m (WGS84)
+==========================
+===== GSL UDP SESSION RESULT =====
+Simulation Duration: 600 s
+Packet Size: 160 Bytes
+Packet Rate: 60 packets/s
+Generated Packets: 36000
+Received Packets: N/A
+Lost Packets: N/A
+Overall Packet Loss Ratio: N/A
+PHY Loss Packets: N/A
+Handover Loss Packets: 60
+Outage Loss Packets: 0
+Total Handovers: 10
+Total Outage Duration: 0 s
+Average Received Packets/s: N/A
+Unresolved PHY Packets: 35940
+Confirmed Lost Packets: 60
+Confirmed Loss Lower Bound: 0.166667 %
+PHY source: JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024
+Noise bandwidth: N/A Hz; information rate: N/A bit/s
+100 ms interruptions are applied only to actual serving handovers.
+N/A means unresolved PHY; it does not mean zero loss.
+==================================
+PASS: active link frame t=0, serving=1555.
+PASS: active link frame t=87, serving=455.
+PASS: active link frame t=100, serving=1576.
+PASS: active link frame t=142, serving=476.
+PASS: active link frame t=212, serving=497.
+PASS: active link frame t=280, serving=1554.
+PASS: active link frame t=359, serving=1575.
+PASS: active link frame t=417, serving=475.
+PASS: active link frame t=475, serving=475.
+PASS: active link frame t=476, serving=7.
+PASS: active link frame t=489, serving=7.
+PASS: active link frame t=490, serving=496.
+PASS: active link frame t=560, serving=1553.
+PASS: active link frame t=600, serving=1553.
+PASS: 2 figures; playback controls; sequential playback; single active red link and old-color reset.
+PASS: full CSV accounting; 36000 packets; handovers=10; reference SNR range 23.840..26.206 dB.
+===== Ground Station =====
+Latitude  : 37.0000 deg
+Longitude : 128.0000 deg
+Altitude  : 0 m (WGS84)
+==========================
+===== GSL UDP SESSION RESULT =====
+Simulation Duration: 2 s
+Packet Size: 160 Bytes
+Packet Rate: 60 packets/s
+Generated Packets: 120
+Received Packets: 0
+Lost Packets: 120
+Overall Packet Loss Ratio: 100.000000 %
+PHY Loss Packets: 0
+Handover Loss Packets: 0
+Outage Loss Packets: 120
+Total Handovers: 0
+Total Outage Duration: 2 s
+Average Received Packets/s: 0
+Unresolved PHY Packets: 0
+Confirmed Lost Packets: 120
+Confirmed Loss Lower Bound: 100.000000 %
+PHY source: JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024
+Noise bandwidth: N/A Hz; information rate: N/A bit/s
+100 ms interruptions are applied only to actual serving handovers.
+N/A means unresolved PHY; it does not mean zero loss.
+==================================
+PASS: REAL no-visible case: serving=none; no red link; 120 outage losses; 2s outage.
+===== Ground Station =====
+Latitude  : 37.0000 deg
+Longitude : 128.0000 deg
+Altitude  : 0 m (WGS84)
+==========================
+===== GSL UDP SESSION RESULT =====
+Simulation Duration: 600 s
+Packet Size: 160 Bytes
+Packet Rate: 60 packets/s
+Generated Packets: 36000
+Received Packets: N/A
+Lost Packets: N/A
+Overall Packet Loss Ratio: N/A
+PHY Loss Packets: N/A
+Handover Loss Packets: 60
+Outage Loss Packets: 0
+Total Handovers: 10
+Total Outage Duration: 0 s
+Average Received Packets/s: N/A
+Unresolved PHY Packets: 35940
+Confirmed Lost Packets: 60
+Confirmed Loss Lower Bound: 0.166667 %
+PHY source: JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024
+Noise bandwidth: N/A Hz; information rate: N/A bit/s
+100 ms interruptions are applied only to actual serving handovers.
+N/A means unresolved PHY; it does not mean zero loss.
+==================================
+PASS: current baseline and additional result folder regenerated.
+PASS: COMPLETE GSL UDP SESSION VALIDATION.

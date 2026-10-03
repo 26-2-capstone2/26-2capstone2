@@ -1,6 +1,6 @@
 function attachGSLPlaybackControls(R)
 % Put synchronized playback controls in the existing summary figure.
-f=findall(groot,'Type','figure','Name','GSL Serving / Handover Summary','Tag','GSLCoreResult');
+f=findall(groot,'Type','figure','Name','GSL Session / Handover','Tag','GSLCoreResult');
 if isempty(f), return; end
 f=f(1); setappdata(f,'GSLPlaying',false);
 uicontrol(f,'Style','pushbutton','String','Play / Resume 3D GSL', ...

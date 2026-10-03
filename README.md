@@ -9,20 +9,24 @@
 
 https://app.notion.com/p/3db5148e6a86803f8f6ee95d6399f367?v=3db5148e6a868062880c000ce3e49d72&source=copy_link
 
-## GSL — Continuous Handover / Packet Performance
+## GSL — Continuous UDP Session / Handover
 
-기존 `gsl/` 폴더의 최신 MATLAB 시뮬레이터입니다.
+기존 `gsl/` MATLAB 프로젝트를 수정한 최신 실행 버전입니다.
 
-- [실행·모델·제한 설명](gsl/README.md)
-- [패킷 집계 정의](gsl/PACKET_LAYER.md)
-- [전체 MATLAB 검증 로그](gsl/validation_current_gsl.log)
+- [실행 방법·세션 지표·연구 한계](gsl/README.md)
+- [Packet layer 정의](gsl/PACKET_LAYER.md)
+- [실제 JPL AR4JA curve 데이터 및 추출 근거](gsl/AR4JA_CURVE.md)
+- [현재 MATLAB/3D 검증 로그](gsl/validation_udp_session.log)
 
 ```matlab
 R = main_gsl_simulation;
+playGSL(R);
 ```
 
-Serving / Handover Summary Figure의 **Play / Resume 3D GSL** 버튼으로 색 동기화 재생합니다. 기본 viewer Play는 serving 색을 갱신하지 않습니다.
+GSL Session / Handover 창의 **Play / Resume 3D GSL** 버튼도 사용할 수 있습니다. Native viewer Play 대신 GSL 재생을 사용해야 serving 색상과 시간이 동기화됩니다.
 
-160 Bytes / 60 packets/s, inclusive 4° handover, 단일 serving과 outage 처리를 제공합니다. 일반 Figure는 serving/candidate 요약과 패킷 누적·rolling failure·received throughput 두 개입니다.
+600초 / 160 Bytes / 60 pps의 연속 UDP 세션, strict 4° hysteresis, 실제 handover event별 100 ms interruption을 사용합니다. Figure는 serving ID/elevation와 전체 세션 cumulative/rolling loss/received pps입니다.
 
-Lost는 outage loss + link loss이며 failure 분모는 generated입니다. 기본 PER는 명시한 ideal uncoded BPSK/AWGN 참조 모델로, 실제 Starlink PHY 검증 결과나 OS UDP 측정은 아닙니다.
+PHY는 QPSK + CCSDS AR4JA rate 1/2, k=1024의 JPL Figure 14 CWER lookup으로 교체했습니다. Noise bandwidth와 information-rate 해석은 아직 근거가 부족해 TODO이며 미정 PHY는 성공/손실로 꾸미지 않습니다.
+
+기본 실제 실행: Generated 36,000; actual handovers 10; confirmed handover loss 60; outage 0; unresolved PHY 35,940. 전체 Received/Lost/PLR은 N/A, 확정 손실 lower bound는 0.166667%입니다. OS UDP 실측이 아닌 packet-event simulation입니다.
