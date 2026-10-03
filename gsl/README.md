@@ -13,9 +13,9 @@ MATLAB R2026a + Aerospace Toolbox에서 이 폴더를 Current Folder로 열고:
 R = main_gsl_simulation;
 ```
 
-실행하면 분석 결과와 3D 화면을 준비한 뒤 **0초에서 대기**한다. **GSL Session / Handover 창 하단의 ▶ 재생 / 이어서 (600초)** 버튼을 누르면 0~600초의 위성 이동과 현재 연결 위성을 함께 재생한다. 일시정지 후 같은 재생 버튼으로 이어서 볼 수 있으며, 끝난 뒤 재생하면 처음부터 다시 시작한다. 자동으로 프레임을 순회하거나 별도 화면을 반복해서 열지 않는다.
+**처음 버전처럼 3D Satellite Scenario Viewer 자체의 기본 재생바를 사용한다.** 화면 아래 기본 Play/Pause, 배속, 시간 이동으로 0~600초의 연속 위성 이동을 본다. 실행 시 자동 재생하지 않으며 기본 배속은 1x이다. 별도 재생 컨트롤 창, 초별 프레임 실행 버튼, 창 제목의 t= 표시는 없다. 이전 3D 창/별도 재생 컨트롤 창을 닫고 최신 main_gsl_simulation을 다시 실행한다.
 
-기본 결과는 results_packets에 덮어쓴다. 위치와 serving 색상은 같은 scenario advance 루프에서 갱신한다. 현재 연결 위성 하나만 빨강이며 이전 연결 위성은 회색 점으로 돌아간다. Native viewer의 재생 컨트롤 대신 위 버튼을 사용한다. 기존에 열린 이전 버전 3D 창은 닫고 main_gsl_simulation을 다시 실행한다. CFG.autoPlay3D는 기본 false이며 자동 재생은 명시적으로 true를 설정한 경우에만 사용한다.
+연결 색상 갱신 타이머는 viewer의 실제 CurrentTime에 맞춰 색상을 바꾼다. 위성 이동 및 시간 진행은 MATLAB 기본 재생 엔진이 담당한다. 타이머가 시간을 전진시키거나 scenario advance를 반복하지 않는다. 현재 연결 위성 하나만 빨강이며 핸드오버 후 이전 위성은 회색 점으로 복구한다. 시간바를 뒤로 이동해도 해당 시점의 연결 상태로 복원한다. viewer를 닫으면 타이머도 정리된다. 계산 결과는 results_packets에 덮어쓴다.
 
 **현재 연구 결과의 한계:** noise bandwidth와 50 Mbps의 information/coded rate 해석이 확인되지 않아 기본 PHY 결과는 미정이다. 기본 설정은 이 두 값이 NaN이며, 수신/전체 손실/전체 PLR을 0 또는 성공으로 꾸미지 않는다. 핸드오버 및 outage 손실은 확정적으로 계산한다. 실제 OS UDP socket 전송이나 실측 packet capture가 아닌 packet-event 시뮬레이션이다.
 
@@ -41,7 +41,7 @@ Signal PSD is flat and occupied signal/noise bandwidth ratio is explicitly 1 for
 
 각 시점 elevation >=25° 후보 중 최고 고도 위성을 찾는다. Serving이 없거나 기존 위성이 후보에서 벗어나면 즉시 후보를 선택한다. 기존 위성이 후보일 때는 bestElevation > currentElevation +4°에서만 전환한다. 후보가 있으면 serving ID는 반드시 0보다 크다. 최초 접속/접속 소실은 handover 수에 포함하지 않는다.
 
-GSLManualViewerController와 playGSL은 실제 scenario advance와 graphic object를 같은 loop에서 갱신한다. viewer CurrentTime과 scenario SimulationTime의 일치도 검증한다. 이전 serving marker는 기본 회색으로, 기존 access는 녹색으로 복구한다. 새 serving marker/access는 빨강이며 access object를 추가 생성하지 않는다. Access는 시간에 따른 실제 visibility에 따라 표시된다. GS는 노란 큰 marker/label이다. 동시에 빨간 serving은 최대 하나이다.
+GSLNativeViewerController는 기본 viewer의 재생 시간에 맞춰 연결 위성 색상만 갱신한다. 이전 serving marker는 회색, 새 serving marker/access는 빨강이다. Access object를 추가 생성하지 않는다. GS는 노란 큰 marker/label이며 동시에 빨간 serving은 최대 하나이다.
 
 R2026a의 Access 공개 API는 LineColor/LineWidth를 지원하지만 LineStyle은 없다. 따라서 candidate/serving access는 **녹색/빨간 실선**을 사용한다. Figure의 handover 시점 선은 점선이다.
 
@@ -90,8 +90,8 @@ Lookup은 log10(CWER) 선형 보간이며 약 0..2.200262 dB 범위에만 유효
 packet_results.csv/.mat에 요청한 camelCase packet 필드와 호환 snake_case 필드, RF/geometry 보조 변수를 저장한다. link_state.csv, geometry_stage1.mat, visibility_summary.csv, satellite_index.csv, packet_summary.txt, 두 PNG도 저장한다. results_packets_stress는 동일 60 pps 설정을 별도 재실행한 결과이며 스트레스 비교 연구라고 해석하지 않는다.
 
 ```matlab
-verify_main_playback_entry; % t=0 wait + actual Play button callback
-verify_handover_playback;    % opt-in automatic test for real position/color synchronization
+verify_main_playback_entry; % native play + speed + timeline color synchronization
+verify_handover_playback;    % full constellation real handover color regression
 verify_session;              % current full validation and both result folders
 verify_packets;              % curve/units/strict hysteresis/loss priority/boundaries
 verify_packet_integration;   % actual 1584 satellite, CSV/MAT, Doppler/SNR/accounting
@@ -104,10 +104,10 @@ verify_visualization;        % actual 3D handovers + real no-visible/outage case
 
 configGSL.m, selectServingSatellite.m, getPERfromSNR.m, simulatePacketTransmission.m, computePacketMetrics.m, reportPacketResults.m, plotResults.m, GSLViewerController.m, attachGSLPlaybackControls.m, verify_packets.m, verify_packet_integration.m, verify_visualization.m을 수정했다. verify_session.m, ar4ja_r12_k1024_cwer.csv, digitize_ar4ja_curve.py, AR4JA_CURVE.md를 추가했다. README.md/PACKET_LAYER.md와 저장소 root README, 현재 검증 로그 및 결과 폴더를 갱신했다.
 
-## 재생 버그 수정
+## 기본 재생 방식 복구
 
-Native viewer 위치 재생과 serving 색상 갱신이 분리된 경로를 제거했다. 분석 후 scenario를 manual simulation으로 전환하고 advance마다 색상을 갱신한다. main 실행은 0초에서 대기하고 재생 버튼을 누르면 시작한다. 기존 위성은 회색 점/label off, 새 serving만 red marker/access이다. 공개 CurrentTime property는 SetObservable=false이므로 존재하지 않는 listener API나 background timer를 사용하지 않는다. 현재 버튼 실행 검증: validation_main_playback_entry.log. 핸드오버 색상 검증: validation_handover_playback.log.
+AutoSimulate=true의 기본 Satellite Scenario Viewer를 복구했다. GSLNativeViewerController의 타이머는 viewer CurrentTime을 읽어 색상을 갱신하며 화면 제목은 고정한다. R2026a에서는 색상 변경이 기본 재생을 멈추므로, 변경 직전에 실제로 재생 중이면 기본 play를 다시 시작한 뒤 저장한 날짜와 배속을 GlobeViewer 브리지로 복원한다. 이미 일시정지한 화면이나 정지 상태에서 시간바로 이동한 화면은 재생시키지 않는다. 색상 전환 시 MATLAB 자체의 그래픽 갱신 때문에 잠시 지연될 수 있다. 이 내부 브리지는 R2026a에서 검증했으며 MATLAB 버전 변경 시 재검증이 필요하다. playGSL은 선택적인 기본 play 명령 바로가기이며 별도 컨트롤을 만들지 않는다. GSLViewerController는 호환 이름이다. GSLManualViewerController는 이전 수동 검증용이며 main 실행 경로에서 사용하지 않는다.
 
-실행 진입점은 동일한 main_gsl_simulation.m이며, 새 GSLManualViewerController를 사용해 기존 MATLAB 세션에 남은 이전 클래스 객체의 재생 경로를 재사용하지 않는다. Manual simulation API 근거: [MathWorks satelliteScenario/AutoSimulate](https://www.mathworks.com/help/satcom/ref/satellitescenario.html), [advance](https://www.mathworks.com/help/satcom/ref/satellitescenario.advance.html).
+현재 기본 재생 검증은 validation_main_playback_entry.log, 실제 constellation 핸드오버 색상 검증은 validation_handover_playback.log를 참고한다.
 
-GSLViewerController.m은 호환용 이름이며 구현은 GSLManualViewerController.m 한 곳에 있다. 별도 자동 재생 검증에서 110 s 이동과 87/100 s 전환의 이전 회색/새 빨강/단일 빨강 검증을 통과했다.
+API: [MathWorks Satellite Scenario Viewer](https://www.mathworks.com/help/satcom/ref/matlabshared.satellitescenario.satellitescenario.html), [기본 play](https://www.mathworks.com/help/satcom/ref/matlabshared.satellitescenario.satellitescenario.play.html).

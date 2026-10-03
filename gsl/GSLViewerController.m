@@ -1,8 +1,7 @@
-classdef GSLViewerController < GSLManualViewerController
-    % Compatibility name; main uses the new manual controller directly.
+classdef GSLViewerController < GSLNativeViewerController
     methods
         function obj=GSLViewerController(varargin)
-            obj@GSLManualViewerController(varargin{:});
+            obj@GSLNativeViewerController(varargin{:});
         end
     end
 end

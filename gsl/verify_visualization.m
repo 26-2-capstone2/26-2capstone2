@@ -9,10 +9,10 @@ assert(M.handoverLossPackets==60 && M.outageLossPackets==0);
 assert(isnan(M.receivedPackets) && isnan(M.lostPackets) && isnan(M.packetLossRatio));
 assert(M.resolvedLostPackets+M.pendingPackets==M.generatedPackets);
 assert(M.totalOutageDuration_s==0 && all(L.residualDoppler_Hz==0));
-assert(~R.scenario.AutoSimulate);
+assert(R.scenario.AutoSimulate);
 assert(R.groundStation.ShowLabel && R.groundStation.MarkerSize==20);
 f=findall(groot,'Type','figure','Tag','GSLCoreResult'); assert(numel(f)==2);
-assert(numel(findall(groot,'Style','pushbutton','Tag','GSLPlayButton'))==1);
+assert(isempty(findall(groot,'Tag','GSLPlaybackControls')));
 csv=readtable(fullfile(C.outputDir,'packet_results.csv'));
 assert(height(csv)==36000 && sum(csv.handover_loss)==60 && sum(csv.outcome_pending)==35940);
 assert(all(csv.cumulative_confirmed_loss+csv.cumulative_pending==csv.cumulative_generated));
@@ -36,7 +36,7 @@ for k=1:numel(R.access)
 end
 assert(red==1 && redSat==1);
 R.viewerController.setTime(0);
-short=R; short.linkState=R.linkState(1:3,:); playGSL(short);
+for frame=0:2, R.viewerController.setTime(frame); end
 assert(R.viewerController.StateIndex==3);
 R.viewerController.setTime(0);
 fprintf('PASS: 2 figures; playback controls; sequential playback; single active red link and old-color reset.\n');

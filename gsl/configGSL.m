@@ -44,7 +44,7 @@ CFG.debugPlots = false;
 CFG.openViewer = true;
 CFG.autoPlay3D = false; % Wait at t=0; user starts the 600-second playback
 CFG.debug = false;
-CFG.viewerPlaybackSpeed = 10; % simulation seconds per wall-clock second
+CFG.viewerPlaybackSpeed = 1; % initial playback speed; adjustable in the panel
 CFG.makePlots = true;
 CFG.exportResults = true;
 CFG.outputDir = fullfile(fileparts(mfilename('fullpath')),'results_packets');

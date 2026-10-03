@@ -4,10 +4,10 @@ Longitude : 128.0000 deg
 Altitude  : 0 m (WGS84)
 ==========================
 ===== GSL UDP SESSION RESULT =====
-Simulation Duration: 2 s
+Simulation Duration: 5 s
 Packet Size: 160 Bytes
 Packet Rate: 60 packets/s
-Generated Packets: 120
+Generated Packets: 300
 Received Packets: N/A
 Lost Packets: N/A
 Overall Packet Loss Ratio: N/A
@@ -17,7 +17,7 @@ Outage Loss Packets: 0
 Total Handovers: 0
 Total Outage Duration: 0 s
 Average Received Packets/s: N/A
-Unresolved PHY Packets: 120
+Unresolved PHY Packets: 300
 Confirmed Lost Packets: 0
 Confirmed Loss Lower Bound: 0.000000 %
 PHY source: JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024
@@ -25,5 +25,6 @@ Noise bandwidth: N/A Hz; information rate: N/A bit/s
 100 ms interruptions are applied only to actual serving handovers.
 N/A means unresolved PHY; it does not mean zero loss.
 ==================================
-PASS: default 600s configuration waits at t=0.
-PASS: actual Play button callback starts synchronized movement and finishes the timeline.
+PASS: native viewer controls enabled; no custom controls or t= title.
+PASS: native continuous play, live speed property, timer follows forward/backward timeline.
+PASS: timer restores old serving gray and new serving red.

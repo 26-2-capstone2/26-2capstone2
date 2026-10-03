@@ -1,10 +1,19 @@
 function verify_handover_playback()
-% Exercise the same main-only AUTOPLAY entry point used by the user.
+% Actual native playback with full constellation and real handover regression.
 C=configGSL(); C.duration_s=110; C.makePlots=false; C.exportResults=false;
-C.viewerPlaybackSpeed=1000; C.autoPlay3D=true; % opt-in automatic path for this test only
+C.viewerPlaybackSpeed=20; C.autoPlay3D=false;
 R=main_gsl_simulation(C);
-assert(~R.scenario.AutoSimulate && R.viewerController.StateIndex==111);
-assert(seconds(R.viewer.CurrentTime-R.scenario.StartTime)==110);
+guard=onCleanup(@()delete(R.viewerController)); %#ok<NASGU>
+assert(R.scenario.AutoSimulate && numel(R.satellites)==1584);
+assert(R.config.gsLatitude_deg==37 && R.config.gsLongitude_deg==128);
+playGSL(R); deadline=tic;
+while seconds(R.viewer.CurrentTime-R.scenario.StartTime)<110-1e-6
+    assert(toc(deadline)<180,'GSL:PlaybackTimeout','Native full-constellation playback stalled.');
+    pause(.05);
+end
+R.viewerController.refresh();
+assert(R.viewerController.StateIndex==111);
+fprintf('PASS: native continuous playback through real handovers; 1584 satellites; Korean GS 37N/128E.\n');
 events=find(R.linkState.handoverEvent); assert(numel(events)==2);
 for k=events.'
     old=R.linkState.servingSatID(k-1); new=R.linkState.servingSatID(k);
@@ -17,10 +26,10 @@ for k=events.'
     red=0;
     for j=1:numel(R.satellites), red=red+isequal(R.satellites(j).MarkerColor,[1 0 0]); end
     assert(red==1);
-    assert(R.viewer.CurrentTime==R.scenario.SimulationTime);
+    assert(abs(seconds(R.viewer.CurrentTime-R.scenario.StartTime)-R.linkState.time_s(k))<1e-8);
     fprintf('PASS: actual manual position+color handover t=%g, gray old=%d, red new=%d.\n', ...
         R.linkState.time_s(k),old,new);
 end
 R.viewerController.setTime(110); delete(R.viewerController);
-fprintf('PASS: main-only automatic playback; 111 sequential native frames; native widgets never enabled.\n');
+fprintf('PASS: native viewer handover regression; native widgets enabled.\n');
 end

@@ -19,10 +19,10 @@ https://app.notion.com/p/3db5148e6a86803f8f6ee95d6399f367?v=3db5148e6a868062880c
 - [현재 MATLAB/3D 검증 로그](gsl/validation_udp_session.log)
 
 ```matlab
-R = main_gsl_simulation; % 화면 준비 후 재생 버튼 클릭
+R = main_gsl_simulation;
 ```
 
-실행하면 0초에서 대기합니다. GSL Session / Handover 창 하단의 **▶ 재생 / 이어서 (600초)** 버튼을 누르면 600초 동안 위성 이동과 연결 상태를 재생합니다. 일시정지 후 이어서 재생할 수 있습니다. 현재 serving 하나만 빨간색이며 이전 serving은 회색 점으로 돌아갑니다. Native viewer 대신 이 버튼을 사용합니다. 이전 3D 창은 닫고 다시 실행하세요.
+**처음처럼 3D Satellite Scenario Viewer의 기본 재생바에서 Play/Pause·배속·시간 이동을 사용합니다.** 0~600초 연속 위성 이동이며 기본 1x, 실행 시 자동 재생하지 않습니다. 별도 컨트롤 창과 t= 창 제목은 없습니다. 기본 viewer 시간에 맞춰 현재 연결 위성 하나만 빨강, 이전 위성은 회색으로 복구합니다. 기존 창을 닫고 최신 코드를 다시 실행하세요.
 
 600초 / 160 Bytes / 60 pps의 연속 UDP 세션, strict 4° hysteresis, 실제 handover event별 100 ms interruption을 사용합니다. Figure는 serving ID/elevation와 전체 세션 cumulative/rolling loss/received pps입니다.
 
