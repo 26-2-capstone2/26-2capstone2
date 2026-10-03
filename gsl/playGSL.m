@@ -1,5 +1,5 @@
 function playGSL(R,controlFigure)
-% Sequential native time/style updates; avoids reentrant background timers.
+% Sequential MANUAL scenario advance/style updates; native widgets stay disabled.
 assert(isfield(R,'viewerController') && isvalid(R.viewerController) && isvalid(R.viewer), ...
     'GSL:NoViewer','Run with CFG.openViewer=true first.');
 if nargin<2, controlFigure=[]; end

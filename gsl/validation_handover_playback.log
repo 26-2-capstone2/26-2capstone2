@@ -1,0 +1,30 @@
+===== Ground Station =====
+Latitude  : 37.0000 deg
+Longitude : 128.0000 deg
+Altitude  : 0 m (WGS84)
+==========================
+===== GSL UDP SESSION RESULT =====
+Simulation Duration: 110 s
+Packet Size: 160 Bytes
+Packet Rate: 60 packets/s
+Generated Packets: 6600
+Received Packets: N/A
+Lost Packets: N/A
+Overall Packet Loss Ratio: N/A
+PHY Loss Packets: N/A
+Handover Loss Packets: 12
+Outage Loss Packets: 0
+Total Handovers: 2
+Total Outage Duration: 0 s
+Average Received Packets/s: N/A
+Unresolved PHY Packets: 6588
+Confirmed Lost Packets: 12
+Confirmed Loss Lower Bound: 0.181818 %
+PHY source: JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024
+Noise bandwidth: N/A Hz; information rate: N/A bit/s
+100 ms interruptions are applied only to actual serving handovers.
+N/A means unresolved PHY; it does not mean zero loss.
+==================================
+PASS: actual manual position+color handover t=87, gray old=1555, red new=455.
+PASS: actual manual position+color handover t=100, gray old=455, red new=1576.
+PASS: main-only automatic playback; 111 sequential native frames; native widgets never enabled.

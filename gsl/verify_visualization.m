@@ -1,7 +1,7 @@
 function R=verify_visualization()
 % Real full constellation + actual native viewer + deterministic packet tests.
 verify_packets;
-C=configGSL(); R=main_gsl_simulation(C); L=R.linkState; M=R.packetMetrics;
+C=configGSL(); C.autoPlay3D=false; R=main_gsl_simulation(C); L=R.linkState; M=R.packetMetrics;
 assert(numel(R.satellites)==1584 && isequal(size(R.geometry.elevation_deg),[601 1584]));
 assert(all(L.servingSatID(L.visibleCount>0)>0));
 assert(M.generatedPackets==36000 && M.attemptedPackets==35940 && M.pendingPackets==35940);
@@ -9,6 +9,7 @@ assert(M.handoverLossPackets==60 && M.outageLossPackets==0);
 assert(isnan(M.receivedPackets) && isnan(M.lostPackets) && isnan(M.packetLossRatio));
 assert(M.resolvedLostPackets+M.pendingPackets==M.generatedPackets);
 assert(M.totalOutageDuration_s==0 && all(L.residualDoppler_Hz==0));
+assert(~R.scenario.AutoSimulate);
 assert(R.groundStation.ShowLabel && R.groundStation.MarkerSize==20);
 f=findall(groot,'Type','figure','Tag','GSLCoreResult'); assert(numel(f)==2);
 assert(numel(findall(groot,'Style','pushbutton','String','Play / Resume 3D GSL'))==1);

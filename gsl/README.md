@@ -10,13 +10,12 @@
 MATLAB R2026a + Aerospace Toolbox에서 이 폴더를 Current Folder로 열고:
 
 ```matlab
-R = main_gsl_simulation;
-playGSL(R);
+R = main_gsl_simulation; % synchronized playback starts automatically
 % 또는 GSL Session / Handover 창의 Play / Resume 3D GSL 버튼
 % Stop 버튼으로 중지 후 같은 버튼으로 이어서 재생
 ```
 
-기본 결과는 이 폴더의 results_packets에 덮어쓴다. 기존 프로젝트의 동일 실행 진입점을 유지한다. Native 3D viewer의 자체 Play는 색상을 동기화하지 않으므로 위의 GSL 재생 버튼/함수를 사용한다. 한 단계만 확인하려면 R.viewerController.setTime(476)처럼 지정한다.
+기본 결과는 이 폴더의 results_packets에 덮어쓴다. main_gsl_simulation 실행만으로 동기화 재생이 자동 시작된다. AutoSimulate=false의 advance 루프를 사용해 위치와 serving 색상을 함께 갱신한다. Native playback widgets는 활성화하지 않는다. Stop/Resume은 GSL Session / Handover 창의 버튼을 사용한다. 자동 재생을 끄고 프레임을 확인하려면 CFG.autoPlay3D=false로 실행한 뒤 R.viewerController.setTime(476)을 사용한다. 이미 열려 있던 이전 버전 viewer는 닫고 현재 코드를 다시 실행한다.
 
 **현재 연구 결과의 한계:** noise bandwidth와 50 Mbps의 information/coded rate 해석이 확인되지 않아 기본 PHY 결과는 미정이다. 기본 설정은 이 두 값이 NaN이며, 수신/전체 손실/전체 PLR을 0 또는 성공으로 꾸미지 않는다. 핸드오버 및 outage 손실은 확정적으로 계산한다. 실제 OS UDP socket 전송이나 실측 packet capture가 아닌 packet-event 시뮬레이션이다.
 
@@ -42,7 +41,7 @@ Signal PSD is flat and occupied signal/noise bandwidth ratio is explicitly 1 for
 
 각 시점 elevation >=25° 후보 중 최고 고도 위성을 찾는다. Serving이 없거나 기존 위성이 후보에서 벗어나면 즉시 후보를 선택한다. 기존 위성이 후보일 때는 bestElevation > currentElevation +4°에서만 전환한다. 후보가 있으면 serving ID는 반드시 0보다 크다. 최초 접속/접속 소실은 handover 수에 포함하지 않는다.
 
-GSLViewerController와 playGSL의 manual time loop가 실제 viewer CurrentTime 및 graphic object를 함께 갱신한다. 이전 serving marker는 기본 회색으로, 기존 access는 녹색으로 복구한다. 새 serving marker/access는 빨강이며 access object를 추가 생성하지 않는다. Access는 시간에 따른 실제 visibility에 따라 표시된다. GS는 노란 큰 marker/label이다. 동시에 빨간 serving은 최대 하나이다.
+GSLManualViewerController와 playGSL은 실제 scenario advance와 graphic object를 같은 loop에서 갱신한다. viewer CurrentTime과 scenario SimulationTime의 일치도 검증한다. 이전 serving marker는 기본 회색으로, 기존 access는 녹색으로 복구한다. 새 serving marker/access는 빨강이며 access object를 추가 생성하지 않는다. Access는 시간에 따른 실제 visibility에 따라 표시된다. GS는 노란 큰 marker/label이다. 동시에 빨간 serving은 최대 하나이다.
 
 R2026a의 Access 공개 API는 LineColor/LineWidth를 지원하지만 LineStyle은 없다. 따라서 candidate/serving access는 **녹색/빨간 실선**을 사용한다. Figure의 handover 시점 선은 점선이다.
 
@@ -91,6 +90,7 @@ Lookup은 log10(CWER) 선형 보간이며 약 0..2.200262 dB 범위에만 유효
 packet_results.csv/.mat에 요청한 camelCase packet 필드와 호환 snake_case 필드, RF/geometry 보조 변수를 저장한다. link_state.csv, geometry_stage1.mat, visibility_summary.csv, satellite_index.csv, packet_summary.txt, 두 PNG도 저장한다. results_packets_stress는 동일 60 pps 설정을 별도 재실행한 결과이며 스트레스 비교 연구라고 해석하지 않는다.
 
 ```matlab
+verify_handover_playback;    % MAIN-ONLY auto playback, real native position/color synchronization
 verify_session;              % current full validation and both result folders
 verify_packets;              % curve/units/strict hysteresis/loss priority/boundaries
 verify_packet_integration;   % actual 1584 satellite, CSV/MAT, Doppler/SNR/accounting
@@ -102,3 +102,11 @@ verify_visualization;        % actual 3D handovers + real no-visible/outage case
 ## 이번 수정 파일
 
 configGSL.m, selectServingSatellite.m, getPERfromSNR.m, simulatePacketTransmission.m, computePacketMetrics.m, reportPacketResults.m, plotResults.m, GSLViewerController.m, attachGSLPlaybackControls.m, verify_packets.m, verify_packet_integration.m, verify_visualization.m을 수정했다. verify_session.m, ar4ja_r12_k1024_cwer.csv, digitize_ar4ja_curve.py, AR4JA_CURVE.md를 추가했다. README.md/PACKET_LAYER.md와 저장소 root README, 현재 검증 로그 및 결과 폴더를 갱신했다.
+
+## 재생 버그 수정
+
+Native viewer 위치 재생과 serving 색상 갱신이 분리된 경로를 제거했다. 분석 후 scenario를 manual simulation으로 전환하고 advance마다 색상을 갱신한다. main 실행은 자동으로 재생을 시작한다. 기존 위성은 회색 점/label off, 새 serving만 red marker/access이다. 공개 CurrentTime property는 SetObservable=false이므로 존재하지 않는 listener API나 background timer를 사용하지 않는다. 현재 재생 검증: validation_handover_playback.log.
+
+실행 진입점은 동일한 main_gsl_simulation.m이며, 새 GSLManualViewerController를 사용해 기존 MATLAB 세션에 남은 이전 클래스 객체의 재생 경로를 재사용하지 않는다. Manual simulation API 근거: [MathWorks satelliteScenario/AutoSimulate](https://www.mathworks.com/help/satcom/ref/satellitescenario.html), [advance](https://www.mathworks.com/help/satcom/ref/satellitescenario.advance.html).
+
+GSLViewerController.m은 호환용 이름이며 구현은 GSLManualViewerController.m 한 곳에 있다. 실제 main-only 110 s 자동 재생 111 frames와 87/100 s 전환의 이전 회색/새 빨강/단일 빨강 검증을 통과했다.
