@@ -10,12 +10,12 @@
 MATLAB R2026a + Aerospace Toolbox에서 이 폴더를 Current Folder로 열고:
 
 ```matlab
-R = main_gsl_simulation; % synchronized playback starts automatically
-% 또는 GSL Session / Handover 창의 Play / Resume 3D GSL 버튼
-% Stop 버튼으로 중지 후 같은 버튼으로 이어서 재생
+R = main_gsl_simulation;
 ```
 
-기본 결과는 이 폴더의 results_packets에 덮어쓴다. main_gsl_simulation 실행만으로 동기화 재생이 자동 시작된다. AutoSimulate=false의 advance 루프를 사용해 위치와 serving 색상을 함께 갱신한다. Native playback widgets는 활성화하지 않는다. Stop/Resume은 GSL Session / Handover 창의 버튼을 사용한다. 자동 재생을 끄고 프레임을 확인하려면 CFG.autoPlay3D=false로 실행한 뒤 R.viewerController.setTime(476)을 사용한다. 이미 열려 있던 이전 버전 viewer는 닫고 현재 코드를 다시 실행한다.
+실행하면 분석 결과와 3D 화면을 준비한 뒤 **0초에서 대기**한다. **GSL Session / Handover 창 하단의 ▶ 재생 / 이어서 (600초)** 버튼을 누르면 0~600초의 위성 이동과 현재 연결 위성을 함께 재생한다. 일시정지 후 같은 재생 버튼으로 이어서 볼 수 있으며, 끝난 뒤 재생하면 처음부터 다시 시작한다. 자동으로 프레임을 순회하거나 별도 화면을 반복해서 열지 않는다.
+
+기본 결과는 results_packets에 덮어쓴다. 위치와 serving 색상은 같은 scenario advance 루프에서 갱신한다. 현재 연결 위성 하나만 빨강이며 이전 연결 위성은 회색 점으로 돌아간다. Native viewer의 재생 컨트롤 대신 위 버튼을 사용한다. 기존에 열린 이전 버전 3D 창은 닫고 main_gsl_simulation을 다시 실행한다. CFG.autoPlay3D는 기본 false이며 자동 재생은 명시적으로 true를 설정한 경우에만 사용한다.
 
 **현재 연구 결과의 한계:** noise bandwidth와 50 Mbps의 information/coded rate 해석이 확인되지 않아 기본 PHY 결과는 미정이다. 기본 설정은 이 두 값이 NaN이며, 수신/전체 손실/전체 PLR을 0 또는 성공으로 꾸미지 않는다. 핸드오버 및 outage 손실은 확정적으로 계산한다. 실제 OS UDP socket 전송이나 실측 packet capture가 아닌 packet-event 시뮬레이션이다.
 
@@ -90,7 +90,8 @@ Lookup은 log10(CWER) 선형 보간이며 약 0..2.200262 dB 범위에만 유효
 packet_results.csv/.mat에 요청한 camelCase packet 필드와 호환 snake_case 필드, RF/geometry 보조 변수를 저장한다. link_state.csv, geometry_stage1.mat, visibility_summary.csv, satellite_index.csv, packet_summary.txt, 두 PNG도 저장한다. results_packets_stress는 동일 60 pps 설정을 별도 재실행한 결과이며 스트레스 비교 연구라고 해석하지 않는다.
 
 ```matlab
-verify_handover_playback;    % MAIN-ONLY auto playback, real native position/color synchronization
+verify_main_playback_entry; % t=0 wait + actual Play button callback
+verify_handover_playback;    % opt-in automatic test for real position/color synchronization
 verify_session;              % current full validation and both result folders
 verify_packets;              % curve/units/strict hysteresis/loss priority/boundaries
 verify_packet_integration;   % actual 1584 satellite, CSV/MAT, Doppler/SNR/accounting
@@ -105,8 +106,8 @@ configGSL.m, selectServingSatellite.m, getPERfromSNR.m, simulatePacketTransmissi
 
 ## 재생 버그 수정
 
-Native viewer 위치 재생과 serving 색상 갱신이 분리된 경로를 제거했다. 분석 후 scenario를 manual simulation으로 전환하고 advance마다 색상을 갱신한다. main 실행은 자동으로 재생을 시작한다. 기존 위성은 회색 점/label off, 새 serving만 red marker/access이다. 공개 CurrentTime property는 SetObservable=false이므로 존재하지 않는 listener API나 background timer를 사용하지 않는다. 현재 재생 검증: validation_handover_playback.log.
+Native viewer 위치 재생과 serving 색상 갱신이 분리된 경로를 제거했다. 분석 후 scenario를 manual simulation으로 전환하고 advance마다 색상을 갱신한다. main 실행은 0초에서 대기하고 재생 버튼을 누르면 시작한다. 기존 위성은 회색 점/label off, 새 serving만 red marker/access이다. 공개 CurrentTime property는 SetObservable=false이므로 존재하지 않는 listener API나 background timer를 사용하지 않는다. 현재 버튼 실행 검증: validation_main_playback_entry.log. 핸드오버 색상 검증: validation_handover_playback.log.
 
 실행 진입점은 동일한 main_gsl_simulation.m이며, 새 GSLManualViewerController를 사용해 기존 MATLAB 세션에 남은 이전 클래스 객체의 재생 경로를 재사용하지 않는다. Manual simulation API 근거: [MathWorks satelliteScenario/AutoSimulate](https://www.mathworks.com/help/satcom/ref/satellitescenario.html), [advance](https://www.mathworks.com/help/satcom/ref/satellitescenario.advance.html).
 
-GSLViewerController.m은 호환용 이름이며 구현은 GSLManualViewerController.m 한 곳에 있다. 실제 main-only 110 s 자동 재생 111 frames와 87/100 s 전환의 이전 회색/새 빨강/단일 빨강 검증을 통과했다.
+GSLViewerController.m은 호환용 이름이며 구현은 GSLManualViewerController.m 한 곳에 있다. 별도 자동 재생 검증에서 110 s 이동과 87/100 s 전환의 이전 회색/새 빨강/단일 빨강 검증을 통과했다.

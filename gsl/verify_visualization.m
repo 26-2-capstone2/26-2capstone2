@@ -12,7 +12,7 @@ assert(M.totalOutageDuration_s==0 && all(L.residualDoppler_Hz==0));
 assert(~R.scenario.AutoSimulate);
 assert(R.groundStation.ShowLabel && R.groundStation.MarkerSize==20);
 f=findall(groot,'Type','figure','Tag','GSLCoreResult'); assert(numel(f)==2);
-assert(numel(findall(groot,'Style','pushbutton','String','Play / Resume 3D GSL'))==1);
+assert(numel(findall(groot,'Style','pushbutton','Tag','GSLPlayButton'))==1);
 csv=readtable(fullfile(C.outputDir,'packet_results.csv'));
 assert(height(csv)==36000 && sum(csv.handover_loss)==60 && sum(csv.outcome_pending)==35940);
 assert(all(csv.cumulative_confirmed_loss+csv.cumulative_pending==csv.cumulative_generated));

@@ -1,7 +1,7 @@
 function verify_handover_playback()
 % Exercise the same main-only AUTOPLAY entry point used by the user.
 C=configGSL(); C.duration_s=110; C.makePlots=false; C.exportResults=false;
-C.viewerPlaybackSpeed=1000; assert(C.autoPlay3D);
+C.viewerPlaybackSpeed=1000; C.autoPlay3D=true; % opt-in automatic path for this test only
 R=main_gsl_simulation(C);
 assert(~R.scenario.AutoSimulate && R.viewerController.StateIndex==111);
 assert(seconds(R.viewer.CurrentTime-R.scenario.StartTime)==110);

@@ -42,7 +42,7 @@ CFG.handoverInterruption_s = 0.100; % StarTCP APNet 2024 Section 3
 CFG.perModelSource = 'JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024';
 CFG.debugPlots = false;
 CFG.openViewer = true;
-CFG.autoPlay3D = true; % Run main_gsl_simulation starts synchronized playback
+CFG.autoPlay3D = false; % Wait at t=0; user starts the 600-second playback
 CFG.debug = false;
 CFG.viewerPlaybackSpeed = 10; % simulation seconds per wall-clock second
 CFG.makePlots = true;

@@ -1,5 +1,5 @@
 function R = main_gsl_simulation(CFG)
-% Run: R = main_gsl_simulation; synchronized 3D playback starts automatically.
+% Run: R = main_gsl_simulation; press the Play button to start the 600s viewer.
 if nargin == 0, CFG = configGSL(); end
 assert(exist('satelliteScenario','file') ~= 0,'GSL:MissingToolbox', ...
     'satelliteScenario requires Aerospace Toolbox or Satellite Communications Toolbox.');
@@ -54,7 +54,7 @@ end
 if CFG.openViewer
     R.viewerController = GSLManualViewerController(sc,sats,gs,links,L,CFG);
     R.viewer = R.viewerController.Viewer;
-    if CFG.makePlots, attachGSLPlaybackControls(R); end
+    R.playbackControlFigure=attachGSLPlaybackControls(R);
     if isfield(CFG,'autoPlay3D') && CFG.autoPlay3D
         f=findall(groot,'Type','figure','Name','GSL Session / Handover','Tag','GSLCoreResult');
         if isempty(f), playGSL(R); else, playGSL(R,f(1)); end

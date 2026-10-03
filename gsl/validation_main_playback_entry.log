@@ -25,4 +25,5 @@ Noise bandwidth: N/A Hz; information rate: N/A bit/s
 100 ms interruptions are applied only to actual serving handovers.
 N/A means unresolved PHY; it does not mean zero loss.
 ==================================
-PASS: unchanged main filename loads NEW manual controller and automatically plays.
+PASS: default 600s configuration waits at t=0.
+PASS: actual Play button callback starts synchronized movement and finishes the timeline.
