@@ -29,7 +29,7 @@ https://app.notion.com/p/3db5148e6a86803f8f6ee95d6399f367?v=3db5148e6a868062880c
 
 ### 결과 파일
 
-`isl_6x6_routing/results/` 폴더에 생성됩니다. (용량 때문에 git에는 올리지 않음)
+`isl_6x6_routing/results/` 폴더에 생성. (용량 때문에 git에는 올리지 않음)
 
 | 파일 | 내용 |
 | --- | --- |
