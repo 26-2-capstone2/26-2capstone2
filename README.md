@@ -8,8 +8,8 @@ https://app.notion.com/p/3db5148e6a86803f8f6ee95d6399f367?v=3db5148e6a868062880c
 
 ## ISL-Python 사용법
 
-6x6 Grid ISL에서 출발 위성 (0,0) → 도착 위성 (5,5)로 패킷을 보내고, B 라우팅(Liu et al. 트래픽 부하 판단 단순화)으로 경로를 정하는 Python 시뮬레이션입니다.
-MATLAB 버전(`ISL-MATLAB` 브랜치)과 파일명·변수명이 같고, 결과(CSV)도 동일합니다.
+6x6 Grid ISL에서 출발 위성 (0,0) → 도착 위성 (5,5)로 패킷을 보내고, 라우팅으로 경로를 정하는 Python 시뮬레이션.
+MATLAB 버전(`ISL-MATLAB` 브랜치)과 파일명·변수명이 같고, 결과(CSV)도 동일.
 
 ### 준비
 
@@ -46,8 +46,8 @@ pip install numpy matplotlib pillow
 
 ### 결과 저장 경로
 
-실행이 끝나면 결과와 코드가 날짜별 폴더(`YYYY-MM-DD_HHMM`)에 자동 복사됩니다.
-`main_isl.py` 맨 아래 `saveRoot`를 본인 PC 경로로 바꿔서 사용하세요.
+실행이 끝나면 결과와 코드가 날짜별 폴더(`YYYY-MM-DD_HHMM`)에 자동 복사.
+`main_isl.py` 맨 아래 `saveRoot`를 본인 PC 경로로 바꿔서 사용.
 
 ```python
 saveRoot = r'C:\Users\eun\Desktop\capstone_isl\baseline_py'   # 본인 경로로 변경
