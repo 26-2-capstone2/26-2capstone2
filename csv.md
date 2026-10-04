@@ -1,13 +1,13 @@
 # 시뮬레이션 결과 CSV 설명
 
-시뮬레이션(`main_isl`)을 실행하면 `results/` 폴더에 CSV 3종류가 만들어집니다.
-**요약 → 패킷 단위 → 결정 단위** 순서로 점점 자세해집니다.
-MATLAB(`ISL-MATLAB`)과 Python(`ISL-Python`) 버전 모두 같은 파일이 나오고, 값도 같습니다.
+시뮬레이션(`main_isl`)을 실행하면 `results/` 폴더에 CSV 3종류 생성.
+**요약 → 패킷 단위 → 결정 단위** 순서
+MATLAB(`ISL-MATLAB`)과 Python(`ISL-Python`) 버전 모두 같은 파일이 나오고, 값도 동일.
 
 | 파일 | 1줄 = | 용도 |
 | --- | --- | --- |
-| `metrics_summary.csv` | 실행 1번 | 최종 성능 지표 (보고서·비교용) |
-| `packet_log_*.csv` | 패킷 1개 | 패킷별 생성·종료 시각과 결과 |
+| `metrics_summary.csv` | 실행 1번 | 최종 성능 지표 (보고서/비교용) |
+| `packet_log_*.csv` | 패킷 1개 | 패킷별 생성/종료 시각과 결과 |
 | `decision_log_*.csv` | 라우팅 결정 1번 | 강화학습 학습 데이터 |
 
 ---
@@ -79,7 +79,7 @@ MATLAB(`ISL-MATLAB`)과 Python(`ISL-Python`) 버전 모두 같은 파일이 나�
 
 ## packet_log + decision_log 함께 쓰기 (강화학습 보상 계산)
 
-결정 기록에는 "이 선택이 결국 좋았는지"가 없으므로, 강화학습 단계에서 **`packet_id`로 두 파일을 연결**합니다.
+결정 기록에는 "이 선택이 결국 좋았는지"가 없으므로, 강화학습 단계에서 **`packet_id`로 두 파일을 연결**.
 
 1. `decision_log`에서 **이 상황(상태)에서 이 방향(행동)을 골랐다**를 가져옴
 2. `packet_log`에서 그 패킷이 **결국 기한 안에 도착했는지(`result`), 언제 끝났는지(`end_step`)**를 가져옴
