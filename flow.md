@@ -1,7 +1,6 @@
 # 시뮬레이션 코드 흐름
 
-ISL 6x6 Grid B 라우팅 시뮬레이션이 **어떤 순서로, 어떤 파일을 거쳐** 돌아가는지 정리한 문서입니다.
-MATLAB(`isl_6x6_routing`, `.m`)과 Python(`isl_6x6_routing_py`, `.py`)은 파일명·함수명·변수명·흐름이 모두 같습니다.
+ISL 6x6 Grid B 라우팅 시뮬레이션이 **어떤 순서로, 어떤 파일을 거쳐** 돌아가는지 정리한 문서입.
 
 ---
 
@@ -27,15 +26,15 @@ flowchart TD
 
 | 순서 | 파일 | 하는 일 |
 | --- | --- | --- |
-| ① | `main_isl` | 전체 실행. 아래 파일들을 차례로 부름 |
-| ② | `config_isl` | 모든 설정값을 `P`에 담아 돌려줌 |
-| ③ | `run_isl_sim` | 시뮬레이션 1회 실행 → 결과 `R` |
-| ④ | `compute_metrics` | `R`로 지표 7개 계산 → `M` |
-| ⑤ | `animate_run` | (ε = 0일 때) 0~200 ms 애니메이션 GIF 저장 |
-| ⑥ | `plot_metrics` | 지표 비교 그래프 `metrics_summary.png` |
-| ⑦ | `plot_analysis` | 실행 분석 그래프 `run_analysis.png` |
-| ⑧ | `save_results` | 코드 + 결과를 날짜별 폴더로 복사 |
-| ⑨ | `show_results` | (사용자가 따로 실행) 저장된 결과를 창에 띄움 |
+| 1 | `main_isl` | 전체 실행. 아래 파일들을 차례로 부름 |
+| 2 | `config_isl` | 모든 설정값을 `P`에 담아 돌려줌 |
+| 3 | `run_isl_sim` | 시뮬레이션 1회 실행 → 결과 `R` |
+| 4 | `compute_metrics` | `R`로 지표 7개 계산 → `M` |
+| 5 | `animate_run` | (ε = 0일 때) 0~200 ms 애니메이션 GIF 저장 |
+| 6 | `plot_metrics` | 지표 비교 그래프 `metrics_summary.png` |
+| 7 | `plot_analysis` | 실행 분석 그래프 `run_analysis.png` |
+| 8 | `save_results` | 코드 + 결과를 날짜별 폴더로 복사 |
+| 9 | `show_results` | (사용자가 따로 실행) 저장된 결과를 창에 띄움 |
 
 ---
 
@@ -114,7 +113,7 @@ flowchart TD
 
 ## 5. `route_B`: 다음 방향 고르기
 
-패킷이 위성에 도착할 때마다 호출됩니다. **나중에 강화학습으로 바꿀 때 이 함수만 교체**하면 됩니다.
+패킷이 위성에 도착할 때마다 호출됩니다. **나중에 강화학습으로 바꿀 때 이 함수 교체**
 
 ```mermaid
 flowchart TD
@@ -136,7 +135,7 @@ flowchart TD
 
 ## 6. `compute_metrics`: 지표 계산
 
-`R`의 패킷별 결과로 지표 7개를 계산합니다.
+`R`의 패킷별 결과로 지표 7개를 계산.
 
 | 지표 | 계산 |
 | --- | --- |
