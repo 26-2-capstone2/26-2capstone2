@@ -15,31 +15,20 @@ import numpy as np
 
 from animate_run import animate_run
 from compute_metrics import compute_metrics
+from config_bg import config_bg
 from config_isl import config_isl
+from node_log import NODE_LOG_COLUMNS
 from plot_analysis import plot_analysis
 from plot_metrics import plot_metrics
-from run_isl_sim import run_isl_sim
-from save_results import save_results
+from plot_nodes import node_columns, save_node_plots
+from run_isl_sim import DECISION_LOG_COLUMNS, PACKET_LOG_COLUMNS, packet_log_table, run_isl_sim, writetable
+from save_results import run_dir, save_results
 
-P = config_isl()
+P = config_isl()   # 배경 부하 단계·시드는 config_bg.py의 mainLevel, mainSeed
+print(f'배경 트래픽: {P.bgLevel} (흐름별 {P.bgOnRate[0]}개/step), 배경 시드 {P.bgSeed}')
 baseDir = os.path.dirname(os.path.abspath(__file__))
 outDir = os.path.join(baseDir, 'results')
 os.makedirs(outDir, exist_ok=True)
-
-logColumns = ['step', 'packet_id', 'hop', 'cur_p', 'cur_s',
-              'q_up', 'q_down', 'q_left', 'q_right',
-              'L_up', 'L_down', 'L_left', 'L_right',
-              'N_up', 'N_down', 'N_left', 'N_right',
-              'rem_dp', 'rem_ds', 'rem_deadline', 'ttl',
-              'action', 'choice_type', 'enqueued']
-# action: 1 상, 2 하, 3 좌, 4 우 / choice_type: 1 주, 2 대체, 3 우회, 4 무작위
-pktColumns = ['packet_id', 'gen_step', 'end_step', 'result', 'hops']
-# result: 1 기한 내 도착, 2 목적지 기한 초과, 3 중간 기한 초과, 4 큐 오버플로, 5 TTL 만료
-
-
-def writetable(rows, columns, path, fmt):
-    np.savetxt(path, rows, delimiter=',', header=','.join(columns), comments='', fmt=fmt)
-
 
 results = []
 runs = []   # 실행 분석 그래프용 (실행 결과 전체)
@@ -52,16 +41,24 @@ for epsilon in P.epsilonList:
         runs.append(R)
         tag = f'rate{int(genRate)}pps_eps{epsilon:.1f}'
 
-        writetable(np.column_stack([np.arange(R.numPackets), R.genTime, R.endTime, R.status, R.hops]),
-                   pktColumns, os.path.join(outDir, f'packet_log_{tag}.csv'), '%d')
+        writetable(packet_log_table(R), PACKET_LOG_COLUMNS, os.path.join(outDir, f'packet_log_{tag}.csv'), '%d')
+        if R.nodeLog is not None:
+            writetable(R.nodeLog, NODE_LOG_COLUMNS, os.path.join(outDir, f'node_log_{tag}.csv'), '%d')
+            save_node_plots(node_columns(R.nodeLog, NODE_LOG_COLUMNS), tag,   # 노드 요약 지도 + 손실 많은 노드 시간 변화
+                            os.path.join(outDir, f'node_map_{tag}.png'), os.path.join(outDir, f'node_time_{tag}.png'))
         if epsilon > 0:
-            writetable(R.decisionLog, logColumns, os.path.join(outDir, f'decision_log_{tag}.csv'), '%.15g')
+            writetable(R.decisionLog, DECISION_LOG_COLUMNS, os.path.join(outDir, f'decision_log_{tag}.csv'), '%.15g')
         else:
             animate_run(R, P, os.path.join(outDir, f'anim_{tag}.gif'))
 
         print(f'[{tag}] steps={R.endStep} gen={R.numPackets} onTime={M.onTimeRate:.3f} loss={M.lossRate:.3f} '
               f'lat={M.avgLatency_ms:.1f}ms hops={M.avgHops:.2f} decisions={R.decisionLog.shape[0]} '
               f'({time.time() - tic:.1f}s)')
+        print(f'    주 흐름 손실: 목적지 기한 초과 {M.lateAtDst}, 중간 기한 초과 {M.lateMid}, '
+              f'오버플로 {M.overflow}, TTL 만료 {M.ttlExpired}')
+        if P.bgEnable:
+            print(f'    배경: 생성 {M.bgGenerated}, 도착 {M.bgDelivered}, 오버플로 {M.bgOverflow}, '
+                  f'TTL 만료 {M.bgTtlExpired}, 풀 부족 {M.bgPoolFull}')
 
 # 결과 표 (열 이름 -> 값 목록)
 columns = list(vars(results[0]).keys())
@@ -76,7 +73,11 @@ plot_analysis(runs, P, os.path.join(outDir, 'run_analysis.png'))   # 실행 분�
 for M in results:
     print(vars(M))
 
-# 결과 자동 저장 (코드 .py + 이미지 + CSV) - 실행할 때마다 날짜_시분 폴더를 새로 만듦
-saveRoot = r'C:\Users\eun\Desktop\capstone_isl\baseline_py'   # 저장 경로
-saveDir = os.path.join(saveRoot, datetime.now().strftime('%Y-%m-%d_%H%M'))
+# 결과 자동 저장 (코드 .py + 이미지 + CSV)
+# 저장 위치: baseline_py\라우팅알고리즘명\(baseline / train / evaluation)\라우팅알고리즘_부하단계_시드
+#   예) baseline_py\routeB\baseline\routeB_high_1001  (최상위 경로는 save_results.py의 SAVE_ROOT)
+saveDir = run_dir(P.routeName, P.bgLevel, P.bgSeed, config_bg())
+with open(os.path.join(outDir, 'run_info.txt'), 'w', encoding='utf-8') as f:
+    f.write(f'실행 시각: {datetime.now():%Y-%m-%d %H:%M}\n라우팅: {P.routeName}\n'
+            f'배경 부하: {P.bgLevel} (흐름별 {P.bgOnRate[0]} packets/step)\n배경 시드: {P.bgSeed}\n')
 save_results(baseDir, outDir, saveDir)

@@ -16,7 +16,7 @@ def animate_run(R, P, gifPath):
     C = viz_colors()
     use_korean_font(C)
     G = R.grid
-    animSteps = R.animQueue.shape[1]
+    animSteps = R.animQueue.shape[1] #animQueue: step별 링크 큐 길이
 
     fig = plt.figure(figsize=(12, 6.2), facecolor='w')
 
@@ -53,7 +53,7 @@ def animate_run(R, P, gifPath):
         ax.text(-0.55, -s, f's={s}', ha='center', va='center', fontsize=8, color='#666666')
     hF = ax.scatter([], [], 10, color='#1a1a73', zorder=5)
     cb = fig.colorbar(ScalarMappable(norm=Normalize(0, 1), cmap=cmap), ax=ax, shrink=0.8)
-    cb.set_label('링크 큐 점유율 (큐 길이 / 100)')
+    cb.set_label(f'링크 큐 점유율 (큐 길이 / {P.queueMax})')
     hT = ax.set_title('', fontsize=12)
 
     # ---- 누적 패킷 수 ----

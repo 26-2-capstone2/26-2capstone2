@@ -57,4 +57,7 @@ def compute_metrics(R, P):
 
     # Average Hop Count: 도착 패킷의 홉 수 평균
     M.avgHops = float(np.mean(R.hops[reachedDst]))
+
+    # 배경 트래픽 개수 (위 지표는 모두 주 흐름만으로 계산)
+    M.bgGenerated, M.bgDelivered, M.bgOverflow, M.bgTtlExpired, M.bgPoolFull = (int(v) for v in R.bgCount)
     return M

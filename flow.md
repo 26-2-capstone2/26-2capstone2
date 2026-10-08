@@ -30,7 +30,7 @@ flowchart TD
 | 2 | `config_isl` | 모든 설정값을 `P`에 담아 돌려줌 |
 | 3 | `run_isl_sim` | 시뮬레이션 1회 실행 → 결과 `R` |
 | 4 | `compute_metrics` | `R`로 지표 7개 계산 → `M` |
-| 5 | `animate_run` | (ε = 0일 때) 0~200 ms 애니메이션 GIF 저장 |
+| 5 | `animate_run` | (ε = 0일 때) 0~3초 애니메이션 GIF 저장 |
 | 6 | `plot_metrics` | 지표 비교 그래프 `metrics_summary.png` |
 | 7 | `plot_analysis` | 실행 분석 그래프 `run_analysis.png` |
 | 8 | `save_results` | 코드 + 결과를 날짜별 폴더로 복사 |
@@ -81,18 +81,18 @@ main_isl
 ```mermaid
 flowchart TD
     S1["1. 도착 처리<br/>이번 step에 도착한 패킷: 홉 +1, TTL −1"] --> S2
-    S2{"2. 목적지인가?"} -- "예" --> S2a{"생성 후 ≤ 100 step?"}
+    S2{"2. 목적지인가?"} -- "예" --> S2a{"생성 후 ≤ 90 step?"}
     S2a -- "예" --> OK["기한 내 도착 (result 1)"]
     S2a -- "아니오" --> L2["목적지 기한 초과 (result 2)"]
     S2 -- "아니오" --> S3{"3. 중간 위성 확인"}
-    S3 -- "100 step 초과" --> L3["중간 기한 초과 (result 3)"]
+    S3 -- "90 step 초과" --> L3["중간 기한 초과 (result 3)"]
     S3 -- "TTL = 0" --> L5["TTL 만료 (result 5)"]
     S3 -- "통과" --> S5
     S4["4. 패킷 생성<br/>출발 위성 (0,0)에서 1초당 60개 일정 간격"] --> S5
-    S5["5. 라우팅 결정<br/>route_B로 방향 선택 → 결정 기록 1줄"] --> Q{"그 링크 큐가<br/>100개로 꽉 찼나?"}
+    S5["5. 라우팅 결정<br/>route_B로 방향 선택 → 결정 기록 1줄"] --> Q{"그 링크 큐가<br/>200개로 꽉 찼나?"}
     Q -- "예" --> L4["큐 오버플로 (result 4)"]
     Q -- "아니오" --> S6["큐 맨 뒤에 넣기"]
-    S6 --> S7["6. 전송<br/>링크마다 큐 앞에서 최대 10개 꺼내 보냄<br/>도착 예정 = 지금 + 링크 지연"]
+    S6 --> S7["6. 전송<br/>링크마다 큐 앞에서 최대 5개 꺼내 보냄<br/>도착 예정 = 지금 + 링크 지연"]
     S7 --> NEXT["다음 step"]
 ```
 
@@ -103,9 +103,9 @@ flowchart TD
 | 3. 중간 위성 확인 | 기한 초과 → TTL 만료 순으로 확인, 해당되면 종료 | `status` = 3 or 5 |
 | 4. 패킷 생성 | 출발 위성에서 새 패킷 생성 (t = 1, 18, 35 ... ms) | `genTime`, `packet_id` |
 | 5. 라우팅 결정 | 1·4번 패킷마다 `route_B` 호출 → 큐에 넣기, 결정 기록 저장 | `queueLen`, `decisionLog` |
-| 6. 전송 | 링크마다 최대 `linkCapacity`(10)개 전송 | `queueBuf`, `arrivalSlot` |
+| 6. 전송 | 링크마다 최대 `linkCapacity`(5)개 전송 | `queueBuf`, `arrivalSlot` |
 
-- **ε 무작위 선택**: 5단계에서 확률 ε로 `route_B` 대신 갈 수 있는 방향 중 하나를 무작위로 고름 (`choiceType` = 4)
+- **ε 무작위 선택**: 5단계에서 확률 ε로 `route_B`가 고른 방향을 뺀 나머지 갈 수 있는 방향 중 하나를 무작위로 고름 (`choiceType` = 4)
 - **종료 조건**: 생성 기간(`simTime` = 10분)이 끝나고 진행 중인 패킷이 하나도 없으면 종료
 - **링크별 큐**: 링크마다 원형 버퍼(`queueBuf`, `queueHead`, `queueLen`) → 먼저 들어온 패킷이 먼저 나감(FIFO)
 
@@ -117,7 +117,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["갈 수 있는 방향마다<br/>V = 링크 큐 길이<br/>N = 다음 위성 큐 평균<br/>L = (k·V + (1−k)·N) / 100"] --> B["주 경로 = 목적지 쪽 좌/우<br/>대체 경로 = 목적지 쪽 상/하"]
+    A["갈 수 있는 방향마다<br/>V = 링크 큐 길이<br/>N = 다음 위성 큐 평균<br/>L = (k·V + (1−k)·N) / 200"] --> B["주 경로 = 목적지 쪽 좌/우<br/>대체 경로 = 목적지 쪽 상/하"]
     B --> C{"주 경로 상태"}
     C -- "Idle (L < X)" --> P1["주 경로"]
     C -- "Relatively Busy" --> D{"대체 경로 Idle?"}

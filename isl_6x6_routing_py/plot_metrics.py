@@ -48,6 +48,9 @@ def plot_metrics(T, P, pngPath):
         f'생성 패킷: {int(T["generated"][0])}개 / 실행',
         f'B 라우팅: k = {P.k:.1f}, X = {P.X:.1f}, Y = {P.Y:.1f}',
         f'기한 {P.deadline} ms,  TTL {P.ttlInit}',
+        f'링크 용량 {P.linkCapacity}개/step,  큐 {P.queueMax}개',
+        f'배경 트래픽: {P.bgLevel} ({P.bgOnRate[0]}개/step x 흐름 {len(P.bgFlows)}개), 시드 {P.bgSeed}' if P.bgEnable
+        else '배경 트래픽: 없음',
     ])
     ax.text(0, 1, info, va='top', fontsize=11, color=C.text, linespacing=1.6)
 

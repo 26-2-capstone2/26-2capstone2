@@ -2,7 +2,7 @@
 
 시뮬레이션(`main_isl`)을 실행하면 `results/` 폴더에 CSV 3종류가 생성됨.
 **요약 → 패킷 단위 → 결정 단위** 순서
-MATLAB(`ISL-MATLAB`)과 Python(`ISL-Python`) 버전 모두 같은 파일이 나오고, 값도 동일.
+Python(`ISL-Python`) 기준. 배경 트래픽·노드 기록(`node_log`)은 Python 버전에만 있음.
 
 | 파일 | 1줄 = | 용도 |
 | --- | --- | --- |
@@ -67,7 +67,7 @@ MATLAB(`ISL-MATLAB`)과 Python(`ISL-Python`) 버전 모두 같은 파일이 나�
 | 상태 | `L_up`, `L_down`, `L_left`, `L_right` | 상/하/좌/우 링크 점유율 L |
 | 상태 | `N_up`, `N_down`, `N_left`, `N_right` | 상/하/좌/우 이웃 위성 부하 N |
 | 상태 | `rem_dp`, `rem_ds` | 목적지까지 남은 거리 (도착 p − 현재 p, 도착 s − 현재 s) |
-| 상태 | `rem_deadline` | 남은 기한 = 100 − (현재 step − 생성 step) |
+| 상태 | `rem_deadline` | 남은 기한 = 90 − (현재 step − 생성 step) |
 | 상태 | `ttl` | 남은 TTL |
 | 행동 | `action` | 고른 방향 (1 상, 2 하, 3 좌, 4 우) |
 | 행동 | `choice_type` | 1 주 경로, 2 대체 경로, 3 우회, 4 무작위 |
