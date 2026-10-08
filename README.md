@@ -65,11 +65,11 @@ pip install numpy matplotlib pillow
    python run_experiments.py
    ```
 
-학습용과 평가용 시드를 나눈 이유: 강화학습이 처음 보는 혼잡 패턴에서도 잘해야 "외워서 잘한 게 아니다"라고 말할 수 있음.
+강화학습이 처음 보는 혼잡 패턴에서도 잘해야 하기 때문에 학습용과 평가용 시드 따로 나눠야 함.
 
 ### 결과 파일
 
-`isl_6x6_routing_py/results/` 폴더에 생성됩니다. (용량 때문에 git에는 올리지 않음)
+`isl_6x6_routing_py/results/` 폴더에 생성 (용량 때문에 git에는 올리지 않음)
 
 | 파일 | 내용 |
 | --- | --- |
