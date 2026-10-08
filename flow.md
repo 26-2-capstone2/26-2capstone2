@@ -1,6 +1,7 @@
 # 시뮬레이션 코드 흐름
 
-ISL 6x6 Grid B 라우팅 시뮬레이션이 **어떤 순서로, 어떤 파일을 거쳐** 돌아가는지 정리한 문서입.
+ISL 6x6 Grid 라우팅 시뮬레이션이 **어떤 순서로, 어떤 파일을 거쳐** 돌아가는지 정리한 문서.
+라우팅은 route_A (최단 경로) / route_B (부하 고려) 중 하나를 골라 씀.
 
 ---
 
@@ -8,11 +9,12 @@ ISL 6x6 Grid B 라우팅 시뮬레이션이 **어떤 순서로, 어떤 파일을
 
 ```mermaid
 flowchart TD
-    A["main_isl<br/>(실행 시작)"] --> B["config_isl<br/>설정값 P 불러오기"]
+    A["main_isl<br/>(실행 시작)"] --> B["config_isl + config_bg<br/>설정값 P (라우팅, 배경 부하·시드)"]
     B --> C{"ε = 0, 0.1<br/>두 번 반복"}
     C --> D["run_isl_sim<br/>시뮬레이션 1회 (10분)"]
     D --> E["compute_metrics<br/>지표 7개 계산"]
-    E --> F{"ε 값?"}
+    E --> N["node_log CSV<br/>+ plot_nodes (노드 그림 PNG)"]
+    N --> F{"ε 값?"}
     F -- "ε = 0 (성능 측정용)" --> G["packet_log CSV<br/>+ animate_run (GIF)"]
     F -- "ε = 0.1 (데이터 수집용)" --> H["packet_log CSV<br/>+ decision_log CSV"]
     G --> C
@@ -20,21 +22,24 @@ flowchart TD
     C -- "반복 끝" --> I["metrics_summary.csv"]
     I --> J["plot_metrics<br/>지표 비교 PNG"]
     J --> K["plot_analysis<br/>실행 분석 PNG"]
-    K --> L["save_results<br/>날짜별 폴더로 복사"]
-    L --> M["show_results<br/>(따로 실행) 결과 창 띄우기"]
+    K --> L["save_results<br/>routeB/baseline/routeB_high_1001 등으로 복사"]
+    L --> M["show_results / show_node<br/>(따로 실행) 결과 창 띄우기"]
 ```
 
 | 순서 | 파일 | 하는 일 |
 | --- | --- | --- |
-| 1 | `main_isl` | 전체 실행. 아래 파일들을 차례로 부름 |
-| 2 | `config_isl` | 모든 설정값을 `P`에 담아 돌려줌 |
+| 1 | `main_isl` | 단일 실험 실행. 아래 파일들을 차례로 부름 |
+| 2 | `config_isl` | 설정값을 `P`에 담아 돌려줌. 배경 설정은 `config_bg`에서 가져옴 |
 | 3 | `run_isl_sim` | 시뮬레이션 1회 실행 → 결과 `R` |
 | 4 | `compute_metrics` | `R`로 지표 7개 계산 → `M` |
-| 5 | `animate_run` | (ε = 0일 때) 0~3초 애니메이션 GIF 저장 |
-| 6 | `plot_metrics` | 지표 비교 그래프 `metrics_summary.png` |
-| 7 | `plot_analysis` | 실행 분석 그래프 `run_analysis.png` |
-| 8 | `save_results` | 코드 + 결과를 날짜별 폴더로 복사 |
-| 9 | `show_results` | (사용자가 따로 실행) 저장된 결과를 창에 띄움 |
+| 5 | `plot_nodes` | `node_log`로 노드 요약 지도, 손실 많은 노드 시간 변화 PNG |
+| 6 | `animate_run` | (ε = 0일 때) 처음 3초 애니메이션 GIF 저장 |
+| 7 | `plot_metrics` | 지표 비교 그래프 `metrics_summary.png` |
+| 8 | `plot_analysis` | 실행 분석 그래프 `run_analysis.png` |
+| 9 | `save_results` | 코드 + 결과를 `라우팅\시드종류\라우팅_단계_시드` 폴더로 복사 |
+| 10 | `show_results`, `show_node` | (사용자가 따로 실행) 저장된 결과를 창에 띄움 |
+
+여러 시드 실험은 `run_experiments`가 따로 담당 (8장).
 
 ---
 
@@ -43,24 +48,28 @@ flowchart TD
 ```
 main_isl
 ├─ config_isl            → P (설정값)
+│   └─ config_bg, apply_bg   → 배경 흐름, 부하 단계, 시드를 P에 넣음
 ├─ run_isl_sim(P, ...)   → R (실행 결과)
 │   ├─ build_grid(P)     → G (6x6 Grid, 링크 구조)
-│   └─ route_B(...)      → 다음 방향 (패킷이 위성에 올 때마다 호출)
+│   ├─ route_A / route_B → 다음 방향 (P.routeName으로 선택, 패킷이 위성에 올 때마다 호출)
+│   └─ NodeLog           → 노드 기준 기록 (node_log.py)
 ├─ compute_metrics(R, P) → M (지표)
+├─ save_node_plots(...)  → node_map, node_time PNG (plot_nodes.py)
 ├─ animate_run(R, P, ...)          ─┐
 ├─ plot_metrics(T, P, ...)          ├─ viz_colors (그래프 색)
 ├─ plot_analysis(runs, P, ...)     ─┘
-└─ save_results(...)
+└─ save_results(...)     → run_dir (저장 폴더 이름 규칙)
 ```
 
 주요 데이터 묶음
 
 | 이름 | 만드는 곳 | 내용 |
 | --- | --- | --- |
-| `P` | `config_isl` | 설정값 (Grid 크기, 큐 용량, 지연, 생성률, k·X·Y, 총 시간 ...) |
+| `P` | `config_isl` | 설정값 (Grid, 큐 200, 링크 용량 5, 지연, 기한 90, 생성률, 라우팅 이름, k·X·Y, 배경 `P.bg*` ...) |
+| `B` | `config_bg` | 배경 트래픽 설정 (흐름, 부하 단계, 시드 목록, 실험 on/off) |
 | `G` | `build_grid` | Grid 구조 (링크 번호, 링크별 다음 위성·지연, 위성별 갈 수 있는 방향) |
-| `R` | `run_isl_sim` | 실행 결과 (패킷별 생성·종료 시각, 상태, 홉 수, 결정 기록, 시간별 누적 수) |
-| `M` | `compute_metrics` | 지표 7개 + 손실 원인별 개수 |
+| `R` | `run_isl_sim` | 실행 결과 (패킷별 생성·종료 시각, 상태, 홉 수, 결정 기록, 노드 기록, 배경 개수 ...) |
+| `M` | `compute_metrics` | 지표 7개 + 손실 원인별 개수 + 배경 개수 |
 | `T` | `main_isl` | 실행별 `M`을 모은 표 → `metrics_summary.csv` |
 
 ---
@@ -76,11 +85,11 @@ main_isl
 
 ## 4. `run_isl_sim`: 시뮬레이션 1회 (핵심)
 
-1 step = 1 ms. 매 step마다 아래 6단계를 반복합니다.
+1 step = 1 ms. 매 step마다 아래 단계를 반복.
 
 ```mermaid
 flowchart TD
-    S1["1. 도착 처리<br/>이번 step에 도착한 패킷: 홉 +1, TTL −1"] --> S2
+    S1["1. 도착 처리<br/>이번 step에 도착한 패킷: 홉 +1, TTL −1<br/>(배경 패킷은 목적지 도착 / TTL 만료만 확인)"] --> S2
     S2{"2. 목적지인가?"} -- "예" --> S2a{"생성 후 ≤ 90 step?"}
     S2a -- "예" --> OK["기한 내 도착 (result 1)"]
     S2a -- "아니오" --> L2["목적지 기한 초과 (result 2)"]
@@ -88,12 +97,14 @@ flowchart TD
     S3 -- "90 step 초과" --> L3["중간 기한 초과 (result 3)"]
     S3 -- "TTL = 0" --> L5["TTL 만료 (result 5)"]
     S3 -- "통과" --> S5
-    S4["4. 패킷 생성<br/>출발 위성 (0,0)에서 1초당 60개 일정 간격"] --> S5
-    S5["5. 라우팅 결정<br/>route_B로 방향 선택 → 결정 기록 1줄"] --> Q{"그 링크 큐가<br/>200개로 꽉 찼나?"}
+    S4["4. 패킷 생성<br/>출발 위성 (0,0)에서 1초당 60개 일정 간격"] --> S41
+    S41["4-1. 배경 패킷 생성 + 고정 경로로 큐에 넣기<br/>(ON인 흐름만, 큐가 꽉 차면 배경 오버플로)"] --> S5
+    S5["5. 라우팅 결정<br/>route_A / route_B로 방향 선택 → 결정 기록 1줄"] --> Q{"그 링크 큐가<br/>200개로 꽉 찼나?"}
     Q -- "예" --> L4["큐 오버플로 (result 4)"]
     Q -- "아니오" --> S6["큐 맨 뒤에 넣기"]
     S6 --> S7["6. 전송<br/>링크마다 큐 앞에서 최대 5개 꺼내 보냄<br/>도착 예정 = 지금 + 링크 지연"]
-    S7 --> NEXT["다음 step"]
+    S7 --> S8["7. 노드 기록<br/>100 step마다 노드 36개 상태 1줄씩"]
+    S8 --> NEXT["다음 step"]
 ```
 
 | 단계 | 내용 | 관련 변수 |
@@ -102,18 +113,46 @@ flowchart TD
 | 2. 목적지 확인 | 목적지면 기한 안/밖 판정 후 종료 | `status` = 1 or 2, `endTime` |
 | 3. 중간 위성 확인 | 기한 초과 → TTL 만료 순으로 확인, 해당되면 종료 | `status` = 3 or 5 |
 | 4. 패킷 생성 | 출발 위성에서 새 패킷 생성 (t = 1, 18, 35 ... ms) | `genTime`, `packet_id` |
-| 5. 라우팅 결정 | 1·4번 패킷마다 `route_B` 호출 → 큐에 넣기, 결정 기록 저장 | `queueLen`, `decisionLog` |
-| 6. 전송 | 링크마다 최대 `linkCapacity`(5)개 전송 | `queueBuf`, `arrivalSlot` |
+| 4-1. 배경 패킷 | 흐름별 ON/OFF 갱신, ON이면 생성 후 고정 경로 링크 큐에 넣음 | `bgOn`, `bgCount`, `bg_enqueue` |
+| 5. 라우팅 결정 | 1·4번 주 흐름 패킷마다 라우팅 호출 → 큐에 넣기, 결정 기록 저장 | `queueLen`, `decisionLog` |
+| 6. 전송 | 링크마다 최대 `linkCapacity`(5)개 전송 (주 흐름·배경 같은 큐, 먼저 온 순서) | `queueBuf`, `arrivalSlot` |
+| 7. 노드 기록 | `nodeLogInterval`(100) step마다 노드별 큐, 보낸 수, 손실 기록 | `nodeLog` |
 
-- **ε 무작위 선택**: 5단계에서 확률 ε로 `route_B`가 고른 방향을 뺀 나머지 갈 수 있는 방향 중 하나를 무작위로 고름 (`choiceType` = 4)
-- **종료 조건**: 생성 기간(`simTime` = 10분)이 끝나고 진행 중인 패킷이 하나도 없으면 종료
+- **배경을 주 흐름보다 먼저 큐에 넣음**: 주 흐름 라우팅이 이번 step의 부하까지 보고 판단하게
+- **ε 무작위 선택**: 5단계에서 확률 ε로, 라우팅이 고른 방향을 뺀 나머지 갈 수 있는 방향 중 하나를 무작위로 고름 (`choiceType` = 4)
+- **종료 조건**: 생성 기간(`simTime` = 10분)이 끝나고 진행 중인 주 흐름 패킷이 하나도 없으면 종료
 - **링크별 큐**: 링크마다 원형 버퍼(`queueBuf`, `queueHead`, `queueLen`) → 먼저 들어온 패킷이 먼저 나감(FIFO)
 
 ---
 
-## 5. `route_B`: 다음 방향 고르기
+## 5. 배경 트래픽 (`config_bg`)
 
-패킷이 위성에 도착할 때마다 호출됩니다. **나중에 강화학습으로 바꿀 때 이 함수 교체**
+주 흐름이 아닌, 일부러 혼잡을 만드는 패킷. 라우팅(A/B/강화학습)이 제어하지 않는 고정 경로로 보내고, 지표 계산에서는 제외.
+
+| 항목 | 값 |
+| --- | --- |
+| 흐름 4개 (출발 → 도착) | (0,0)→(5,0), (2,0)→(5,0), (5,0)→(5,5), (5,2)→(5,5) — 주 흐름 기본 경로(ㄱ자)와 겹침 |
+| ON / OFF | 평균 500 / 500 step (지수분포), 시드로 패턴이 정해짐 |
+| 고정 경로 | 목적지 쪽 좌/우 먼저, 같은 열이면 상/하 (부하를 보지 않음) |
+| 부하 단계 (ON일 때 흐름별 packets/step) | 없음 0 / 낮음 3.5 / 중간 4.5 / 높음 5.5 / 매우 높음 6.5 |
+| 시드 | 단일 실험 1001, 학습용 1~10, 평가용 101~110 (배경 패턴 + ε 무작위 선택에 같이 사용) |
+
+링크 용량이 5라서, 두 흐름이 합쳐지는 링크((2,0)→(3,0), (5,2)→(5,3))에서 넘침. 5 이상이면 흐름 하나로도 넘침.
+
+---
+
+## 6. 라우팅: 다음 방향 고르기
+
+패킷이 위성에 도착할 때마다 호출. 입력/출력이 같아서 `config_isl.py`의 `P.routeName`만 바꾸면 교체됨 (나중에 강화학습 route_C도 같은 자리).
+
+### `route_A`: 최단 경로 (기준선)
+
+- 링크 지연을 가중치로 목적지까지 최소 지연 합을 미리 계산 (Dijkstra, `G.distToDst`)
+- 매번 "다음 위성까지 지연 + 거기서 목적지까지 최소 지연"이 가장 작은 방향을 고름. **큐(부하)는 보지 않음**
+- 최단 경로가 여러 개면 우 > 좌 > 하 > 상 (좌/우 먼저) → 항상 ㄱ자 경로
+- `choiceType`은 항상 1, L·N은 기록용
+
+### `route_B`: 부하 고려 (Liu et al. 단순화)
 
 ```mermaid
 flowchart TD
@@ -130,12 +169,13 @@ flowchart TD
 
 - 현재 설정: k = 0.5, X = 0.5, Y = 0.8 (설계 추천값, 논문 값 아님)
 - 출력: `nextDir`(1 상, 2 하, 3 좌, 4 우), `choiceType`(1 주, 2 대체, 3 우회), 4방향 `L`, `N`
+- 혼잡이 없으면 A와 같은 ㄱ자 경로, 위쪽 줄이 혼잡하면 한 칸 아래 줄로 피해 감
 
 ---
 
-## 6. `compute_metrics`: 지표 계산
+## 7. `compute_metrics`: 지표 계산
 
-`R`의 패킷별 결과로 지표 7개를 계산.
+`R`의 주 흐름 패킷별 결과로 지표 7개를 계산.
 
 | 지표 | 계산 |
 | --- | --- |
@@ -149,26 +189,52 @@ flowchart TD
 
 ---
 
-## 7. 결과 저장과 확인
+## 8. `run_experiments`: 여러 시드 실험
+
+시드 하나의 결과는 "배경이 우연히 그렇게 켜졌을 때"의 한 경우라서, 부하 단계마다 시드 여러 개로 돌려 평균 ± 표준편차로 정리. 설정과 on/off는 `config_bg.py`.
+
+```mermaid
+flowchart TD
+    A["run_experiments<br/>(실행 시작)"] --> B["config_bg<br/>runLevels, runEval, runTrain, numSeeds"]
+    B --> C["실행 목록 만들기<br/>켠 부하 단계 x 시드"]
+    C --> D["one_run x 여러 개 동시 실행<br/>(numWorkers개)"]
+    D --> E["실행마다 저장<br/>routeB/evaluation/routeB_mid_102 등"]
+    E --> F["eval_runs.csv, eval_stats.csv<br/>eval_summary.png, conditions.txt"]
+    F --> G["save_results<br/>routeB/evaluation/routeB_summary_low-mid-high"]
+```
+
+| 모드 | ε | 시드 | 저장 |
+| --- | --- | --- | --- |
+| 평가 (`runEval`) | 0 | 평가용 101~110 | 지표, packet_log (+ 단계별 평균 ± 편차) |
+| 학습 데이터 (`runTrain`) | 0.1 | 학습용 1~10 | 지표, packet_log, decision_log (강화학습용) |
+
+---
+
+## 9. 결과 저장과 확인
 
 | 단계 | 파일 | 결과물 |
 | --- | --- | --- |
-| 실행마다 | `main_isl` | `packet_log_*.csv`, `decision_log_*.csv` (ε = 0.1), `anim_*.gif` (ε = 0) |
-| 반복 끝 | `main_isl` | `metrics_summary.csv` |
+| 실행마다 | `main_isl` | `packet_log_*.csv`, `node_log_*.csv`, `node_map_*.png`, `node_time_*.png`, `decision_log_*.csv` (ε = 0.1), `anim_*.gif` (ε = 0) |
+| 반복 끝 | `main_isl` | `metrics_summary.csv`, `run_info.txt` |
 | 반복 끝 | `plot_metrics` | `metrics_summary.png` |
 | 반복 끝 | `plot_analysis` | `run_analysis.png` |
-| 마지막 | `save_results` | `saveRoot\날짜_시분\code\`, `results\` 로 복사 |
-| 따로 실행 | `show_results` | 표 + 그래프 + 애니메이션 창 |
+| 마지막 | `save_results` | `SAVE_ROOT\라우팅\(baseline / train / evaluation)\라우팅_단계_시드\code\`, `results\` 로 복사 |
+| 따로 실행 | `show_results` | 표 + 그래프 + 노드 그림 + 애니메이션 창 |
+| 따로 실행 | `show_node p s` | 노드 1개 시간 변화 + 노드 요약 지도 |
 
+저장 폴더 시드 종류: 학습용 시드 → `train`, 평가용 시드 → `evaluation`, 그 외(1001 등) → `baseline`.
 CSV 각 열의 의미는 [`csv.md`](csv.md) 참고.
 
 ---
 
-## 8. 값을 바꾸고 싶을 때
+## 10. 값을 바꾸고 싶을 때
 
 | 바꾸고 싶은 것 | 수정할 곳 |
 | --- | --- |
-| 생성률, 패킷 크기, 총 시간, k·X·Y, 큐 용량 등 | `config_isl` |
-| 라우팅 방식 (예: 강화학습으로 교체) | `route_B` |
-| 결과 저장 경로 | `main_isl` 맨 아래 `saveRoot` |
+| 생성률, 패킷 크기, 총 시간, 기한, 큐 용량, 링크 용량, k·X·Y | `config_isl` |
+| 라우팅 방식 (A / B, 나중에 강화학습) | `config_isl`의 `P.routeName` |
+| 배경 흐름, 부하 단계 값, 단일 실험 단계·시드 | `config_bg` (`B.levels`, `B.mainLevel`, `B.mainSeed`) |
+| 여러 시드 실험 (단계, 평가/학습, 시드 수, 동시 실행 수) | `config_bg` 아래쪽 on/off |
+| 노드 기록 간격, 애니메이션 길이 | `config_isl` (`P.nodeLogInterval`, `P.animDuration`) |
+| 결과 저장 경로 | `save_results` 맨 위 `SAVE_ROOT` |
 | 그래프 색 | `viz_colors` |
