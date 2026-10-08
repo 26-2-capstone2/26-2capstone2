@@ -5,6 +5,7 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.cm import ScalarMappable
 
+from run_isl_sim import ROUTE_LABELS
 from viz_colors import use_korean_font, viz_colors
 
 
@@ -14,7 +15,7 @@ def plot_analysis(Rs, P, pngPath):
     use_korean_font(C)
     lineStyles = ['-', '--', ':', '-.']   # 선이 겹쳐도 구분되도록 실행마다 선 모양도 다르게
     nRun = len(Rs)
-    labels = [f'B (ε = {R.epsilon:.1f})' for R in Rs]
+    labels = [f'{ROUTE_LABELS[R.routeName][0]} (ε = {R.epsilon:.1f})' for R in Rs]
 
     fig, axs = plt.subplots(2, 4, figsize=(17, 8.2), constrained_layout=True)
     axs = axs.ravel()

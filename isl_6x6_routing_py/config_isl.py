@@ -28,7 +28,8 @@ def config_isl():
     P.packetSize = 160                     # 패킷 크기 (Byte)
 
     # ---- 라우팅 알고리즘 ----
-    P.routeName = 'routeB'                 # 결과 저장 폴더 이름 (routeA / routeB / routeC)
+    P.routeName = 'routeB'                 # 'routeA': 최단 경로 (부하 무시), 'routeB': 부하 고려 (Liu 단순화)
+                                           # 결과 저장 폴더 이름으로도 쓰임 (routeA / routeB / routeC)
 
     # ---- B 라우팅 (링크 부하 반영, Liu et al. 단순화) ----
     P.X = 0.5                              # Idle / Relatively Busy 경계
@@ -37,7 +38,7 @@ def config_isl():
 
     # ---- 실험 ----
     P.genRate = 60                         # 1초마다 생성하는 패킷 수 (일정 간격)
-    P.epsilonList = [0, 0.1]               # 무작위 선택 확률 (0: 성능 측정용, 0.1: 데이터 수집용), 무작위면 route_B와 다른 방향
+    P.epsilonList = [0, 0.1]               # 무작위 선택 확률 (0: 성능 측정용, 0.1: 데이터 수집용), 무작위면 라우팅이 고른 것과 다른 방향
     P.simTime = 600000                     # 총 시뮬레이션(패킷 생성) 시간 (step = 10분)
     P.maxDrainTime = 500                   # 생성 종료 후 남은 패킷 처리 최대 step [설정]
     P.randomSeed = 1                       # ε 무작위 선택 시드 (config_bg.py apply_bg가 배경 시드와 같게 덮어씀)

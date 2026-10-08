@@ -6,6 +6,7 @@ from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.cm import ScalarMappable
 from PIL import Image
 
+from run_isl_sim import ROUTE_LABELS
 from viz_colors import use_korean_font, viz_colors
 
 
@@ -100,7 +101,7 @@ def animate_run(R, P, gifPath):
         hR.set_data(tt, qR[:t])
         hDn.set_data(tt, qD[:t])
 
-        hT.set_text(f'B 라우팅 | 생성률 {R.genRate} packets/s, ε = {R.epsilon:.1f} | t = {t} ms')
+        hT.set_text(f'{ROUTE_LABELS[R.routeName]} | 생성률 {R.genRate} packets/s, ε = {R.epsilon:.1f} | t = {t} ms')
         fig.canvas.draw()
         img = np.asarray(fig.canvas.buffer_rgba())[:, :, :3]
         frames.append(Image.fromarray(img).quantize(colors=128))

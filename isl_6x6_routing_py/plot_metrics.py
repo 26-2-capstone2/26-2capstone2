@@ -3,6 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from run_isl_sim import ROUTE_LABELS
 from viz_colors import use_korean_font, viz_colors
 
 
@@ -46,7 +47,8 @@ def plot_metrics(T, P, pngPath):
         f'1초마다 생성: {P.genRate}개,  패킷 {P.packetSize} Byte',
         f'총 시간: {P.simTime * P.stepTime:.0f}초 ({P.simTime} step)',
         f'생성 패킷: {int(T["generated"][0])}개 / 실행',
-        f'B 라우팅: k = {P.k:.1f}, X = {P.X:.1f}, Y = {P.Y:.1f}',
+        f'라우팅: {ROUTE_LABELS[P.routeName]}' + (f' (k = {P.k:.1f}, X = {P.X:.1f}, Y = {P.Y:.1f})'
+                                                  if P.routeName == 'routeB' else ''),
         f'기한 {P.deadline} ms,  TTL {P.ttlInit}',
         f'링크 용량 {P.linkCapacity}개/step,  큐 {P.queueMax}개',
         f'배경 트래픽: {P.bgLevel} ({P.bgOnRate[0]}개/step x 흐름 {len(P.bgFlows)}개), 시드 {P.bgSeed}' if P.bgEnable
@@ -60,7 +62,7 @@ def plot_metrics(T, P, pngPath):
 
 
 def run_labels(T):
-    return [f'B (ε = {e:.1f})' for e in T['epsilon']]
+    return [f'{ROUTE_LABELS[r][0]} (ε = {e:.1f})' for r, e in zip(T['routeName'], T['epsilon'])]
 
 
 def style_axes(ax, C):

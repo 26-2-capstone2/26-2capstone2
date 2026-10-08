@@ -4,7 +4,6 @@ import math
 
 import numpy as np
 
-
 def route_B(curP, curS, queueLen, G, P):
     # B: 트래픽 부하 고려 라우팅 (Liu et al. 단순화)
     # 입력: 현재 위성 (curP,curS), 링크별 큐 길이 queueLen, 그리드 G, 설정 P

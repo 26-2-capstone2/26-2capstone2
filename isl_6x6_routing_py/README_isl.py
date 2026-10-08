@@ -97,7 +97,9 @@
 #   variables_isl.py   변수 정리
 # 자동으로 불리는 파일 (직접 실행 X)
 #   run_isl_sim.py     시뮬레이션 1회 실행
-#   route_B.py         B 라우팅 결정 (나중에 강화학습으로 교체할 부분)
+#   route_A.py         A 라우팅 결정 (최단 경로, 부하 무시 - 기준선)
+#   route_B.py         B 라우팅 결정 (부하 고려, Liu 단순화)
+#   * 어떤 라우팅을 쓸지는 config_isl.py의 P.routeName ('routeA' / 'routeB')
 #   build_grid.py      6x6 Grid 생성
 #   compute_metrics.py 성능 지표 계산
 #   node_log.py        노드 기준 기록 (node_log CSV)

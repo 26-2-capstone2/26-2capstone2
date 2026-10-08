@@ -8,7 +8,12 @@ import numpy as np
 
 from build_grid import build_grid
 from node_log import NodeLog
+from route_A import route_A
 from route_B import route_B
+
+# 라우팅 알고리즘 (config_isl.py P.routeName으로 고름, 입력/출력이 같아서 바꿔 끼우기만 하면 됨)
+ROUTES = {'routeA': route_A, 'routeB': route_B}
+ROUTE_LABELS = {'routeA': 'A 최단 경로', 'routeB': 'B 부하 고려', 'routeC': 'C 강화학습'}
 
 # CSV 열 이름 (main_isl, run_experiments에서 사용)
 DECISION_LOG_COLUMNS = ['step', 'packet_id', 'hop', 'cur_p', 'cur_s',
@@ -42,6 +47,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
 
     rng = np.random.RandomState(randomSeed)   # MATLAB rng(seed, 'twister')와 같은 난수열
     G = build_grid(P)
+    route = ROUTES[P.routeName]
     numLinks = G.numLinks
     queueMax = P.queueMax
 
@@ -210,9 +216,9 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
         for packet_id in toRoute:
             p = int(curP[packet_id])
             s = int(curS[packet_id])
-            nextDir, choiceType, L, N = route_B(p, s, queueLen, G, P)
+            nextDir, choiceType, L, N = route(p, s, queueLen, G, P)
             if epsilon > 0 and rng.random_sample() < epsilon:
-                # 무작위: route_B가 고른 방향은 빼고 나머지 갈 수 있는 방향 중 하나 (탐험이 실제로 ε만큼 되게)
+                # 무작위: 라우팅이 고른 방향은 빼고 나머지 갈 수 있는 방향 중 하나 (탐험이 실제로 ε만큼 되게)
                 dirs = [d for d in G.validDirs[p][s] if d != nextDir]   # Grid 모서리도 방향이 2개라 항상 1개 이상
                 nextDir = dirs[math.ceil(rng.random_sample() * len(dirs)) - 1]
                 choiceType = 4   # 무작위
@@ -279,6 +285,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     R = SimpleNamespace()
     R.genRate = genRate
     R.epsilon = epsilon
+    R.routeName = P.routeName
     R.numPackets = numPackets
     R.endStep = t
     R.genTime = genTime[:numPackets]

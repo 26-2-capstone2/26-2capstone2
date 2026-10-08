@@ -29,7 +29,7 @@ import numpy as np
 from compute_metrics import compute_metrics
 from config_bg import apply_bg, config_bg
 from config_isl import config_isl
-from run_isl_sim import DECISION_LOG_COLUMNS, PACKET_LOG_COLUMNS, packet_log_table, run_isl_sim, writetable
+from run_isl_sim import DECISION_LOG_COLUMNS, PACKET_LOG_COLUMNS, ROUTE_LABELS, packet_log_table, run_isl_sim, writetable
 from save_results import run_dir, run_name, save_results, summary_dir
 from viz_colors import use_korean_font, viz_colors
 
@@ -126,7 +126,7 @@ def plot_summary(rows, levels, B, pngPath):
         ax.set_title(f'{name} ({unit})')
         ax.grid(True, axis='y', color=C.grid)
     n = len([r for r in rows if r['level'] == levels[0]])
-    fig.suptitle(f'배경 부하 단계별 성능 (B 라우팅, ε = 0, 평가용 시드 {n}개, 막대 = 평균, 오차 = 표준편차)',
+    fig.suptitle(f'배경 부하 단계별 성능 ({ROUTE_LABELS[rows[0]["routeName"]]}, ε = 0, 평가용 시드 {n}개, 막대 = 평균, 오차 = 표준편차)',
                  fontsize=14, color=C.text)
     fig.savefig(pngPath, dpi=110, facecolor='w')
     plt.close(fig)

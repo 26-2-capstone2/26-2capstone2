@@ -12,6 +12,7 @@ def compute_metrics(R, P):
     reachedDst = (status == 1) | (status == 2)    # 목적지에 도착한 패킷 (기한 초과 포함)
 
     M = SimpleNamespace()
+    M.routeName = R.routeName
     M.genRate = R.genRate
     M.epsilon = R.epsilon
     M.generated = R.numPackets

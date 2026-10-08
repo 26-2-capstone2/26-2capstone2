@@ -32,6 +32,12 @@
 # 생성 시각: genTime
 # 기한: P.deadline = 90 step [배경 트래픽 실험: 100 -> 90]
 #
+# ---------------- 5-0. 라우팅 알고리즘 선택 ----------------
+# 라우팅 알고리즘: P.routeName = 'routeA' (최단 경로) / 'routeB' (부하 고려)  * 결과 폴더 이름으로도 쓰임
+# A 최단 경로 (route_A.py): 링크 지연 합이 가장 작은 경로로만 보냄 (Dijkstra, 큐는 안 봄)
+#   목적지까지 최소 지연: G.distToDst (처음 한 번 계산), 동점이면 우 > 좌 > 하 > 상 (좌/우 먼저)
+#   choiceType은 항상 1, decision_log의 L, N은 기록용 (결정에는 안 씀)
+#
 # ---------------- 5. 라우팅 알고리즘 B ----------------
 # 링크 점유율: L = (k*V + (1-k)*N) / Q
 # 링크 부하: V = 보내려는 링크의 큐 길이
@@ -67,7 +73,7 @@
 # 애니메이션 간격: P.animFrameInterval = 10 step (300장) [설정]
 # 결과 저장 경로: SAVE_ROOT = C:\Users\eun\Desktop\capstone_isl\baseline_py (save_results.py 맨 위)
 #   그 아래 P.routeName \ (baseline / train / evaluation) \ 라우팅알고리즘_부하단계_시드
-# 라우팅 알고리즘 이름: P.routeName = 'routeB' (결과 폴더 이름)
+# 라우팅 알고리즘 이름: P.routeName = 'routeA' / 'routeB' (결과 폴더 이름)
 #
 # ---------------- 7. 손실 / 결과 (패킷 기록 result) ----------------
 # 기한 내 도착: result = 1   (코드 안에서는 status)
