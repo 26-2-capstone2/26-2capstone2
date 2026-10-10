@@ -35,7 +35,11 @@ def compute_metrics(R, P):
     M.onTimeRate = float(onTime.sum() / R.numPackets)
 
     # Consecutive Packet Loss Length: 패킷 id 순서로 연속 손실 최대 길이
-    edge = np.diff(np.concatenate([[0], (~onTime).astype(int), [0]]))
+    lossFlag = ~onTime
+    if hasattr(R, 'packetEpisode'):   # 에피소드 경계에서는 연속 손실이 이어지지 않게 끊음
+        cut = np.flatnonzero(np.diff(R.packetEpisode)) + 1
+        lossFlag = np.insert(lossFlag, cut, False)
+    edge = np.diff(np.concatenate([[0], lossFlag.astype(int), [0]]))
     runLengths = np.flatnonzero(edge == -1) - np.flatnonzero(edge == 1)
     M.maxConsecLoss = int(runLengths.max()) if runLengths.size else 0
 
@@ -52,7 +56,8 @@ def compute_metrics(R, P):
     reachedIds = np.flatnonzero(reachedDst)
     numChanges = 0
     for j in range(1, len(reachedIds)):
-        if paths[reachedIds[j]] != paths[reachedIds[j - 1]]:
+        sameEp = (not hasattr(R, 'packetEpisode')) or R.packetEpisode[reachedIds[j]] == R.packetEpisode[reachedIds[j - 1]]
+        if sameEp and paths[reachedIds[j]] != paths[reachedIds[j - 1]]:   # 에피소드가 바뀌는 곳은 세지 않음
             numChanges += 1
     M.routeChanges = numChanges
 
@@ -60,5 +65,9 @@ def compute_metrics(R, P):
     M.avgHops = float(np.mean(R.hops[reachedDst]))
 
     # 배경 트래픽 개수 (위 지표는 모두 주 흐름만으로 계산)
-    M.bgGenerated, M.bgDelivered, M.bgOverflow, M.bgTtlExpired, M.bgPoolFull = (int(v) for v in R.bgCount)
+    M.bgGenerated = int(R.bg['generated'])
+    M.bgDelivered = int(R.bg['delivered'])
+    M.bgOverflow = int(R.bg['overflow'])
+    M.bgTtlExpired = int(R.bg['ttlExpired'])
+    M.bgSrcDrop = int(R.bg['srcDrop'])   # 배경 패킷 자리가 모자라 못 만든 수 (0이어야 정상)
     return M

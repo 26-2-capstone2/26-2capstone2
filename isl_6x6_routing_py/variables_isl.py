@@ -30,7 +30,7 @@
 # TTL: P.ttlInit = 20
 # 현재 홉 수: hops
 # 생성 시각: genTime
-# 기한: P.deadline = 90 step [배경 트래픽 실험: 100 -> 90]
+# 기한: P.deadline = 70 step [배경 트래픽 실험: 100 -> 70, 팀원 설정]
 #
 # ---------------- 5-0. 라우팅 알고리즘 선택 ----------------
 # 라우팅 알고리즘: P.routeName = 'routeA' (최단 경로) / 'routeB' (부하 고려)  * 결과 폴더 이름으로도 쓰임
@@ -48,32 +48,34 @@
 # 임계값 Y: P.Y = 0.8 [추천값]
 # 주 경로: primaryDir (좌/우 방향)
 # 대체 경로: altDir (상/하 방향)
-# 선택 유형: choiceType = 1 주, 2 대체, 3 우회, 4 무작위 (확률 ε로 route_B가 고른 방향을 뺀 나머지 중 하나)
+# 선택 유형: choiceType = 1 주, 2 대체, 3 우회, 4 무작위 (확률 ε로 갈 수 있는 방향 중 하나, 라우팅이 고른 방향일 수도 있음)
 #
-# ---------------- 5-1. 배경 트래픽 (혼잡용, 고정 경로, 지표 계산에서 제외) - 값은 config_bg.py ----------------
-# 배경 흐름 (출발 -> 도착): B.flows = (0,0)->(5,0), (2,0)->(5,0), (5,0)->(5,5), (5,2)->(5,5)
-# ON / OFF 평균 길이: B.onMean = 500 step, B.offMean = 500 step (지수분포)
-# 배경 TTL: B.ttl = 20 (배경은 기한 없음) / 동시 배경 패킷 최대 수: B.poolSize = 20000
-# 부하 단계 (ON일 때 흐름별 packets/step): B.levels = 없음 0, 낮음 3.5, 중간 4.5, 높음 5.5, 매우 높음 6.5
-# 시드: 학습용 B.trainSeeds = 1~10, 평가용 B.evalSeeds = 101~110 (배경 패턴 + ε 무작위 선택에 같이 사용)
-# main_isl.py 실행 1회: B.mainLevel = 'high' (5.5), B.mainSeed = 1001
-# run_experiments.py on/off: B.runLevels (단계별), B.runEval (평가), B.runTrain (학습 데이터 수집),
-#                            B.trainEpsilon = 0.1, B.numSeeds = 10, B.numWorkers = 6
-# 시뮬레이션 안에서 쓰는 이름 (apply_bg가 넣어 줌): P.bgLevel, P.bgEnable, P.bgFlows, P.bgOnRate, P.bgOnMean,
-#                                                  P.bgOffMean, P.bgSeed, P.bgTtl, P.bgPoolSize
-# 배경 경로: 목적지 쪽 좌/우 먼저, 같은 열이면 상/하 (부하를 보지 않음)
-# 배경 결과 (metrics_summary): bgGenerated, bgDelivered, bgOverflow, bgTtlExpired, bgPoolFull
+# ---------------- 5-1. 배경 트래픽 (송신 큐 핫스팟, 지표 계산에서 제외) - bg_traffic.py ----------------
+# 핫스팟 = 위성 하나의 한 방향 송신 큐가 과부하 (그 위성 -> 그 방향 이웃으로 가는 1홉 배경 흐름)
+# 사용 여부: P.bgEnable = True
+# 시작 시드: P.bgScenarioSeed = 1 (에피소드 e는 시드 + e, None이면 무작위 / python main_isl.py 7 처럼 지정 가능)
+# 핫스팟 개수: P.bgNumMin ~ P.bgNumMax = 2 ~ 5 (에피소드마다 무작위)
+# 핫스팟 세기: P.bgLoadMin ~ P.bgLoadMax = 0.7 ~ 2.0 x 링크 용량 (에피소드마다 무작위)
+# 막힘 기준: P.bgBlockLoad = 1.8 (이 이상이면 막힌 큐로 보고, 그래도 도착할 길이 있는 시나리오만 사용)
+# 관련 큐 가중치: P.bgRelWeight = 3.0 (출발-도착 사각형 안, 목적지 쪽 방향 큐를 3배 더 잘 뽑음)
+# 관련 큐 최소 개수: P.bgMinRelevant = 1
+# ON / OFF 평균 길이: P.bgOnMean = 150 step, P.bgOffMean = 750 step (지수분포, ON일 때 Poisson 생성)
+# 배경 TTL: P.bgTtl = 20 (배경은 기한 없음) / 동시 배경 패킷 최대 수: P.bgPoolSize = 20000
+# 자동으로 채워지는 값 (sample_hotspots): P.bgFlows, P.bgOnRate, P.bgSeed
+# 배경 경로: XY 경로 (목적지 쪽 좌/우 먼저, 같은 열이면 상/하, 부하를 보지 않음)
+# 배경 결과 (metrics_summary): bgGenerated, bgDelivered, bgOverflow, bgTtlExpired, bgSrcDrop
+# 시나리오 기록: results\bg_scenario.csv (에피소드, 시드, 핫스팟 위치와 방향, 세기, 관련 여부)
 #
 # ---------------- 6. 실험 설정 ----------------
-# 총 시뮬레이션 시간: P.simTime = 600000 step (10분) [설정]
+# 에피소드 길이: P.simTime = 30000 step (30초), 에피소드마다 큐가 비어 있는 상태로 시작 [설정]
+# 에피소드 개수: P.numEpisodes = 20 (총 10분) [설정]
 # 남은 패킷 처리 한도: P.maxDrainTime = 500 step [설정]
-# 무작위 선택 확률: P.epsilonList = 0 (성능 측정용), 0.1 (데이터 수집용) - 무작위면 route_B와 다른 방향만 고름
-# ε 무작위 선택 시드: P.randomSeed = 배경 시드와 같음 (apply_bg가 설정)
-# 애니메이션 길이: P.animDuration = 3000 step (3초) [설정]
-# 애니메이션 간격: P.animFrameInterval = 10 step (300장) [설정]
-# 결과 저장 경로: SAVE_ROOT = C:\Users\eun\Desktop\capstone_isl\baseline_py (save_results.py 맨 위)
-#   그 아래 P.routeName \ (baseline / train / evaluation) \ 라우팅알고리즘_부하단계_시드
-# 라우팅 알고리즘 이름: P.routeName = 'routeA' / 'routeB' (결과 폴더 이름)
+# 무작위 선택 확률: P.epsilonList = 0 (성능 측정용), 0.1 (데이터 수집용)
+# ε 무작위 선택 시드: P.randomSeed = 1 (에피소드 e는 randomSeed + e) [설정]
+# 애니메이션 길이: P.animDuration = 200 step (0.2초, 첫 에피소드만) [설정]
+# 애니메이션 간격: P.animFrameInterval = 2 step (100장) [설정]
+# 결과 저장 경로: (홈 폴더)\isl_saved_runs\날짜_시분 (환경변수 ISL_SAVE_ROOT로 바꿀 수 있음, main_isl.py 맨 아래)
+# 라우팅 알고리즘 이름: P.routeName = 'routeA' / 'routeB'
 #
 # ---------------- 7. 손실 / 결과 (패킷 기록 result) ----------------
 # 기한 내 도착: result = 1   (코드 안에서는 status)
@@ -87,8 +89,8 @@
 # Packet Loss Rate: lossRate
 # Throughput: throughput_Mbps
 # On-time Delivery Rate: onTimeRate
-# Consecutive Packet Loss Length: maxConsecLoss
-# Route Change Count: routeChanges
+# Consecutive Packet Loss Length: maxConsecLoss (에피소드 경계에서 끊어서 셈)
+# Route Change Count: routeChanges (에피소드 경계에서 끊어서 셈)
 # Average Hop Count: avgHops
 #
 # ---------------- 9. 강화학습용 결정 기록 (decision_log CSV 열) ----------------

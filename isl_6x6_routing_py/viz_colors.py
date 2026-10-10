@@ -26,6 +26,8 @@ def viz_colors():
 def use_korean_font(C):
     # 한글이 깨지지 않도록 matplotlib 기본 글꼴 설정
     names = {f.name for f in font_manager.fontManager.ttflist}
-    if C.font in names:
-        matplotlib.rcParams['font.family'] = C.font
+    for name in (C.font, 'AppleGothic', 'Apple SD Gothic Neo', 'NanumGothic'):
+        if name in names:
+            matplotlib.rcParams['font.family'] = name
+            break
     matplotlib.rcParams['axes.unicode_minus'] = False

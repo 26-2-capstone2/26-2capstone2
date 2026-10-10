@@ -91,7 +91,7 @@ def fig_node_map(summary, tag):
 
 
 def fig_node_time(c, nodeP, nodeS, tag):
-    # 노드 1개의 시간 변화: 링크별 최대 큐 / 보낸 수·손실 / 큐 안 주 흐름 패킷의 남은 기한
+    # 노드 1개의 시간 변화: 링크별 최대 큐 / 보낸 수와 손실 / 큐 안 주 흐름 패킷의 남은 기한
     C = viz_colors()
     use_korean_font(C)
     sel = (c['p'] == nodeP) & (c['s'] == nodeS)

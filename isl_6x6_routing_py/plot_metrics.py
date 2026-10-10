@@ -1,4 +1,4 @@
-# 지표 비교 그래프 저장 - 지표 7개를 실행(알고리즘·ε)별 막대로 비교 (지표마다 그래프 1개)
+# 지표 비교 그래프 저장 - 지표 7개를 실행(알고리즘, ε)별 막대로 비교 (지표마다 그래프 1개)
 #
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,13 +45,14 @@ def plot_metrics(T, P, pngPath):
         '실행 조건',
         f'Grid {P.numPlanes} x {P.satsPerPlane},  ({P.srcSat[0]},{P.srcSat[1]}) → ({P.dstSat[0]},{P.dstSat[1]})',
         f'1초마다 생성: {P.genRate}개,  패킷 {P.packetSize} Byte',
-        f'총 시간: {P.simTime * P.stepTime:.0f}초 ({P.simTime} step)',
+        f'총 시간: {P.simTime * P.stepTime:.0f}초 ({P.simTime} step)'
+        + (f' = {P.numEpisodes}에피소드 x {P.episodeLen * P.stepTime:.0f}초' if getattr(P, 'episodeLen', None) else ''),
         f'생성 패킷: {int(T["generated"][0])}개 / 실행',
         f'라우팅: {ROUTE_LABELS[P.routeName]}' + (f' (k = {P.k:.1f}, X = {P.X:.1f}, Y = {P.Y:.1f})'
                                                   if P.routeName == 'routeB' else ''),
         f'기한 {P.deadline} ms,  TTL {P.ttlInit}',
         f'링크 용량 {P.linkCapacity}개/step,  큐 {P.queueMax}개',
-        f'배경 트래픽: {P.bgLevel} ({P.bgOnRate[0]}개/step x 흐름 {len(P.bgFlows)}개), 시드 {P.bgSeed}' if P.bgEnable
+        f'배경 트래픽: 핫스팟 {P.bgNumMin}~{P.bgNumMax}개, 세기 {P.bgLoadMin}~{P.bgLoadMax}배, 시작 시드 {P.bgScenarioSeed}' if P.bgEnable
         else '배경 트래픽: 없음',
     ])
     ax.text(0, 1, info, va='top', fontsize=11, color=C.text, linespacing=1.6)
