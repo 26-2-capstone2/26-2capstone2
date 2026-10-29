@@ -1,19 +1,25 @@
-# 26-2capstone2
+# 26-2capstone2 — GSL
 
-명지대학교 26-2 캡스톤디자인2
+최신 코드는 gsl 폴더입니다. Ku uplink **14 GHz / 50 MHz / 정보율 50 Mbps**, 지상국→첫 위성까지 평가합니다.
 
-## GSL uplink (2026-10-29)
+## 맑음 / 흐림 / 비 세 조건 실행
 
-이 GSL 브랜치의 최신 실행 경로: **gsl → main_gsl_simulation.m**
-
-[실행 안내](gsl/README.md) · [측정 공식·채널 가정·결과 파일](gsl/GSL_UPLINK_GUIDE.md)
-
-평가 범위는 지상국에서 ISL에 진입하는 첫 번째 위성까지입니다. 600초·1,584개 위성과 기본 3D 재생 기능을 유지하고, 원본 패킷 번호별 성공·손실·기한 초과·처리 중 상태를 별도 창으로 표시합니다. 박스를 누르면 대상 위성, 손실 위치와 원인, 시각을 확인할 수 있습니다.
+MATLAB Current Folder를 gsl로 맞추고:
 
 ```matlab
-R = main_gsl_simulation;
+B = main_gsl_weather_comparison;
 ```
 
-기본 실행은 **인공 감쇠를 넣은 기능 검증 시험**입니다. 측정된 Starlink 환경이나 일반적인 실제 손실률을 주장하지 않습니다. GSL 20ms 기한과 RF/채널 값은 연구 가정이며 configGSL에서 변경할 수 있습니다. ISL 코드·ML·전력 제어·복제 전송은 이번 변경 범위에 포함하지 않습니다.
+동일한 600초 위성 기하·트래픽으로 ITU 기체·구름·강우 흡수를 비교합니다. 결과는 results_weather/clear, cloudy, rainy 및 weather_comparison.csv/.png에 저장합니다. 특정 날짜의 실제 기상 관측을 불러온 결과는 아니며 입력값과 한계는 문서에 명시했습니다. 기존 인공 10dB 감쇠는 날씨 실험에서 사용하지 않습니다.
 
-검증 명령: `verify_uplink`. 재생·패킷 선택 검증 및 결과는 gsl/validation_uplink.md를 참고하세요.
+[날씨 입력·모델·실행 안내](gsl/WEATHER_MODEL.md) · [기본 패킷/3D 안내](gsl/README.md)
+
+![날씨별 비교](gsl/docs/weather_comparison.png)
+
+기존 3D 기본 재생바와 번호별 패킷 창은 한 조건을 선택해 사용합니다:
+
+```matlab
+R = main_gsl_simulation(configGSL('rainy'));
+```
+
+검증: verify_uplink, verify_weather. 전력 제어·ML·복제 전송·혼잡 큐는 아직 포함하지 않습니다.

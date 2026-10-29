@@ -1,0 +1,13 @@
+function W=weatherProfile(name)
+% Explicit meteorological scenarios, NOT observed weather or calibrated labels.
+name=lower(string(name)); assert(ismember(name,["clear","cloudy","rainy"]));
+W=struct('name',char(name),'surfaceTemperature_C',20,'surfacePressure_Pa',101325, ...
+    'surfaceVaporDensity_g_m3',7.5,'cloudWaterDensity_g_m3',0, ...
+    'cloudBaseAGL_m',1000,'cloudTopAGL_m',2000,'rainRate_mm_h',0, ...
+    'rainTopAGL_m',3000,'polarizationTilt_deg',45,'atmosphereTopAGL_m',20000, ...
+    'layerStep_m',250,'lapseRate_K_km',6.5,'vaporScaleHeight_m',2000);
+if name=="cloudy", W.surfaceVaporDensity_g_m3=12; W.cloudWaterDensity_g_m3=.5; end
+if name=="rainy"
+    W.surfaceVaporDensity_g_m3=15; W.cloudWaterDensity_g_m3=.5; W.rainRate_mm_h=10;
+end
+end

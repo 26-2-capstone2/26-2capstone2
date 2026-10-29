@@ -1,4 +1,5 @@
-function CFG = configGSL()
+function CFG = configGSL(weatherName)
+if nargin==0, weatherName='clear'; end
 % GSL uplink research baseline. RF/channel values below are assumptions.
 CFG.startTime = datetime(2026,10,2,0,0,0,'TimeZone','UTC');
 CFG.duration_s = 600;
@@ -25,14 +26,15 @@ CFG.groundTxPower_dBW = 7; % 5.01 W, scenario assumption
 CFG.groundTxGain_dBi = 28; % scenario assumption, EIRP = 35 dBW
 CFG.satelliteRxGT_dB_per_K = -5; % scenario assumption, not Starlink data
 CFG.fixedImplementationLoss_dB = 1;
-CFG.clearAirZenithLoss_dB = 0.2; % simplified secant-elevation model
-CFG.channelScenario = 'synthetic_fade'; % 'clear' or controlled impairment test
+CFG.clearAirZenithLoss_dB = 0.2; % legacy synthetic_fade ONLY; weather uses ITU layer sum
+CFG.channelScenario = char(lower(string(weatherName)));
+CFG.weather = weatherProfile(CFG.channelScenario);
 CFG.channelStep_s = 0.1;
 CFG.channelCorrelation_s = 2;
-CFG.channelSigma_dB = 0.7; % correlated dB perturbation, NOT calibrated weather
+CFG.channelSigma_dB = 0; % no invented temporal fading in the weather scenarios
 CFG.channelRandomSeed = 20261029;
-CFG.fadeWindows_s = [180 205; 380 405];
-CFG.fadeDepth_dB = 10; % smooth artificial fade; not an ITU rain realization
+CFG.fadeWindows_s = [180 205; 380 405]; % legacy synthetic_fade only, OFF in all weather runs
+CFG.fadeDepth_dB = 10; % legacy artificial fade, OFF in clear/cloudy/rainy
 CFG.gslDeadline_s = 0.020; % GSL-only experimental assumption, not ISL deadline
 CFG.receiverProcessing_s = 0.001;
 CFG.openPacketViewer = true;
@@ -66,5 +68,5 @@ CFG.debug = false;
 CFG.viewerPlaybackSpeed = 1; % initial playback speed; adjustable in the panel
 CFG.makePlots = true;
 CFG.exportResults = true;
-CFG.outputDir = fullfile(fileparts(mfilename('fullpath')),'results_packets');
+CFG.outputDir = fullfile(fileparts(mfilename('fullpath')),'results_weather',CFG.channelScenario);
 end

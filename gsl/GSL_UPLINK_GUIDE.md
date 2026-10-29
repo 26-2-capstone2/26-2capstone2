@@ -1,5 +1,7 @@
 # GSL uplink 패킷 측정 (2026-10-29)
 
+> 최신 채널은 [WEATHER_MODEL.md](WEATHER_MODEL.md)의 맑음/흐림/비 모델입니다. 아래 synthetic_fade는 과거 기능 시험 설정이며 기본값이 아닙니다. 세 날씨 비교는 main_gsl_weather_comparison을 실행합니다.
+
 ## 실행
 
 MATLAB Current Folder를 이 폴더로 맞춘 뒤 실행합니다.

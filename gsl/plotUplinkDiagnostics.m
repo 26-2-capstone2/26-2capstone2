@@ -3,7 +3,7 @@ f=figure('Name','GSL Uplink - Channel and Loss Runs','NumberTitle','off', ...
     'Color','w','Tag','GSLCoreResult','Position',[140 60 1100 800]);
 tiledlayout(f,3,1);
 nexttile; plot(P.time_s,P.snr_dB); ylabel('SNR [dB]'); grid on;
-title(sprintf('GSL uplink | %s | experimental assumptions',C.channelScenario),'Interpreter','none');
+title(sprintf('GSL uplink | %s | defined meteorology + ITU absorption model',C.channelScenario),'Interpreter','none');
 nexttile; hold on;
 scatter(P.time_s(P.onTime),ones(sum(P.onTime),1),2,'k','filled');
 scatter(P.time_s(P.lost==1),zeros(sum(P.lost==1),1),6,'r','filled');

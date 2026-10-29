@@ -44,6 +44,12 @@ if isfield(M,'onTimePackets')
         M.maxConsecutiveLoss,M.meanConsecutiveLoss,M.observationEnd_s);
     fprintf('%s',extra); summary=[summary extra];
 end
+if isfield(CFG,'weather') && ismember(string(CFG.channelScenario),["clear","cloudy","rainy"])
+    W=CFG.weather;
+    extra=sprintf('Weather inputs: T=%g C, P=%g Pa, vapor=%g g/m3, cloud=%g g/m3, rain=%g mm/h\nITU P.676/840/838 layer integration; defined conditions, NOT observed weather.\n', ...
+        W.surfaceTemperature_C,W.surfacePressure_Pa,W.surfaceVaporDensity_g_m3,W.cloudWaterDensity_g_m3,W.rainRate_mm_h);
+    summary=[summary extra]; fprintf('%s',extra);
+end
 if CFG.exportResults
     if ~isfolder(CFG.outputDir), mkdir(CFG.outputDir); end
     writetable(P,fullfile(CFG.outputDir,'packet_results.csv'));

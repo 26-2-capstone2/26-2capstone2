@@ -88,5 +88,10 @@ P.channelPerturbation_dB=channelLoss; P.syntheticFade_dB=testFade;
 P.txPower_dBW=repmat(CFG.groundTxPower_dBW,n,1);
 P.copyID=ones(n,1); % original IDs are unique; replication is not implemented
 P.phyRandomDraw=draw;
+if ismember('atmosphericLoss_dB',L.Properties.VariableNames)
+    for field={'gasLoss_dB','cloudLoss_dB','rainLoss_dB','atmosphericLoss_dB','weatherName'}
+        P.(field{1})=L.(field{1})(ix);
+    end
+end
 % Every packet has exactly one cause. Unknown PHY is never relabeled SUCCESS.
 end

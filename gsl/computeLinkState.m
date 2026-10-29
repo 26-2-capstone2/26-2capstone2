@@ -45,6 +45,10 @@ L.satelliteVelocityX_ECEF_mps=velocity(:,1);
 L.satelliteVelocityY_ECEF_mps=velocity(:,2);
 L.satelliteVelocityZ_ECEF_mps=velocity(:,3);
 if isfield(CFG,'linkDirection') && strcmp(CFG.linkDirection,'UPLINK')
+    if ismember(string(CFG.channelScenario),["clear","cloudy","rainy"])
+        L=applyGSLWeather(L,CFG);
+        return;
+    end
     % Total EIRP + satellite G/T - path loss - k - receiver noise bandwidth.
     L.clearAirLoss_dB=CFG.clearAirZenithLoss_dB./sind(elev);
     L.txEIRP_dBW=repmat(CFG.groundTxPower_dBW+CFG.groundTxGain_dBi,n,1);
