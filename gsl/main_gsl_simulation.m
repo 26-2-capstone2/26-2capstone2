@@ -41,13 +41,25 @@ if CFG.debug
     if CFG.exportResults, writetable(D,fullfile(CFG.outputDir,'serving_debug.csv')); end
 end
 if isfield(CFG,'enablePackets') && CFG.enablePackets
-    P = simulatePacketTransmission(L,CFG);
-    M = computePacketMetrics(P,CFG.rollingWindow_s);
+    compareWeather=isfield(CFG,'enableWeatherComparison') && CFG.enableWeatherComparison ...
+        && ismember(string(CFG.channelScenario),["clear","cloudy","rainy"]);
+    if compareWeather
+        batch=CFG; batch.makePlots=false;
+        R.weatherResults=compareGSLWeather(L,batch);
+        selected=R.weatherResults.(CFG.channelScenario);
+        L=selected.linkState; P=selected.packetTable; M=selected.packetMetrics;
+    else
+        P = simulatePacketTransmission(L,CFG);
+        M = computePacketMetrics(P,CFG.rollingWindow_s);
+    end
     R.linkState = L; R.packetTable = P; R.packetMetrics = M;
     width=max(0,min(L.time_s(2:end),CFG.duration_s)-L.time_s(1:end-1));
     M.totalOutageDuration_s=sum(width.*double(~L.isLinkAvailable(1:end-1)));
     R.packetMetrics=M;
     reportPacketResults(L,P,M,CFG);
+    if compareWeather && CFG.makePlots
+        R.weatherResultsFigure=attachGSLWeatherResults(R.weatherResults,CFG);
+    end
 else
     if CFG.makePlots, plotResults(L,[],[],CFG); end
 end

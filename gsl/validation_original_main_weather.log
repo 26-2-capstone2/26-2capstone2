@@ -1,0 +1,133 @@
+===== Ground Station =====
+Latitude  : 37.0000 deg
+Longitude : 128.0000 deg
+Altitude  : 0 m (WGS84)
+==========================
+===== GSL UDP SESSION RESULT =====
+Simulation Duration: 600 s
+Packet Size: 160 Bytes
+Packet Rate: 60 packets/s
+Generated Packets: 36000
+Received Packets: 35939
+Lost Packets: 61
+Overall Packet Loss Ratio: 0.169444 %
+PHY Loss Packets: 1
+Handover Loss Packets: 60
+Outage Loss Packets: 0
+Total Handovers: 10
+Total Outage Duration: 0 s
+Average Received Packets/s: 59.8983
+Unresolved PHY Packets: 0
+Confirmed Lost Packets: 61
+Confirmed Loss Lower Bound: 0.169444 %
+PHY source: JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024
+Noise bandwidth: 5e+07 Hz; information rate: 5e+07 bit/s
+100 ms interruptions are applied only to actual serving handovers.
+N/A means unresolved PHY; it does not mean zero loss.
+==================================
+GSL UPLINK ONLY: ground station -> first satellite
+Scenario: clear (uncalibrated experimental channel)
+GSL deadline: 20 ms; On-time: 35939; Late: 0
+On-time delivery: 99.830556 %; Deadline failure: 0.169444 %
+Loss runs: 11; maximum: 6 packets; mean: 5.545 packets
+Observation end (including final arrivals): 600.000000 s
+Weather inputs: T=20 C, P=101325 Pa, vapor=7.5 g/m3, cloud=0 g/m3, rain=0 mm/h
+ITU P.676/840/838 layer integration; defined conditions, NOT observed weather.
+===== GSL UDP SESSION RESULT =====
+Simulation Duration: 600 s
+Packet Size: 160 Bytes
+Packet Rate: 60 packets/s
+Generated Packets: 36000
+Received Packets: 35939
+Lost Packets: 61
+Overall Packet Loss Ratio: 0.169444 %
+PHY Loss Packets: 1
+Handover Loss Packets: 60
+Outage Loss Packets: 0
+Total Handovers: 10
+Total Outage Duration: 0 s
+Average Received Packets/s: 59.8983
+Unresolved PHY Packets: 0
+Confirmed Lost Packets: 61
+Confirmed Loss Lower Bound: 0.169444 %
+PHY source: JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024
+Noise bandwidth: 5e+07 Hz; information rate: 5e+07 bit/s
+100 ms interruptions are applied only to actual serving handovers.
+N/A means unresolved PHY; it does not mean zero loss.
+==================================
+GSL UPLINK ONLY: ground station -> first satellite
+Scenario: cloudy (uncalibrated experimental channel)
+GSL deadline: 20 ms; On-time: 35939; Late: 0
+On-time delivery: 99.830556 %; Deadline failure: 0.169444 %
+Loss runs: 11; maximum: 6 packets; mean: 5.545 packets
+Observation end (including final arrivals): 600.000000 s
+Weather inputs: T=20 C, P=101325 Pa, vapor=12 g/m3, cloud=0.5 g/m3, rain=0 mm/h
+ITU P.676/840/838 layer integration; defined conditions, NOT observed weather.
+===== GSL UDP SESSION RESULT =====
+Simulation Duration: 600 s
+Packet Size: 160 Bytes
+Packet Rate: 60 packets/s
+Generated Packets: 36000
+Received Packets: 35939
+Lost Packets: 61
+Overall Packet Loss Ratio: 0.169444 %
+PHY Loss Packets: 1
+Handover Loss Packets: 60
+Outage Loss Packets: 0
+Total Handovers: 10
+Total Outage Duration: 0 s
+Average Received Packets/s: 59.8983
+Unresolved PHY Packets: 0
+Confirmed Lost Packets: 61
+Confirmed Loss Lower Bound: 0.169444 %
+PHY source: JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024
+Noise bandwidth: 5e+07 Hz; information rate: 5e+07 bit/s
+100 ms interruptions are applied only to actual serving handovers.
+N/A means unresolved PHY; it does not mean zero loss.
+==================================
+GSL UPLINK ONLY: ground station -> first satellite
+Scenario: rainy (uncalibrated experimental channel)
+GSL deadline: 20 ms; On-time: 35939; Late: 0
+On-time delivery: 99.830556 %; Deadline failure: 0.169444 %
+Loss runs: 11; maximum: 6 packets; mean: 5.545 packets
+Observation end (including final arrivals): 600.000000 s
+Weather inputs: T=20 C, P=101325 Pa, vapor=15 g/m3, cloud=0.5 g/m3, rain=10 mm/h
+ITU P.676/840/838 layer integration; defined conditions, NOT observed weather.
+    weather     carrier_Hz    bandwidth_Hz    informationRate_bps    rainRate_mm_h    cloudWater_g_m3    generated    received    lost    phyLost    handoverLost    loss_pct    onTime_pct    late    maxConsecutiveLoss    meanAtmosphericLoss_dB    minSNR_dB
+    ________    __________    ____________    ___________________    _____________    _______________    _________    ________    ____    _______    ____________    ________    __________    ____    __________________    ______________________    _________
+
+    "clear"      1.4e+10         5e+07               5e+07                 0                  0            36000       35939       61        1            60         0.16944       99.831       0              6                    0.077901            7.8379
+    "cloudy"     1.4e+10         5e+07               5e+07                 0                0.5            36000       35939       61        1            60         0.16944       99.831       0              6                     0.17122            7.7256
+    "rainy"      1.4e+10         5e+07               5e+07                10                0.5            36000       35939       61        1            60         0.16944       99.831       0              6                      1.8603            5.6932
+
+===== GSL UDP SESSION RESULT =====
+Simulation Duration: 600 s
+Packet Size: 160 Bytes
+Packet Rate: 60 packets/s
+Generated Packets: 36000
+Received Packets: 35939
+Lost Packets: 61
+Overall Packet Loss Ratio: 0.169444 %
+PHY Loss Packets: 1
+Handover Loss Packets: 60
+Outage Loss Packets: 0
+Total Handovers: 10
+Total Outage Duration: 0 s
+Average Received Packets/s: 59.8983
+Unresolved PHY Packets: 0
+Confirmed Lost Packets: 61
+Confirmed Loss Lower Bound: 0.169444 %
+PHY source: JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024
+Noise bandwidth: 5e+07 Hz; information rate: 5e+07 bit/s
+100 ms interruptions are applied only to actual serving handovers.
+N/A means unresolved PHY; it does not mean zero loss.
+==================================
+GSL UPLINK ONLY: ground station -> first satellite
+Scenario: clear (uncalibrated experimental channel)
+GSL deadline: 20 ms; On-time: 35939; Late: 0
+On-time delivery: 99.830556 %; Deadline failure: 0.169444 %
+Loss runs: 11; maximum: 6 packets; mean: 5.545 packets
+Observation end (including final arrivals): 600.000000 s
+Weather inputs: T=20 C, P=101325 Pa, vapor=7.5 g/m3, cloud=0 g/m3, rain=0 mm/h
+ITU P.676/840/838 layer integration; defined conditions, NOT observed weather.
+PASS original main: automatically measures all three cases with unchanged default entry.

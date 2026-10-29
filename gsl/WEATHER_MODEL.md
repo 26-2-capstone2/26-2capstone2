@@ -4,11 +4,13 @@
 
 바탕화면 `codex/1029`를 MATLAB Current Folder로 맞춥니다.
 
-```matlab
-B = main_gsl_weather_comparison;  % 맑음/흐림/비, 기하 계산은 한 번
-```
+기존 **main_gsl_simulation.m을 그대로 실행(F5)** 합니다. 인자·기상 설정·명령어를 바꿀 필요가 없습니다. 기하는 한 번 계산하고 세 날씨를 자동 측정합니다.
 
-한 조건의 기존 3D·번호별 패킷 창은 다음과 같이 실행합니다.
+기존 **UDP SESSION PERFORMANCE** 창 상단에 세 날씨의 생성·손실·손실률·기한 내 도착률·최대 연속 손실·평균 대기 감쇠를 함께 표시합니다. 오른쪽 **날씨 선택**에서 맑음/흐림/비를 고르면 같은 네 개 그래프, SNR·손실 구간 창, 번호별 패킷 창이 선택 조건으로 바뀝니다. 3D 시간과 위성망은 그대로 유지하며 다시 계산하거나 창을 새로 열지 않습니다.
+
+고급용 별도 일괄 실행 함수 main_gsl_weather_comparison도 남아 있지만 일반 실행에는 필요 없습니다.
+
+고급용으로 시작 조건을 지정하는 명령도 사용할 수 있습니다.
 
 ```matlab
 R = main_gsl_simulation(configGSL('clear'));
@@ -16,7 +18,7 @@ R = main_gsl_simulation(configGSL('cloudy'));
 R = main_gsl_simulation(configGSL('rainy'));
 ```
 
-이전 창을 닫고 원하는 조건 하나를 실행합니다. main_gsl_simulation 기본값은 이제 맑음입니다. 과거 results_packets의 671개 손실 결과는 인공 감쇠 시험의 기록이며 새 날씨 결과가 아닙니다.
+처음 표시 조건은 맑음이며 상단 요약은 세 조건 모두의 최종값입니다. 과거 results_packets의 671개 손실 결과는 인공 감쇠 시험의 기록이며 새 날씨 결과가 아닙니다.
 
 ## 공통 조건
 

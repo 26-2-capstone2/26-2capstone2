@@ -3,25 +3,19 @@
 공통 RF: **Ku 14 GHz / 50 MHz 잡음 대역폭 / 50 Mbps 정보율 / QPSK·AR4JA r=1/2 k=1024**.
 평가 구간은 지상국→첫 위성, 기한은 연구 가정 20ms입니다.
 
-## 실행
+## 실행 — 기존 파일 그대로
 
 이 폴더를 MATLAB Current Folder로 맞춥니다.
 
-```matlab
-B = main_gsl_weather_comparison;
-```
+**main_gsl_simulation.m을 열고 실행(F5)** 하면 됩니다. 명령어·설정 변경 없이 맑음/흐림/비를 자동 계산합니다.
 
 맑음(clear)·흐림(cloudy)·비(rainy)의 600초 결과를 동일한 위성 기하·트래픽으로 계산합니다. 결과는 results_weather의 각 조건 폴더와 weather_comparison.csv/.png에 저장합니다.
 
-기존 3D 기본 재생·일시정지·배속과 번호별 패킷 창은 조건 하나를 선택해서 실행합니다.
+기존 **UDP SESSION PERFORMANCE** 창 상단에서 세 날씨 요약값을 한 번에 확인합니다. 오른쪽 **날씨 선택**으로 맑음/흐림/비를 선택하면 같은 창의 네 개 그래프·SNR/손실 구간·번호별 패킷 표시가 함께 바뀝니다. 3D 재생 시간과 위성망은 그대로 유지됩니다.
 
-```matlab
-R = main_gsl_simulation(configGSL('clear'));
-R = main_gsl_simulation(configGSL('cloudy'));
-R = main_gsl_simulation(configGSL('rainy'));
-```
+![기존 결과 창에서 날씨 선택](docs/weather_window.png)
 
-한 번에 원하는 한 줄만 실행합니다. main_gsl_simulation만 실행하면 맑음입니다.
+별도 main_gsl_weather_comparison은 고급용 일괄 실행이며 기본 사용에는 필요 없습니다.
 
 ## 날씨 모델과 해석
 

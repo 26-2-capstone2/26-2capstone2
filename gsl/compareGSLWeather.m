@@ -3,7 +3,7 @@ function B=compareGSLWeather(referenceL,CFG)
 names=["clear","cloudy","rainy"]; rows=cell(3,1); B=struct;
 root=fullfile(fileparts(mfilename('fullpath')),'results_weather');
 if isfield(CFG,'weatherOutputDir'), root=CFG.weatherOutputDir; end
-if ~isfolder(root), mkdir(root); end
+if CFG.exportResults && ~isfolder(root), mkdir(root); end
 for j=1:3
     C=CFG; C.channelScenario=char(names(j)); C.weather=weatherProfile(names(j));
     C.outputDir=fullfile(root,char(names(j))); C.openViewer=false; C.openPacketViewer=false;
@@ -27,8 +27,10 @@ for j=1:3
         'loss_pct','onTime_pct','late','maxConsecutiveLoss','meanAtmosphericLoss_dB','minSNR_dB'});
 end
 B.summary=vertcat(rows{:});
-writetable(B.summary,fullfile(root,'weather_comparison.csv'));
-save(fullfile(root,'weather_comparison.mat'),'B','-v7.3');
+if CFG.exportResults
+    writetable(B.summary,fullfile(root,'weather_comparison.csv'));
+    save(fullfile(root,'weather_comparison.mat'),'B','-v7.3');
+end
 if CFG.makePlots
     f=figure('Name','GSL - Clear / Cloudy / Rainy','NumberTitle','off','Color','w','Position',[80 50 1150 950]);
     tiledlayout(f,4,1);
@@ -49,7 +51,7 @@ if CFG.makePlots
     ylabel('Atmospheric loss [dB]'); xlabel('Generation time [s]'); grid on;
     sgtitle(sprintf('%.1f GHz uplink | %.0f MHz | %.0f Mbps | Deadline %.1f ms | Defined weather conditions, not observations', ...
         CFG.carrierFrequency_Hz/1e9,CFG.noiseBandwidth_Hz/1e6,CFG.informationBitRate_bps/1e6,1000*CFG.gslDeadline_s));
-    exportgraphics(f,fullfile(root,'weather_comparison.png'),'Resolution',140);
+    if CFG.exportResults, exportgraphics(f,fullfile(root,'weather_comparison.png'),'Resolution',140); end
 end
 disp(B.summary);
 end

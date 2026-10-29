@@ -3,6 +3,7 @@ classdef GSLPacketViewer < handle
     properties (SetAccess=private)
         Figure
         CurrentTime_s = 0
+        WeatherName = ""
     end
     properties (Access=private)
         P; L; C; NativeViewer; StartTime
@@ -13,6 +14,7 @@ classdef GSLPacketViewer < handle
     methods
         function obj=GSLPacketViewer(P,L,C,viewer,startTime)
             obj.P=P; obj.L=L; obj.C=C; obj.NativeViewer=viewer; obj.StartTime=startTime;
+            obj.WeatherName=string(C.channelScenario);
             old=findall(groot,'Type','figure','Tag','GSLPacketViewer');
             if ~isempty(old), close(old); end
             f=figure('Name','GSL Uplink - Packet IDs and Outcomes','NumberTitle','off', ...
@@ -72,6 +74,13 @@ classdef GSLPacketViewer < handle
         end
         function setTime(obj,t)
             obj.CurrentTime_s=max(0,t); obj.render(false);
+        end
+        function setWeatherCase(obj,Q)
+            % Reuse the same grid and playback time; never recreate the native viewer.
+            assert(height(Q.packetTable)==height(obj.P));
+            obj.P=Q.packetTable; obj.L=Q.linkState; obj.C=Q.config;
+            obj.WeatherName=string(Q.config.channelScenario);
+            obj.render(true);
         end
         function delete(obj)
             if ~isempty(obj.Clock) && isvalid(obj.Clock), stop(obj.Clock); delete(obj.Clock); end

@@ -19,6 +19,7 @@ CFG.gsAltitude_m = 0; % height above WGS84 ellipsoid, not terrain elevation
 CFG.gsName = 'GS-demo';
 CFG.minElevation_deg = 25;
 CFG.enablePackets = true;
+CFG.enableWeatherComparison = true; % original main shows all three weather results automatically
 CFG.handoverMargin_deg = 4;
 CFG.carrierFrequency_Hz = 14e9;
 CFG.linkDirection = 'UPLINK';
