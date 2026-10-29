@@ -23,8 +23,10 @@ M.cumulativeKnownLoss=cumsum(resolved); M.cumulativePending=cumsum(pending);
 M.cumulativeOutageLoss=cumsum(out); M.cumulativeHandoverLoss=cumsum(ho);
 M.cumulativePhyLoss=cumsum(P.phy_loss); M.cumulativeLinkLoss=M.cumulativePhyLoss;
 M.cumulativeAttempted=cumsum(tx); M.cumulativeTransmitted=M.cumulativeAttempted;
-values=[g,rx,resolved,phy,ho,out,pending,tx]; prefix=[zeros(1,8);cumsum(values,1)];
-rolling=zeros(height(P),8); left=1;
+deadlineValues=zeros(height(P),2);
+if ismember('onTime',P.Properties.VariableNames), deadlineValues=[double(P.onTime),double(P.late)]; end
+values=[g,rx,resolved,phy,ho,out,pending,tx,deadlineValues]; prefix=[zeros(1,10);cumsum(values,1)];
+rolling=zeros(height(P),10); left=1;
 for right=1:height(P)
     tol=16*eps(max(1,abs(t(right))));
     while left<=right && t(left)<=t(right)-window_s+tol, left=left+1; end
@@ -48,6 +50,16 @@ if ismember('onTime',P.Properties.VariableNames)
     M.onTimePackets=sum(P.onTime); M.latePackets=sum(P.late);
     M.onTimeDeliveryRate_pct=100*M.onTimePackets/M.generatedPackets;
     M.deadlineFailureRate_pct=100*(M.lostPackets+M.latePackets)/M.generatedPackets;
+    % Retrospective outcomes of packets GENERATED in the trailing window.
+    M.rollingOnTimeDeliveryRate_pct=100*rolling(:,9)./rolling(:,1);
+    M.rollingLateRate_pct=100*rolling(:,10)./rolling(:,1);
+    M.rollingDeadlineFailureRate_pct=100*(rolling(:,3)+rolling(:,10))./rolling(:,1);
+    M.rollingOnTimeDeliveryRate_pct(~ok)=NaN;
+    M.rollingLateRate_pct(~ok)=NaN;
+    M.rollingDeadlineFailureRate_pct(~ok)=NaN;
+    M.cumulativeOnTime=cumsum(P.onTime);
+    M.cumulativeOnTimeDeliveryRate_pct=100*M.cumulativeOnTime./M.cumulativeGenerated;
+    M.cumulativeOnTimeDeliveryRate_pct(M.cumulativePending>0)=NaN;
     if M.pendingPackets>0
         M.onTimeDeliveryRate_pct=NaN; M.deadlineFailureRate_pct=NaN;
     end

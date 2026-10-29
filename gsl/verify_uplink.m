@@ -12,10 +12,14 @@ assert(M.lossRuns.lastPacketID==66 && all(P.onTime(P.received==1)));
 noHo=L; noHo.handoverEvent(:)=false; paired=simulatePacketTransmission(noHo,C);
 assert(isequal(P.phyRandomDraw,paired.phyRandomDraw),'PHY draws must remain paired by original ID');
 assert(abs(M.packetLossRatio-5)<1e-10 && M.onTimeDeliveryRate_pct==95);
+assert(all(abs(M.rollingOnTimeDeliveryRate_pct+M.rollingDeadlineFailureRate_pct-100)<1e-9));
 % A late delivered packet is not an undelivered packet.
 C.gslDeadline_s=.001;
 Q=simulatePacketTransmission(L,C); N=computePacketMetrics(Q,1);
 assert(N.latePackets==114 && N.lostPackets==6 && N.deadlineFailureRate_pct==100);
+assert(all(N.rollingOnTimeDeliveryRate_pct==0));
+assert(all(abs(N.rollingDeadlineFailureRate_pct-100)<1e-9));
+assert(any(N.rollingLateRate_pct>0));
 % Last arrival can follow generation stop; it must still be observed.
 C.receiverProcessing_s=.1;
 Q=simulatePacketTransmission(L,C); N=computePacketMetrics(Q,1);

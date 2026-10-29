@@ -7,6 +7,12 @@ P.rolling_confirmed_loss_lower_bound_pct=M.rollingConfirmedLossLowerBound_pct;
 P.cumulative_generated=M.cumulativeGenerated; P.cumulative_received=M.cumulativeReceived;
 P.cumulative_lost=M.cumulativeLost; P.cumulative_confirmed_loss=M.cumulativeKnownLoss;
 P.cumulative_pending=M.cumulativePending; P.cumulative_outage_loss=M.cumulativeOutageLoss;
+if isfield(M,'rollingOnTimeDeliveryRate_pct')
+    P.rolling_on_time_delivery_rate_pct=M.rollingOnTimeDeliveryRate_pct;
+    P.rolling_late_rate_pct=M.rollingLateRate_pct;
+    P.rolling_deadline_failure_rate_pct=M.rollingDeadlineFailureRate_pct;
+    P.cumulative_on_time_delivery_rate_pct=M.cumulativeOnTimeDeliveryRate_pct;
+end
 P.cumulative_handover_loss=M.cumulativeHandoverLoss; P.cumulative_phy_loss=M.cumulativePhyLoss;
 width=max(0,min(L.time_s(2:end),CFG.duration_s)-L.time_s(1:end-1));
 M.totalOutageDuration_s=sum(width.*double(~L.isLinkAvailable(1:end-1)));

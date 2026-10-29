@@ -16,7 +16,7 @@ sgtitle(tl,{'GSL Session / Handover',gs});
 saveFigure(f,'serving_handover.png',CFG); F(end+1)=f;
 if isempty(P), return; end
 f=figure('Name','UDP SESSION PERFORMANCE','NumberTitle','off','Color','w', ...
-    'Tag','GSLCoreResult','Position',[120 60 1100 850]); tl=tiledlayout(f,3,1);
+    'Tag','GSLCoreResult','Position',[120 40 1100 1000]); tl=tiledlayout(f,4,1);
 nexttile; plot(P.time_s,M.cumulativeGenerated,'-','LineWidth',1.8); hold on;
 plot(P.time_s,M.cumulativeReceived,':','LineWidth',1.5);
 plot(P.time_s,M.cumulativeLost,'-.','LineWidth',1.5);
@@ -39,6 +39,17 @@ else
     ylim([0 max(1,1.2*max(M.rollingPacketLossRatio))]);
 end
 title(sprintf('%g-second rolling loss / generated',M.window_s));
+nexttile;
+if isfield(M,'rollingOnTimeDeliveryRate_pct')
+    plot(P.time_s,M.rollingOnTimeDeliveryRate_pct,'Color',[0 .45 .2],'LineWidth',1.6); hold on;
+    plot(P.time_s,M.rollingLateRate_pct,':','Color',[.8 .4 0],'LineWidth',1.2);
+    plot(P.time_s,M.rollingDeadlineFailureRate_pct,'--','Color',[.75 .1 .1],'LineWidth',1.2);
+    legend('On-time delivery','Late arrival','Deadline failure (loss + late)','Location','southwest');
+    title(sprintf('%g-second window: on-time / generated (GSL deadline %.1f ms)',M.window_s,1000*CFG.gslDeadline_s));
+else
+    title('Deadline metrics unavailable');
+end
+ylabel('Packets / Generated [%]'); ylim([0 105]); grid on; mark(events);
 nexttile; plot(P.time_s,M.rollingReceivedPacketsPerSecond,'LineWidth',1.4);
 ylabel('Received packets/s'); xlabel('Time [s]'); ylim([0 CFG.packetRate_pps*1.1]); grid on; mark(events);
 title('Rolling successfully received packets/s');
@@ -47,7 +58,14 @@ if M.pendingPackets>0
         'Units','normalized','HorizontalAlignment','center','Color',[.7 .1 .1]);
 end
 for ax=findall(f,'Type','axes').', xlim(ax,[0 CFG.duration_s]); end
-sgtitle(tl,{'UDP SESSION PERFORMANCE',gs,CFG.perModelSource},'Interpreter','none');
+if isfield(M,'onTimeDeliveryRate_pct')
+    summary=sprintf('Overall on-time %.4f%% | Loss %.4f%% | Late %d | GSL deadline %.1f ms', ...
+        M.onTimeDeliveryRate_pct,M.packetLossRatio,M.latePackets,1000*CFG.gslDeadline_s);
+    sgtitle(tl,{'GSL UPLINK: PACKET DELIVERY AND DEADLINE',summary, ...
+        sprintf('%s | %s | Final outcomes grouped by generation time',gs,CFG.channelScenario)},'Interpreter','none');
+else
+    sgtitle(tl,{'UDP SESSION PERFORMANCE',gs,CFG.perModelSource},'Interpreter','none');
+end
 if M.pendingPackets>0
     annotation(f,'textbox',[.12 .005 .85 .025],'String', ...
         sprintf('%d unresolved PHY packets; dashed lower bounds are not total loss.',M.pendingPackets), ...

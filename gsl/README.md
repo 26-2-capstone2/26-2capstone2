@@ -25,6 +25,8 @@ R = main_gsl_simulation;
 - 기한 내 전달 실패율 = (손실 + 지각) / 생성 수 × 100
 - 연속 손실은 원본 ID 순서로 집계합니다.
 
+`UDP SESSION PERFORMANCE`의 세 번째 그래프는 최근 5초 생성 패킷의 **기한 내 도착률**, 지각 도착률, 기한 내 전달 실패율입니다. 상단에는 전체 600초 기한 내 도착률과 GSL 기한을 표시합니다. 생성 시각으로 묶은 최종 결과이며, 재생 중 처리 중인 패킷의 실시간 판정과는 구분합니다. 기본 실행에서는 지각이 0이라 기한 내 전달 실패율과 손실률이 같습니다.
+
 `results_packets`에 모든 패킷 기록, 연속 손실 구간, ISL 인계용 도착 패킷, 요약과 그래프를 저장합니다. 팀원의 ISL 코드는 수정하지 않습니다. 실제 UDP 소켓·ML·전력 조절·복제 전송·혼잡 큐는 아직 구현되지 않았습니다.
 
 검증: `verify_uplink`
@@ -34,3 +36,5 @@ R = main_gsl_simulation;
 ![패킷 번호와 손실 원인](docs/packet_preview.jpg)
 
 ![600초 채널·손실·연속 손실](docs/uplink_channel_loss_runs.png)
+
+![기한 내 도착률을 포함한 성능 그래프](docs/packet_performance.png)
