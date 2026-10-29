@@ -26,10 +26,27 @@ summary=sprintf(['===== GSL UDP SESSION RESULT =====\n' ...
     number(M.averageReceivedPacketsPerSecond),M.pendingPackets,M.resolvedLostPackets, ...
     M.confirmedLossLowerBound_pct,CFG.perModelSource,number(CFG.noiseBandwidth_Hz),number(CFG.informationBitRate_bps));
 fprintf('%s',summary);
+if isfield(M,'onTimePackets')
+    extra=sprintf(['GSL UPLINK ONLY: ground station -> first satellite\n' ...
+        'Scenario: %s (uncalibrated experimental channel)\n' ...
+        'GSL deadline: %g ms; On-time: %d; Late: %d\n' ...
+        'On-time delivery: %.6f %%; Deadline failure: %.6f %%\n' ...
+        'Loss runs: %d; maximum: %d packets; mean: %.3f packets\n' ...
+        'Observation end (including final arrivals): %.6f s\n'], ...
+        CFG.channelScenario,1000*CFG.gslDeadline_s,M.onTimePackets,M.latePackets, ...
+        M.onTimeDeliveryRate_pct,M.deadlineFailureRate_pct,M.lossRunCount, ...
+        M.maxConsecutiveLoss,M.meanConsecutiveLoss,M.observationEnd_s);
+    fprintf('%s',extra); summary=[summary extra];
+end
 if CFG.exportResults
     if ~isfolder(CFG.outputDir), mkdir(CFG.outputDir); end
     writetable(P,fullfile(CFG.outputDir,'packet_results.csv'));
     writetable(L,fullfile(CFG.outputDir,'link_state.csv'));
+    if isfield(M,'lossRuns')
+        writetable(M.lossRuns,fullfile(CFG.outputDir,'loss_runs.csv'));
+        delivered=P(P.received==1,{'packetID','generationTime_s','arrivalTime_s','destinationSatelliteID','onTime','latency_ms'});
+        writetable(delivered,fullfile(CFG.outputDir,'isl_input_packets.csv'));
+    end
     save(fullfile(CFG.outputDir,'packet_results.mat'),'P','M','L','CFG','-v7');
     fid=fopen(fullfile(CFG.outputDir,'packet_summary.txt'),'w','n','UTF-8'); assert(fid>=0);
     guard=onCleanup(@()fclose(fid)); fprintf(fid,'%s',summary); %#ok<NASGU>
@@ -39,7 +56,10 @@ if CFG.exportResults
         path=fullfile(CFG.outputDir,obsolete{i}); if isfile(path), delete(path); end
     end
 end
-if CFG.makePlots, plotResults(L,P,M,CFG); end
+if CFG.makePlots
+    plotResults(L,P,M,CFG);
+    if isfield(M,'lossRuns'), plotUplinkDiagnostics(L,P,M,CFG); end
+end
 end
 function s=number(v)
 if isnan(v), s='N/A'; else, s=sprintf('%g',v); end

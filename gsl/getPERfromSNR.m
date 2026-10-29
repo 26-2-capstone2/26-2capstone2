@@ -17,9 +17,18 @@ D=readtable(fullfile(fileparts(mfilename('fullpath')),'ar4ja_r12_k1024_cwer.csv'
 assert(all(diff(D.ebNo_dB)>0) && all(D.codewordErrorRate>0 & D.codewordErrorRate<=1));
 % Linear interpolation in log10(CWER): reproduces the published semilog polyline.
 pCW=10.^interp1(D.ebNo_dB,log10(D.codewordErrorRate),ebNo_dB,'linear',NaN);
-blocks=ceil(CFG.packetSize_bytes*8/CFG.informationBlockLength_bits);
-per=-expm1(blocks*log1p(-pCW)); % 1-(1-pCW)^blocks, independent codewords
+high=isfinite(ebNo_dB) & ebNo_dB>D.ebNo_dB(end);
+low=isfinite(ebNo_dB) & ebNo_dB<D.ebNo_dB(1);
 status(:)="OUTSIDE_PUBLISHED_CURVE";
 status(isfinite(pCW))="JPL_FIGURE14_LOOKUP";
+if isfield(CFG,'highSNRPolicy') && strcmp(CFG.highSNRPolicy,'CONSERVATIVE_ENDPOINT')
+    pCW(high)=D.codewordErrorRate(end);
+    status(high)="HIGH_SNR_ENDPOINT_BOUND_ASSUMPTION";
+end
+if isfield(CFG,'lowSNRPolicy') && strcmp(CFG.lowSNRPolicy,'UNIT_CWER')
+    pCW(low)=1; status(low)="LOW_SNR_UNIT_CWER_ASSUMPTION";
+end
+blocks=ceil(CFG.packetSize_bytes*8/CFG.informationBlockLength_bits);
+per=-expm1(blocks*log1p(-pCW)); % 1-(1-pCW)^blocks, independent codewords
 status(~isfinite(snr_dB))="MISSING_SNR";
 end

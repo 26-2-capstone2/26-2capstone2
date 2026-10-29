@@ -1,0 +1,32 @@
+PASS verify_uplink: half-open handover, original-ID runs, deadline separation, final-arrival flush, curve bounds, reproducible channel.
+===== GSL UDP SESSION RESULT =====
+Simulation Duration: 600 s
+Packet Size: 160 Bytes
+Packet Rate: 60 packets/s
+Generated Packets: 36000
+Received Packets: 35329
+Lost Packets: 671
+Overall Packet Loss Ratio: 1.863889 %
+PHY Loss Packets: 611
+Handover Loss Packets: 60
+Outage Loss Packets: 0
+Total Handovers: 10
+Total Outage Duration: 0 s
+Average Received Packets/s: 58.8817
+Unresolved PHY Packets: 0
+Confirmed Lost Packets: 671
+Confirmed Loss Lower Bound: 1.863889 %
+PHY source: JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024
+Noise bandwidth: 5e+07 Hz; information rate: 5e+07 bit/s
+100 ms interruptions are applied only to actual serving handovers.
+N/A means unresolved PHY; it does not mean zero loss.
+==================================
+GSL UPLINK ONLY: ground station -> first satellite
+Scenario: synthetic_fade (uncalibrated experimental channel)
+GSL deadline: 20 ms; On-time: 35329; Late: 0
+On-time delivery: 98.136111 %; Deadline failure: 1.863889 %
+Loss runs: 51; maximum: 367 packets; mean: 13.157 packets
+Observation end (including final arrivals): 600.000000 s
+    clearLoss: 61
+     clearPhy: 1
+      clearHO: 60

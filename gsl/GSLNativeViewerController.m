@@ -6,6 +6,7 @@ classdef GSLNativeViewerController < handle
         Viewer
         ServingIndex = 0
         StateIndex = 0
+        PacketViewer = []
     end
     properties (Access=private)
         Scenario
@@ -43,9 +44,15 @@ classdef GSLNativeViewerController < handle
             % Synchronous entry point for exact sampled frames/handover tests.
             validateattributes(time_s,{'numeric'},{'scalar','finite','nonnegative'});
             assert(time_s<=obj.LinkState.time_s(end),'Time exceeds scenario.');
+            obj.Updating=true;
+            seekGuard=onCleanup(@()obj.unlock());
             obj.Viewer.CurrentTime=obj.Scenario.StartTime+seconds(time_s);
+            clear seekGuard;
             obj.refresh();
             drawnow;
+        end
+        function attachPacketViewer(obj,packetViewer)
+            obj.PacketViewer=packetViewer;
         end
         function refresh(obj)
             if obj.Updating || ~isvalid(obj.Viewer), return; end
@@ -83,10 +90,14 @@ classdef GSLNativeViewerController < handle
                 obj.Viewer.GlobeViewer.setPlaybackSpeed(playback.Speed);
             end
             obj.ServingIndex=chosen; obj.StateIndex=k; obj.LastTime=t;
+            if ~isempty(obj.PacketViewer) && isvalid(obj.PacketViewer) && isgraphics(obj.PacketViewer.Figure)
+                obj.PacketViewer.setTime(t);
+            end
 % Keep the native viewer title fixed; its own timeline displays time.
         end
         function delete(obj)
             obj.stopTimer();
+            if ~isempty(obj.PacketViewer) && isvalid(obj.PacketViewer), delete(obj.PacketViewer); end
             if ~isempty(obj.Viewer) && isvalid(obj.Viewer), delete(obj.Viewer); end
         end
     end

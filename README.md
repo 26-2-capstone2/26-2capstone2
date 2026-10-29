@@ -1,33 +1,19 @@
 # 26-2capstone2
 
-
 명지대학교 26-2 캡스톤디자인2
 
+## GSL uplink (2026-10-29)
 
-## 노션 링크
+이 GSL 브랜치의 최신 실행 경로: **gsl → main_gsl_simulation.m**
 
+[실행 안내](gsl/README.md) · [측정 공식·채널 가정·결과 파일](gsl/GSL_UPLINK_GUIDE.md)
 
-https://app.notion.com/p/3db5148e6a86803f8f6ee95d6399f367?v=3db5148e6a868062880c000ce3e49d72&source=copy_link
-
-## GSL — Continuous UDP Session / Handover
-
-기존 `gsl/` MATLAB 프로젝트를 수정한 최신 실행 버전입니다.
-
-- [실행 방법·세션 지표·연구 한계](gsl/README.md)
-- [Packet layer 정의](gsl/PACKET_LAYER.md)
-- [실제 JPL AR4JA curve 데이터 및 추출 근거](gsl/AR4JA_CURVE.md)
-- [현재 MATLAB/3D 검증 로그](gsl/validation_udp_session.log)
+평가 범위는 지상국에서 ISL에 진입하는 첫 번째 위성까지입니다. 600초·1,584개 위성과 기본 3D 재생 기능을 유지하고, 원본 패킷 번호별 성공·손실·기한 초과·처리 중 상태를 별도 창으로 표시합니다. 박스를 누르면 대상 위성, 손실 위치와 원인, 시각을 확인할 수 있습니다.
 
 ```matlab
 R = main_gsl_simulation;
 ```
 
-**처음처럼 3D Satellite Scenario Viewer의 기본 재생바에서 Play/Pause·배속·시간 이동을 사용합니다.** 0~600초 연속 위성 이동이며 기본 1x, 실행 시 자동 재생하지 않습니다. 별도 컨트롤 창과 t= 창 제목은 없습니다. 기본 viewer 시간에 맞춰 현재 연결 위성 하나만 빨강, 이전 위성은 회색으로 복구합니다. 기존 창을 닫고 최신 코드를 다시 실행하세요.
+기본 실행은 **인공 감쇠를 넣은 기능 검증 시험**입니다. 측정된 Starlink 환경이나 일반적인 실제 손실률을 주장하지 않습니다. GSL 20ms 기한과 RF/채널 값은 연구 가정이며 configGSL에서 변경할 수 있습니다. ISL 코드·ML·전력 제어·복제 전송은 이번 변경 범위에 포함하지 않습니다.
 
-600초 / 160 Bytes / 60 pps의 연속 UDP 세션, strict 4° hysteresis, 실제 handover event별 100 ms interruption을 사용합니다. Figure는 serving ID/elevation와 전체 세션 cumulative/rolling loss/received pps입니다.
-
-PHY는 QPSK + CCSDS AR4JA rate 1/2, k=1024의 JPL Figure 14 CWER lookup으로 교체했습니다. Noise bandwidth와 information-rate 해석은 아직 근거가 부족해 TODO이며 미정 PHY는 성공/손실로 꾸미지 않습니다.
-
-기본 실제 실행: Generated 36,000; actual handovers 10; confirmed handover loss 60; outage 0; unresolved PHY 35,940. 전체 Received/Lost/PLR은 N/A, 확정 손실 lower bound는 0.166667%입니다. OS UDP 실측이 아닌 packet-event simulation입니다.
-
-최근 재생 버그 검증: [실제 핸드오버 색상 검증](gsl/validation_handover_playback.log), [0초 대기·실제 재생 버튼 검증](gsl/validation_main_playback_entry.log).
+검증 명령: `verify_uplink`. 재생·패킷 선택 검증 및 결과는 gsl/validation_uplink.md를 참고하세요.

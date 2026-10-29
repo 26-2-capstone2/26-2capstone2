@@ -54,8 +54,15 @@ end
 if CFG.openViewer
     R.viewerController = GSLNativeViewerController(sc,sats,gs,links,L,CFG);
     R.viewer = R.viewerController.Viewer;
+    if CFG.enablePackets && isfield(CFG,'openPacketViewer') && CFG.openPacketViewer
+        R.packetViewer=GSLPacketViewer(R.packetTable,R.linkState,CFG,R.viewer,sc.StartTime);
+        R.viewerController.attachPacketViewer(R.packetViewer);
+    end
     if isfield(CFG,'autoPlay3D') && CFG.autoPlay3D
         playGSL(R);
     end
+end
+if ~CFG.openViewer && CFG.enablePackets && isfield(CFG,'openPacketViewer') && CFG.openPacketViewer
+    R.packetViewer=GSLPacketViewer(R.packetTable,R.linkState,CFG,[],sc.StartTime);
 end
 end

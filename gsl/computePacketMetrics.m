@@ -44,4 +44,24 @@ M.rollingReceivedPacketsPerSecond=nan(height(P),1);
 M.rollingReceivedPacketsPerSecond(ok)=rolling(ok,2)./exposure(ok);
 M.averageReceivedPacketsPerSecond=M.receivedPackets/(t(end)-t(1)+interval);
 M.window_s=window_s;
+if ismember('onTime',P.Properties.VariableNames)
+    M.onTimePackets=sum(P.onTime); M.latePackets=sum(P.late);
+    M.onTimeDeliveryRate_pct=100*M.onTimePackets/M.generatedPackets;
+    M.deadlineFailureRate_pct=100*(M.lostPackets+M.latePackets)/M.generatedPackets;
+    if M.pendingPackets>0
+        M.onTimeDeliveryRate_pct=NaN; M.deadlineFailureRate_pct=NaN;
+    end
+    % Packet ID order, never arrival order. Unknown packets break known runs.
+    mask=P.lost==1; edges=diff([false;mask;false]);
+    starts=find(edges==1); stops=find(edges==-1)-1;
+    lengths=stops-starts+1;
+    M.lossRuns=table(P.packetID(starts),P.packetID(stops),lengths, ...
+        P.time_s(starts),P.time_s(stops), ...
+        'VariableNames',{'firstPacketID','lastPacketID','length_packets','firstGeneration_s','lastGeneration_s'});
+    M.maxConsecutiveLoss=0; M.meanConsecutiveLoss=0;
+    if ~isempty(lengths), M.maxConsecutiveLoss=max(lengths); M.meanConsecutiveLoss=mean(lengths); end
+    M.lossRunCount=numel(lengths); M.isolatedLossCount=sum(lengths==1);
+    M.burstLossRunCount=sum(lengths>=2);
+    M.observationEnd_s=max([P.time_s(end)+interval; P.finalTime_s(isfinite(P.finalTime_s))]);
+end
 end

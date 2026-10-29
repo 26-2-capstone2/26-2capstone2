@@ -1,5 +1,5 @@
 function CFG = configGSL()
-% Geometry + Ku-band DOWNLINK reference + simulated UDP packet layer.
+% GSL uplink research baseline. RF/channel values below are assumptions.
 CFG.startTime = datetime(2026,10,2,0,0,0,'TimeZone','UTC');
 CFG.duration_s = 600;
 CFG.channelUpdateStep_s = 1;
@@ -19,7 +19,24 @@ CFG.gsName = 'GS-demo';
 CFG.minElevation_deg = 25;
 CFG.enablePackets = true;
 CFG.handoverMargin_deg = 4;
-CFG.carrierFrequency_Hz = 12e9;
+CFG.carrierFrequency_Hz = 14e9;
+CFG.linkDirection = 'UPLINK';
+CFG.groundTxPower_dBW = 7; % 5.01 W, scenario assumption
+CFG.groundTxGain_dBi = 28; % scenario assumption, EIRP = 35 dBW
+CFG.satelliteRxGT_dB_per_K = -5; % scenario assumption, not Starlink data
+CFG.fixedImplementationLoss_dB = 1;
+CFG.clearAirZenithLoss_dB = 0.2; % simplified secant-elevation model
+CFG.channelScenario = 'synthetic_fade'; % 'clear' or controlled impairment test
+CFG.channelStep_s = 0.1;
+CFG.channelCorrelation_s = 2;
+CFG.channelSigma_dB = 0.7; % correlated dB perturbation, NOT calibrated weather
+CFG.channelRandomSeed = 20261029;
+CFG.fadeWindows_s = [180 205; 380 405];
+CFG.fadeDepth_dB = 10; % smooth artificial fade; not an ITU rain realization
+CFG.gslDeadline_s = 0.020; % GSL-only experimental assumption, not ISL deadline
+CFG.receiverProcessing_s = 0.001;
+CFG.openPacketViewer = true;
+CFG.packetDisplayCount = 300;
 CFG.txEIRPDensity_dBW_per_MHz = 12.88;
 CFG.rxGT_dB_per_K = 13.7;
 % Flat signal PSD; receiver noise bandwidth equals occupied signal bandwidth.
@@ -31,9 +48,11 @@ CFG.packetRate_pps = 60; % baseline
 CFG.stressPacketRate_pps = 60; % additional sensitivity case
 CFG.rollingWindow_s = 5;
 CFG.packetRandomSeed = 20261003;
-CFG.noiseBandwidth_Hz = NaN; % TODO: measured/source-backed receiver noise bandwidth
-CFG.informationBitRate_bps = NaN; % TODO: verify whether 50 Mbps is information or coded rate
-CFG.phyMappingSource = ''; % required before finite bandwidth/rate can be used
+CFG.noiseBandwidth_Hz = 50e6;
+CFG.informationBitRate_bps = 50e6;
+CFG.phyMappingSource = 'Experimental 50 Mbps information rate, QPSK r=1/2, ideal 50 MHz bandwidth; not measured Starlink';
+CFG.highSNRPolicy = 'CONSERVATIVE_ENDPOINT';
+CFG.lowSNRPolicy = 'UNIT_CWER';
 CFG.modulation = 'QPSK';
 CFG.channelCoding = 'CCSDS AR4JA';
 CFG.codeRate = 1/2;

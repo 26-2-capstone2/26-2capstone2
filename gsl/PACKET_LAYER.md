@@ -1,17 +1,7 @@
-# Packet layer
+# 패킷 계층 안내
 
-현재 구현과 실행 방법은 [README.md](README.md)를 따른다. 위성이 바뀌어도 하나의 UDP session을 유지한다.
+2026-10-29부터 평가 방향은 **GSL uplink(지상국→첫 위성)** 입니다.
 
-핵심 경로: computeLinkState → simulatePacketTransmission → getPERfromSNR → computePacketMetrics → reportPacketResults / plotResults.
+최신 정의와 가정은 [GSL_UPLINK_GUIDE.md](GSL_UPLINK_GUIDE.md)를 참고하세요. 기존 1011 GSL→ISL 논리적 통합 결과와 이 GSL 전용 실행을 구분합니다.
 
-- Session: 600 s, 60 pps, 160 Bytes, packet ID 1..36000.
-- Priority: OUTAGE_LOSS → HANDOVER_LOSS → PHY_LOSS / SUCCESS.
-- Actual handover event에만 [tH,tH+100ms) 적용. Fixed drop count 없음.
-- PHY: QPSK/AR4JA rate 1/2, k=1024; [JPL Figure 14 lookup](AR4JA_CURVE.md).
-- Eb/N0 = C/N +10log10(Bnoise/Rinformation). Missing mapping/outside curve = UNRESOLVED_PHY.
-- Packet PER =1-(1-CWER)^2, independent codeword assumption.
-- Total and rolling PLR denominator is Generated. Unknown outcomes stay NaN/N/A.
-- Default known handover/outage loss is reported separately; lower bound is never total PLR.
-- No socket I/O, UDP retransmission, congestion control, queue or arrival-time KPI.
-
-단위 테스트는 B/Rb 변환을 확인하는 synthetic mapping을 사용하며 연구 결과에 export하지 않는다. 현재 실행 검증은 validation_udp_session.log에 기록한다.
+ID와 생성 시각을 유지하고, 첫 위성 도착 시 GSL 완료로 판정합니다. packet_results.csv는 전체 원본 기록이고 isl_input_packets.csv는 도착한 패킷의 인계 파일입니다. 손실률·기한 내 도착률·연속 손실은 원본 ID 기준으로 집계합니다. 실제 UDP 소켓을 사용하는 실측은 아닙니다.
