@@ -24,7 +24,20 @@ annotation(f,'textbox',[.015 .89 .77 .095],'String',lines,'FontName','Consolas',
     'FontSize',10,'Interpreter','none','EdgeColor',[.75 .75 .75],'BackgroundColor',[.96 .98 1]);
 annotation(f,'textbox',[.80 .885 .18 .035],'String','Same time / no rerun', ...
     'FontSize',10,'EdgeColor','none');
+if isfield(C,'enableAttenuationSlider') && C.enableAttenuationSlider
+    popup.String=[labels {'추가 감쇠 실험 (manual)'}];
+    popup.Callback=@(src,~)selectCase(f,src,names);
+    attachGSLAttenuationSlider(f,B);
+end
 % Export all three cases using these same figure objects, then restore default.
 for name=names, switchGSLWeather(f,name,false); end
 switchGSLWeather(f,string(C.channelScenario),false);
+end
+function selectCase(f,src,names)
+if src.Value<=3
+    switchGSLWeather(f,names(src.Value));
+else
+    slider=findall(f,'Tag','GSLAttenuationSlider');
+    updateGSLAttenuation(f,slider.Value);
+end
 end

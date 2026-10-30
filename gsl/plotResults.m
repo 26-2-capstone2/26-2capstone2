@@ -20,6 +20,8 @@ f=figure('Name','UDP SESSION PERFORMANCE','NumberTitle','off','Color','w', ...
 nexttile; H.generated=plot(P.time_s,M.cumulativeGenerated,'-','LineWidth',1.8); hold on;
 H.received=plot(P.time_s,M.cumulativeReceived,':','LineWidth',1.5);
 H.lost=plot(P.time_s,M.cumulativeLost,'-.','LineWidth',1.5);
+H.knownReceived=plot(P.time_s,cumsum(double(P.received==1)),'--','Color',[.3 .6 .3],'LineWidth',1.1,'Visible','off');
+H.knownLost=plot(P.time_s,M.cumulativeKnownLoss,'--','Color',[.6 .2 .6],'LineWidth',1.1,'Visible','off');
 if M.pendingPackets>0
     plot(P.time_s,M.cumulativeKnownLoss,'--','LineWidth',1.3);
     legend('Generated','Received (N/A)','Lost (N/A)','Confirmed loss lower bound','Location','northwest');

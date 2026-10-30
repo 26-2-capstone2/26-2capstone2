@@ -8,7 +8,8 @@ nexttile; hold on;
 H.onTime=scatter(P.time_s(P.onTime),ones(sum(P.onTime),1),2,'k','filled');
 H.lost=scatter(P.time_s(P.lost==1),zeros(sum(P.lost==1),1),6,'r','filled');
 H.late=scatter(P.time_s(P.late),2*ones(sum(P.late),1),6,[1 .5 0],'filled');
-yticks([0 1 2]); yticklabels({'Lost','On time','Late'}); ylim([-.5 2.5]); grid on;
+H.unresolved=scatter(P.time_s(P.outcome_pending),3*ones(sum(P.outcome_pending),1),3,[.5 .5 .5],'filled');
+yticks([0 1 2 3]); yticklabels({'Lost','On time','Late','Unresolved'}); ylim([-.5 3.5]); grid on;
 H.statusTitle=title(sprintf('Loss %.3f%% | On-time %.3f%% | Deadline %.1f ms', ...
     M.packetLossRatio,M.onTimeDeliveryRate_pct,1000*C.gslDeadline_s));
 nexttile;

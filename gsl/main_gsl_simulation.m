@@ -1,5 +1,5 @@
 function R = main_gsl_simulation(CFG)
-% Run main_gsl_simulation, then use the native 3D viewer playback toolbar.
+% Run (F5): native 3D playback + same-window weather / extra attenuation slider.
 if nargin == 0, CFG = configGSL(); end
 assert(exist('satelliteScenario','file') ~= 0,'GSL:MissingToolbox', ...
     'satelliteScenario requires Aerospace Toolbox or Satellite Communications Toolbox.');
