@@ -1,7 +1,7 @@
 # 시뮬레이션 코드 흐름
 
 ISL 6x6 Grid 라우팅 시뮬레이션이 **어떤 순서로, 어떤 파일을 거쳐** 돌아가는지 정리한 문서.
-라우팅은 route_A (최단 경로) / route_B (부하 고려) 중 하나를 골라 씀.
+라우팅은 A_Dijkstra (최단 경로) / B_LinkLoad (부하 고려) 중 하나를 골라 씀.
 10분을 30초짜리 에피소드 20개로 나눠 돌리고, 에피소드마다 배경 트래픽 핫스팟(혼잡 지도)이 바뀜.
 
 ---
@@ -25,7 +25,7 @@ flowchart TD
     C -- "반복 끝" --> I["metrics_summary.csv"]
     I --> J["plot_metrics<br/>지표 비교 PNG"]
     J --> K["plot_analysis<br/>실행 분석 PNG"]
-    K --> L["save_results<br/>홈 폴더 isl_saved_runs/날짜_시분 으로 복사"]
+    K --> L["save_results<br/>홈 폴더 isl_saved_runs/라우팅_혼잡단계_날짜 으로 복사"]
     L --> M["show_results / show_node<br/>(따로 실행) 결과 창 띄우기"]
 ```
 
@@ -41,7 +41,7 @@ flowchart TD
 | 8 | `animate_run` | (ε = 0일 때) 첫 에피소드의 처음 0.2초 애니메이션 GIF |
 | 9 | `plot_metrics` | 지표 비교 그래프 `metrics_summary.png` |
 | 10 | `plot_analysis` | 실행 분석 그래프 `run_analysis.png` |
-| 11 | `save_results` | 코드 + 결과를 홈 폴더의 `isl_saved_runs\날짜_시분`으로 복사 |
+| 11 | `save_results` | 코드 + 결과를 홈 폴더의 `isl_saved_runs\라우팅_혼잡단계_날짜`으로 복사 |
 | 12 | `show_results`, `show_node` | (사용자가 따로 실행) 저장된 결과를 창에 띄움 |
 
 ---
@@ -55,7 +55,7 @@ main_isl
 ├─ run_isl_sim(P, ...)         → R (에피소드 1개 결과)
 │   ├─ build_grid(P)           → G (6x6 Grid, 링크 구조)
 │   ├─ make_bg_schedule(P)     → 배경 흐름별 step마다 생성 개수 (ON/OFF + Poisson)
-│   ├─ route_A / route_B       → 다음 방향 (P.routeName으로 선택, 패킷이 위성에 올 때마다 호출)
+│   ├─ A_Dijkstra / B_LinkLoad       → 다음 방향 (P.routeName으로 선택, 패킷이 위성에 올 때마다 호출)
 │   └─ NodeLog                 → 노드 기준 기록 (node_log.py)
 ├─ merge_episodes(Rs, P)       → 에피소드 20개를 합친 R (episodes.py)
 ├─ compute_metrics(R, Pt)      → M (지표)
@@ -104,7 +104,7 @@ flowchart TD
     S3 -- "통과" --> S5
     S4["4. 패킷 생성<br/>출발 위성 (0,0)에서 1초당 60개 일정 간격"] --> S41
     S41["4-1. 배경 패킷 생성 (미리 만든 스케줄대로)<br/>+ XY 고정 경로로 큐에 넣기 (꽉 차면 배경 오버플로)"] --> S5
-    S5["5. 라우팅 결정<br/>route_A / route_B로 방향 선택 → 결정 기록 1줄"] --> Q{"그 링크 큐가<br/>200개로 꽉 찼나?"}
+    S5["5. 라우팅 결정<br/>A_Dijkstra / route_B로 방향 선택 → 결정 기록 1줄"] --> Q{"그 링크 큐가<br/>200개로 꽉 찼나?"}
     Q -- "예" --> L4["큐 오버플로 (result 4)"]
     Q -- "아니오" --> S6["큐 맨 뒤에 넣기"]
     S6 --> S7["6. 전송<br/>링크마다 큐 앞에서 최대 5개 꺼내 보냄<br/>도착 예정 = 지금 + 링크 지연"]
@@ -154,30 +154,31 @@ flowchart TD
 
 패킷이 위성에 도착할 때마다 호출. 입력과 출력이 같아서 `config_isl.py`의 `P.routeName`만 바꾸면 교체됨 (나중에 강화학습 route_C도 같은 자리).
 
-### `route_A`: 최단 경로 (기준선)
+### `A_Dijkstra`: 최단 경로 (기준선)
 
 - 링크 지연을 가중치로 목적지까지 최소 지연 합을 미리 계산 (Dijkstra, `G.distToDst`)
 - 매번 "다음 위성까지 지연 + 거기서 목적지까지 최소 지연"이 가장 작은 방향을 고름. **큐(부하)는 보지 않음**
 - 최단 경로가 여러 개면 우 > 좌 > 하 > 상 (좌/우 먼저) → 항상 ㄱ자 경로
 - `choiceType`은 항상 1, L과 N은 기록용
 
-### `route_B`: 부하 고려 (Liu et al. 단순화)
+### `B_LinkLoad`: 연속 손실 회피 + 링크 부하
+
+연이은 패킷이 같은 막힌 큐를 연달아 밟지 않게 하는 것을 먼저 보고, 남은 방향 중 링크 점유율로 고름.
+각 단계에서 후보가 하나도 안 남으면 그 단계는 건너뜀.
 
 ```mermaid
 flowchart TD
-    A["갈 수 있는 방향마다<br/>V = 링크 큐 길이<br/>N = 다음 위성 큐 평균<br/>L = (k × V + (1 − k) × N) / 200"] --> B["주 경로 = 목적지 쪽 좌/우<br/>대체 경로 = 목적지 쪽 상/하"]
-    B --> C{"주 경로 상태"}
-    C -- "Idle (L < X)" --> P1["주 경로"]
-    C -- "Relatively Busy" --> D{"대체 경로 Idle?"}
-    D -- "예" --> P2["대체 경로"]
-    D -- "아니오" --> P1
-    C -- "Busy (L ≥ Y)" --> E{"대체 경로 Idle / RB?"}
-    E -- "예" --> P2
-    E -- "아니오 / 대체 없음" --> P3["우회: 모든 방향 중 L 최소"]
+    A["0. 없는 방향, 큐가 꽉 찬 방향 제외"] --> B["1. 손실 직후 회피<br/>최근 holdTime(300) 안에 오버플로 난 링크 제외"]
+    B --> C["2. 넘칠 위험 회피<br/>큐가 riskRatio(0.8) 이상 찬 링크 제외"]
+    C --> D["3. 기한 여유 확인<br/>링크 지연 + 큐 대기 + 남은 최소 지연 > 남은 기한이면 제외"]
+    D --> E["4. L 등급이 가장 좋은 후보<br/>Idle > Relatively Busy > Busy<br/>L = (k × V + (1 − k) × N) / 200"]
+    E --> F["5. 목적지 쪽 방향 중<br/>이 위성이 직전에 고른 방향과 다른 쪽<br/>(연이은 패킷 나누기)"]
+    F --> G["6. 남은 최소 지연이 짧은 쪽<br/>주 경로(좌/우) > 대체 경로(상/하)"]
 ```
 
-- 현재 설정: k = 0.5, X = 0.5, Y = 0.8 (설계 추천값, 논문 값 아님)
-- 출력: `nextDir`(1 상, 2 하, 3 좌, 4 우), `choiceType`(1 주, 2 대체, 3 우회), 4방향 `L`, `N`
+- 현재 설정: k = 0.5, X = 0.5, Y = 0.8, holdTime = 300 step, riskRatio = 0.8
+- 출력: `nextDir`(1 상, 2 하, 3 좌, 4 우), `choiceType`(1 주, 2 대체, 3 그 외 방향, 5 손실 회피 규칙 때문에 바뀜), 4방향 `L`, `N`
+- 시뮬레이터가 링크별 마지막 오버플로 시각(`lastDrop`), 위성별 직전 선택 방향(`lastDir`), 패킷의 남은 기한을 함께 넘겨 줌
 
 ---
 
@@ -206,7 +207,7 @@ flowchart TD
 | 반복 끝 | `main_isl` | `metrics_summary.csv` |
 | 반복 끝 | `plot_metrics` | `metrics_summary.png` |
 | 반복 끝 | `plot_analysis` | `run_analysis.png` |
-| 마지막 | `save_results` | 홈 폴더 `isl_saved_runs\날짜_시분\code\`, `results\` 로 복사 (환경변수 `ISL_SAVE_ROOT`로 변경 가능) |
+| 마지막 | `save_results` | 홈 폴더 `isl_saved_runs\라우팅_혼잡단계_날짜\code\`, `results\` 로 복사 (환경변수 `ISL_SAVE_ROOT`로 변경 가능) |
 | 따로 실행 | `show_results` | 표 + 그래프 + 노드 그림 + 애니메이션 창 |
 | 따로 실행 | `show_node p s` | 노드 1개 시간 변화 + 노드 요약 지도 |
 | 따로 실행 | `check_bg` | 배경 트래픽 검증 (회귀, 보존 법칙, 링크 용량, 재현성) |

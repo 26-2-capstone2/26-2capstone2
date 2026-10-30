@@ -5,22 +5,25 @@
 #   python show_node.py 3 0        -> 노드 (p=3, s=0)의 시간 변화
 #   python show_node.py 3 0 0.1    -> ε = 0.1 실행의 노드 (3,0)
 # (show_results.py는 main_isl이 저장한 PNG를 보여 주고, 이 파일은 원하는 노드를 골라 볼 때 사용)
+import glob
 import os
 import sys
 
 import matplotlib.pyplot as plt
 
-from plot_nodes import busiest_node, fig_node_map, fig_node_time, load_node_log, node_summary, print_node_table
+from viz.plot_nodes import busiest_node, fig_node_map, fig_node_time, load_node_log, node_summary, print_node_table
 
 # ---- 기본값 ----
 epsilon = 0.0          # 볼 실행 (ε = 0: 성능 측정용, 0.1: 데이터 수집용)
-genRate = 60           # 볼 실행의 생성률
 
 if len(sys.argv) >= 4:
     epsilon = float(sys.argv[3])
 baseDir = os.path.dirname(os.path.abspath(__file__))
-tag = f'rate{genRate}pps_eps{epsilon:.1f}'
-c = load_node_log(os.path.join(baseDir, 'results', f'node_log_{tag}.csv'))
+files = glob.glob(os.path.join(baseDir, 'results', f'node_log_*_eps{epsilon:.1f}.csv'))   # 가장 최근 실행 (results 폴더)
+if not files:
+    sys.exit('results 폴더에 node_log가 없음: main_isl.py를 먼저 실행')
+tag = os.path.basename(files[0])[len('node_log_'):-len('.csv')]
+c = load_node_log(files[0])
 summary = node_summary(c)
 
 if len(sys.argv) >= 3:

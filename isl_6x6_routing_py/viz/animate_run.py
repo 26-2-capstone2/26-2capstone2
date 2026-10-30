@@ -6,8 +6,8 @@ from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.cm import ScalarMappable
 from PIL import Image
 
-from run_isl_sim import ROUTE_LABELS
-from viz_colors import use_korean_font, viz_colors
+from sim.run_isl_sim import ROUTE_LABELS
+from viz.viz_colors import use_korean_font, viz_colors
 
 
 def animate_run(R, P, gifPath):

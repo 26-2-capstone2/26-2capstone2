@@ -3,8 +3,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from run_isl_sim import ROUTE_LABELS
-from viz_colors import use_korean_font, viz_colors
+from sim.run_isl_sim import ROUTE_LABELS
+from viz.viz_colors import use_korean_font, viz_colors
 
 
 def plot_metrics(T, P, pngPath):
@@ -49,7 +49,7 @@ def plot_metrics(T, P, pngPath):
         + (f' = {P.numEpisodes}에피소드 x {P.episodeLen * P.stepTime:.0f}초' if getattr(P, 'episodeLen', None) else ''),
         f'생성 패킷: {int(T["generated"][0])}개 / 실행',
         f'라우팅: {ROUTE_LABELS[P.routeName]}' + (f' (k = {P.k:.1f}, X = {P.X:.1f}, Y = {P.Y:.1f})'
-                                                  if P.routeName == 'routeB' else ''),
+                                                  if P.routeName == 'B_LinkLoad' else ''),
         f'기한 {P.deadline} ms,  TTL {P.ttlInit}',
         f'링크 용량 {P.linkCapacity}개/step,  큐 {P.queueMax}개',
         f'배경 트래픽: 핫스팟 {P.bgNumMin}~{P.bgNumMax}개, 세기 {P.bgLoadMin}~{P.bgLoadMax}배, 시작 시드 {P.bgScenarioSeed}' if P.bgEnable

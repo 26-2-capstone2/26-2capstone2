@@ -6,15 +6,17 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from build_grid import build_grid
-from route_A import route_A
-from route_B import route_B
-from bg_traffic import make_bg_schedule, xy_next_dir
-from node_log import NodeLog
+from sim.build_grid import build_grid
+from routing.A_Dijkstra import A_Dijkstra
+from routing.B_LinkLoad import B_LinkLoad
+from routing.D_LA_Dijkstra import D_LA_Dijkstra
+from routing.C_RL import C_RL, STATE as C_STATE
+from sim.bg_traffic import make_bg_schedule, xy_next_dir
+from sim.node_log import NodeLog
 
 # 라우팅 알고리즘 (config_isl.py P.routeName으로 고름, 입력/출력이 같아서 바꿔 끼우기만 하면 됨)
-ROUTES = {'routeA': route_A, 'routeB': route_B}
-ROUTE_LABELS = {'routeA': 'A 최단 경로', 'routeB': 'B 부하 고려', 'routeC': 'C 강화학습'}
+ROUTES = {'A_Dijkstra': A_Dijkstra, 'B_LinkLoad': B_LinkLoad, 'C_RL': C_RL, 'D_LA_Dijkstra': D_LA_Dijkstra}
+ROUTE_LABELS = {'A_Dijkstra': 'A 최단 경로', 'B_LinkLoad': 'B 부하 고려', 'C_RL': 'C 강화학습', 'D_LA_Dijkstra': 'D 부하 고려 최단 경로'}
 
 
 def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
@@ -26,9 +28,10 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     #                   3 중간 기한 초과, 4 큐 오버플로, 5 TTL 만료
     # 패킷 id(packet_id)는 0부터 시작 (MATLAB 기록 파일과 같은 번호)
 
-    rng = np.random.RandomState(randomSeed)   # MATLAB rng(seed, 'twister')와 같은 난수열
+    rng = np.random.RandomState(randomSeed)  
     G = build_grid(P)
     route = ROUTES[P.routeName]
+    collector = C_STATE.collector if P.routeName == 'C_RL' else None   # 강화학습 경험 연결 장치 (학습 때만)
     numLinks = G.numLinks
     queueMax = P.queueMax
 
@@ -64,6 +67,8 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     if bgOn:
         bgCount = make_bg_schedule(P)
     linkSent = np.zeros(numLinks, dtype=np.int64)
+    lastDrop = np.full(numLinks, -10 ** 9, dtype=np.int64)   # 링크별 마지막 오버플로 step (주 흐름 + 배경, B 손실 직후 회피용)
+    lastDir = np.zeros((P.numPlanes, P.satsPerPlane), dtype=np.int64)   # 위성별 직전에 고른 방향 (B 연이은 패킷 나누기용)
 
     # 도착 예정 패킷 (도착 step별 칸, 원형)
     numSlots = int(max(P.linkDelay)) + P.processingDelay + 1
@@ -129,6 +134,8 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             nodeLog.count[nodeLog.dstNode, 4] += len(onTimeIds)
             nodeLog.count[nodeLog.dstNode, 5] += len(lateIds)
         inTransit = inTransit[~ttlExpired]
+        if collector is not None:
+            collector.on_end(arrived[status[arrived] != 0], status)   # 이번 step에 끝난 패킷
         statusCount += [len(onTimeIds), len(lateIds), int(overDeadline.sum()), 0, int(ttlExpired.sum())]
 
         # 3-B. 배경 패킷 도착 처리
@@ -196,6 +203,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
                 if k < len(ids):
                     lost = ids[k:]
                     bgStat['overflow'] += len(lost)
+                    lastDrop[link] = t
                     bgFree.extend(lost.tolist())
                     if nodeLog:
                         nodeLog.count[nodeLog.linkNode[link], 1] += len(lost)
@@ -205,14 +213,18 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
         for packet_id in toRoute:
             p = int(curP[packet_id])
             s = int(curS[packet_id])
-            nextDir, choiceType, L, N = route(p, s, queueLen, G, P)
+            nextDir, choiceType, L, N = route(p, s, queueLen, G, P, t=t, remDeadline=P.deadline - (t - genTime[packet_id]),
+                                              ttl=int(ttl[packet_id]), hops=int(hops[packet_id]),
+                                              lastDrop=lastDrop, lastDir=lastDir)
             if epsilon > 0 and rng.random_sample() < epsilon:
                 dirs = G.validDirs[p][s]
                 nextDir = dirs[math.ceil(rng.random_sample() * len(dirs)) - 1]
                 choiceType = 4   # 무작위
 
+            lastDir[p, s] = nextDir
             link = G.linkId[p, s, nextDir - 1]
             enqueued = queueLen[link] < queueMax
+            qAtLink = int(queueLen[link])   # 넣기 전 큐 길이 (강화학습 홉 보상용)
 
             qNow = [-1] * 4
             for d, l in zip(G.validDirs[p][s], G.outLinks[p][s]):
@@ -232,10 +244,13 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
                 queueLen[link] += 1
             else:
                 status[packet_id] = 4   # 큐 오버플로
+                lastDrop[link] = t
                 endTime[packet_id] = t
                 statusCount[3] += 1
                 if nodeLog:
                     nodeLog.count[nodeLog.node(p, s), 0] += 1
+            if collector is not None and choiceType != 4:   # C_RL 학습: 방금 결정을 경험으로 연결 (시뮬레이터 ε 무작위 결정은 제외)
+                collector.on_decision(int(packet_id), C_STATE.last, qAtLink, enqueued, status)
 
         # 6. 전송: 링크마다 큐 앞쪽 최대 linkCapacity개
         if nodeLog:

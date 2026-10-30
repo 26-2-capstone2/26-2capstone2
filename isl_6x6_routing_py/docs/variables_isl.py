@@ -30,11 +30,11 @@
 # TTL: P.ttlInit = 20
 # 현재 홉 수: hops
 # 생성 시각: genTime
-# 기한: P.deadline = 70 step [배경 트래픽 실험: 100 -> 70, 팀원 설정]
+# 기한: P.deadline = 70 step [100 -> 90 -> 70: 여유를 25 step으로 줄여 D_LA_Dijkstra도 기한 초과 손실이 나게 함]
 #
 # ---------------- 5-0. 라우팅 알고리즘 선택 ----------------
-# 라우팅 알고리즘: P.routeName = 'routeA' (최단 경로) / 'routeB' (부하 고려)  * 결과 폴더 이름으로도 쓰임
-# A 최단 경로 (route_A.py): 링크 지연 합이 가장 작은 경로로만 보냄 (Dijkstra, 큐는 안 봄)
+# 라우팅 알고리즘: P.routeName = 'A_Dijkstra' (최단 경로) / 'B_LinkLoad' (부하 고려) / 'D_LA_Dijkstra' (부하 고려 최단 경로)  * 결과 폴더 이름으로도 쓰임
+# A 최단 경로 (A_Dijkstra.py): 링크 지연 합이 가장 작은 경로로만 보냄 (Dijkstra, 큐는 안 봄)
 #   목적지까지 최소 지연: G.distToDst (처음 한 번 계산), 동점이면 우 > 좌 > 하 > 상 (좌/우 먼저)
 #   choiceType은 항상 1, decision_log의 L, N은 기록용 (결정에는 안 씀)
 #
@@ -46,9 +46,12 @@
 # 가중치: P.k = 0.5 [추천값]
 # 임계값 X: P.X = 0.5 [추천값]
 # 임계값 Y: P.Y = 0.8 [추천값]
+# 손실 직후 회피 시간: P.holdTime = 300 step (오버플로가 난 링크를 이 시간 동안 피함)
+# 넘칠 위험 기준: P.riskRatio = 0.8 (큐가 이 비율 이상 찬 링크를 피함)
+# B 판단 순서: 꽉 찬 큐 제외 -> 손실 직후 회피 -> 넘칠 위험 회피 -> 기한 여유 확인 -> L 등급 -> 연이은 패킷 나누기 -> 남은 최소 지연
 # 주 경로: primaryDir (좌/우 방향)
 # 대체 경로: altDir (상/하 방향)
-# 선택 유형: choiceType = 1 주, 2 대체, 3 우회, 4 무작위 (확률 ε로 갈 수 있는 방향 중 하나, 라우팅이 고른 방향일 수도 있음)
+# 선택 유형: choiceType = 1 주, 2 대체, 3 그 외 방향(우회), 4 무작위 (확률 ε로 갈 수 있는 방향 중 하나, 라우팅이 고른 방향일 수도 있음), 5 손실 회피 규칙 때문에 방향이 바뀜 (B만)
 #
 # ---------------- 5-1. 배경 트래픽 (송신 큐 핫스팟, 지표 계산에서 제외) - bg_traffic.py ----------------
 # 핫스팟 = 위성 하나의 한 방향 송신 큐가 과부하 (그 위성 -> 그 방향 이웃으로 가는 1홉 배경 흐름)
@@ -74,8 +77,10 @@
 # ε 무작위 선택 시드: P.randomSeed = 1 (에피소드 e는 randomSeed + e) [설정]
 # 애니메이션 길이: P.animDuration = 200 step (0.2초, 첫 에피소드만) [설정]
 # 애니메이션 간격: P.animFrameInterval = 2 step (100장) [설정]
-# 결과 저장 경로: (홈 폴더)\isl_saved_runs\날짜_시분 (환경변수 ISL_SAVE_ROOT로 바꿀 수 있음, main_isl.py 맨 아래)
-# 라우팅 알고리즘 이름: P.routeName = 'routeA' / 'routeB'
+# 혼잡 단계: P.bgLevel = 'base' / 'high' / 'severe' (config_isl.py BG_LEVELS: 핫스팟 2~5, 3~6, 4~7개 / ON/OFF 150/750, 300/600, 450/450 step)
+# 실행 조건 기록: results\run_info.txt (라우팅, 시드 범위, 기한 등)
+# 결과 저장 경로: (홈 폴더)\isl_saved_runs\라우팅_혼잡단계_날짜 (환경변수 ISL_SAVE_ROOT로 바꿀 수 있음, main_isl.py 맨 아래)
+# 라우팅 알고리즘 이름: P.routeName = 'A_Dijkstra' / 'B_LinkLoad' / 'D_LA_Dijkstra' (C_RL 예정)
 #
 # ---------------- 7. 손실 / 결과 (패킷 기록 result) ----------------
 # 기한 내 도착: result = 1   (코드 안에서는 status)

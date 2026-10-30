@@ -5,8 +5,8 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.cm import ScalarMappable
 
-from run_isl_sim import ROUTE_LABELS
-from viz_colors import use_korean_font, viz_colors
+from sim.run_isl_sim import ROUTE_LABELS
+from viz.viz_colors import use_korean_font, viz_colors
 
 
 def plot_analysis(Rs, P, pngPath):

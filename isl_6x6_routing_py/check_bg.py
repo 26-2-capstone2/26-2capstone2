@@ -5,10 +5,10 @@ import sys
 
 import numpy as np
 
-from bg_traffic import describe_hotspots, link_load_report, sample_hotspots
-from build_grid import build_grid
+from sim.bg_traffic import describe_hotspots, link_load_report, sample_hotspots
+from sim.build_grid import build_grid
 from config_isl import config_isl
-from run_isl_sim import run_isl_sim
+from sim.run_isl_sim import run_isl_sim
 
 KEYS = ['genTime', 'endTime', 'hops', 'status', 'decisionLog', 'timeline']
 

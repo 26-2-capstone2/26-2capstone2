@@ -18,8 +18,8 @@
 #     또는 터미널에 입력:  python main_isl.py
 # (3) 약 1~2분 기다리기
 #     터미널에 아래 두 줄이 찍히고 결과가 나오면 끝
-#       [rate60pps_eps0.0] ...   (성능 측정용 실행)
-#       [rate60pps_eps0.1] ...   (강화학습 데이터 수집용 실행)
+#       [B_LinkLoad_base_eps0.0] ...   (성능 측정용 실행)
+#       [B_LinkLoad_base_eps0.1] ...   (강화학습 데이터 수집용 실행)
 #       결과 저장 완료: ...
 #
 # =====================================================================
@@ -38,9 +38,9 @@
 #   metrics_summary.png               : 성능 지표 7개를 실행별 막대로 비교
 #   run_analysis.png                  : 실행 분석 (지연 분포, 시간별 변화, 링크 사용량 지도, 홉 수, 선택 유형, 손실 원인)
 #   metrics_summary.csv               : 성능 지표 숫자 (엑셀로 열림)
-#   anim_rate60pps_eps0.0.gif         : 0~0.2초 애니메이션 (첫 에피소드) (링크 색 = 큐가 찬 정도, 점 = 이동 중인 패킷)
+#   anim_B_LinkLoad_base_eps0.0.gif         : 0~0.2초 애니메이션 (첫 에피소드) (링크 색 = 큐가 찬 정도, 점 = 이동 중인 패킷)
 #   packet_log_*.csv                  : 패킷 1개 = 1줄 (생성 시각, 도착 시각, 결과, 홉 수)
-#   decision_log_rate60pps_eps0.1.csv : 라우팅 결정 1번 = 1줄 (강화학습 학습용 데이터)
+#   decision_log_B_LinkLoad_base_eps0.1.csv : 라우팅 결정 1번 = 1줄 (강화학습 학습용 데이터)
 #   node_log_*.csv                    : 노드 기준 기록 (100 step마다 노드 1개 = 1줄, 큐, 보낸 수, 손실)
 #   node_map_*.png                    : 노드별 요약 지도 (6x6, 평균/최대 큐, 보낸 수, 오버플로, 기한 초과)
 #   node_time_*.png                   : 주 흐름 손실이 가장 많은 노드의 시간 변화
@@ -50,8 +50,8 @@
 # =====================================================================
 # 3. 결과 저장 경로
 # =====================================================================
-# 시뮬레이션이 끝나면 자동으로 아래 폴더에 저장됨 (실행할 때마다 날짜_시분 폴더가 새로 생김)
-#   (사용자 홈 폴더)\isl_saved_runs\2026-10-10_1320\     예) C:\Users\eun\isl_saved_runs\...
+# 시뮬레이션이 끝나면 자동으로 아래 폴더에 저장됨 (폴더 이름 = 라우팅_혼잡단계_날짜, 같은 날 같은 조건이면 덮어씀)
+#   (사용자 홈 폴더)\isl_saved_runs\D_LA_Dijkstra_high_2026-10-26\     예) C:\Users\eun\isl_saved_runs\...
 #       code\     그때 사용한 .py 파일 전부 (어떤 설정으로 돌렸는지 확인용)
 #       results\  이미지(.png, .gif) + CSV (bg_scenario.csv: 에피소드별 핫스팟 목록 포함)
 #
@@ -71,41 +71,52 @@
 #       P.numEpisodes = 20    에피소드 개수 (30초 x 20 = 10분)
 #       P.k, P.X, P.Y         B 라우팅 가중치 / 임계값
 #       P.bg...               배경 트래픽 (핫스팟 개수, 세기, ON/OFF, 시작 시드)
-# 수정 후 main_isl.py 다시 실행 (배경 시작 시드는 python main_isl.py 7 처럼 바로 줄 수도 있음)
+# 수정 후 main_isl.py 다시 실행 (실행 인자: python main_isl.py 시작시드 혼잡단계 라우팅, 예) python main_isl.py 1001 high D_LA_Dijkstra)
 # 모든 변수 설명은 variables_isl.py 참고
 #
 # =====================================================================
 # 5. 파일 역할
 # =====================================================================
-# 직접 실행하는 파일
+# 폴더 구조 (맨 위에는 직접 실행하는 파일과 설정만, 나머지는 범주별 폴더)
+# isl_6x6_routing_py/
 #   main_isl.py        시뮬레이션 실행 + 결과 저장  (① 이것부터)
+#                      실행 인자: python main_isl.py 시작시드 혼잡단계 라우팅
+#   run_batch.py       여러 세트 한 번에 실행 (학습 데이터 모으기)
 #   show_results.py    저장된 결과를 창에 띄움 (② 결과 볼 때)
 #   show_node.py       노드 기준 상태를 창에 띄움 (② 노드별로 볼 때)
 #   check_bg.py        배경 트래픽 검증 (python check_bg.py save / check)
-# 수정하는 파일
-#   config_isl.py      모든 설정값 (네트워크, 패킷, 라우팅, 에피소드, 배경 트래픽)
-# 읽기용 파일
-#   README_isl.py      이 안내문
-#   simulation_instructions.py  시뮬레이션이 하는 일과 결과 파일 설명
-#   variables_isl.py   변수 정리
-# 자동으로 불리는 파일 (직접 실행 X)
-#   run_isl_sim.py     시뮬레이션 1회 실행
-#   route_A.py         A 라우팅 결정 (최단 경로, 부하 무시 - 기준선)
-#   route_B.py         B 라우팅 결정 (부하 고려, Liu 단순화)
-#   * 어떤 라우팅을 쓸지는 config_isl.py의 P.routeName ('routeA' / 'routeB')
-#   build_grid.py      6x6 Grid 생성
-#   compute_metrics.py 성능 지표 계산
-#   bg_traffic.py      배경 트래픽 (핫스팟 뽑기, ON/OFF 스케줄, XY 고정 경로)
-#   episodes.py        에피소드 20개 결과를 하나로 합침
-#   node_log.py        노드 기준 기록 (node_log CSV)
-#   plot_nodes.py      노드 그래프 (node_map, node_time PNG / show_node 창)
-#   animate_run.py     애니메이션 GIF 저장
-#   plot_metrics.py    지표 비교 그래프 PNG 저장
-#   plot_analysis.py   실행 분석 그래프 PNG 저장
-#   viz_colors.py      그래프 색 모음
-#   save_results.py    결과를 저장 경로로 복사
+#   config_isl.py      모든 설정값 (네트워크, 패킷, 라우팅, 에피소드, 배경 트래픽)  <- 수정하는 파일
+#
+#   routing/   라우팅 알고리즘 (입력/출력이 같아서 config_isl.py의 P.routeName으로 바꿔 끼움)
+#     A_Dijkstra.py      A 최단 경로 (부하 무시, 기준선)
+#     B_LinkLoad.py      B 연속 손실 회피 + 링크 부하
+#     D_LA_Dijkstra.py   D 최단 경로 + 링크 부하 (비용 = 링크 지연 + 큐 대기 + 남은 최소 지연)
+#     (C_RL 강화학습은 나중에 여기 추가)
+#   sim/       시뮬레이터 본체
+#     run_isl_sim.py     시뮬레이션 1회 실행 (라우팅 목록 ROUTES도 여기)
+#     build_grid.py      6x6 Grid 생성
+#     bg_traffic.py      배경 트래픽 (핫스팟 뽑기, ON/OFF 스케줄, XY 고정 경로)
+#     episodes.py        에피소드 20개 결과를 하나로 합침
+#     node_log.py        노드 기준 기록 (node_log CSV)
+#   analysis/  지표와 저장
+#     compute_metrics.py 성능 지표 계산
+#     save_results.py    결과와 코드를 저장 경로로 복사 (폴더 구조 그대로)
+#   viz/       그래프와 애니메이션
+#     plot_metrics.py    지표 비교 그래프
+#     plot_analysis.py   실행 분석 그래프
+#     plot_nodes.py      노드 그래프 (node_map, node_time / show_node 창)
+#     animate_run.py     애니메이션 GIF
+#     viz_colors.py      그래프 색 모음
+#   rl/        강화학습 파일 자리 (관측 벡터, 경험 데이터, DQN, 학습 스크립트 예정)
+#   docs/      읽기용 문서
+#     README_isl.py               이 안내문
+#     simulation_instructions.py  시뮬레이션이 하는 일과 결과 파일 설명
+#     variables_isl.py            변수 정리
+#   results/   최근 실행 결과 (git 제외)
+#
+# * 폴더 안 파일은 직접 실행하지 않고, 맨 위 실행 파일이 불러서 씀 (예: from sim.run_isl_sim import run_isl_sim)
 #
 # MATLAB 버전과 다른 점
 #   * 좌표/패킷 id는 0부터 사용 (MATLAB 내부는 1부터, 기록 파일 숫자는 둘이 같음)
 #   * 결과 저장 경로가 홈 폴더의 isl_saved_runs (MATLAB 결과와 섞이지 않게)
-#   * 배경 트래픽, 에피소드, route_A, 노드 기록은 Python 버전에만 있음
+#   * 배경 트래픽, 에피소드, A_Dijkstra, 노드 기록은 Python 버전에만 있음
