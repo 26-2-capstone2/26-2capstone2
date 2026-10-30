@@ -15,6 +15,7 @@ classdef GSLPacketViewer < handle
         function obj=GSLPacketViewer(P,L,C,viewer,startTime)
             obj.P=P; obj.L=L; obj.C=C; obj.NativeViewer=viewer; obj.StartTime=startTime;
             obj.WeatherName=string(C.channelScenario);
+            if isfield(C,'experimentLabel'), obj.WeatherName=string(C.experimentLabel); end
             old=findall(groot,'Type','figure','Tag','GSLPacketViewer');
             if ~isempty(old), close(old); end
             f=figure('Name','GSL Uplink - Packet IDs and Outcomes','NumberTitle','off', ...
@@ -52,7 +53,7 @@ classdef GSLPacketViewer < handle
                 'String','Select a packet. Scope: ground station -> first satellite only.');
             if isempty(viewer)
                 obj.Slider=uicontrol(f,'Style','slider','Units','normalized','Position',[.02 .015 .70 .03], ...
-                    'Min',0,'Max',max(C.duration_s,max(P.finalTime_s(isfinite(P.finalTime_s)))), ...
+                    'Min',0,'Max',max([C.duration_s;P.finalTime_s(isfinite(P.finalTime_s))]), ...
                     'Callback',@(s,~)obj.setTime(s.Value));
                 uicontrol(f,'Style','pushbutton','Units','normalized','Position',[.74 .01 .10 .04], ...
                     'String','Play / Pause','Callback',@(~,~)obj.toggle());

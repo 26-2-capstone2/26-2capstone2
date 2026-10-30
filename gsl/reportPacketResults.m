@@ -32,8 +32,8 @@ summary=sprintf(['===== GSL UDP SESSION RESULT =====\n' ...
     number(M.averageReceivedPacketsPerSecond),M.pendingPackets,M.resolvedLostPackets, ...
     M.confirmedLossLowerBound_pct,CFG.perModelSource,number(CFG.noiseBandwidth_Hz),number(CFG.informationBitRate_bps));
 fprintf('%s',summary);
-if isfield(CFG,'manualExtraLoss_dB')
-    extra=sprintf('MANUAL EXTRA ATTENUATION: %.1f dB on clear gas baseline; no weather classification.\nStrict published curve support; out-of-range PHY outcomes remain unresolved.\n',CFG.manualExtraLoss_dB);
+if isfield(CFG,'environmentLoss_dB')
+    extra=sprintf('ENVIRONMENT ATTENUATION: %.1f dB total; weather labels are illustrative assumptions.\nStrict published curve support; out-of-range PHY outcomes remain unresolved.\n',CFG.environmentLoss_dB);
     fprintf('%s',extra); summary=[summary extra];
 end
 if isfield(M,'onTimePackets')
@@ -48,7 +48,7 @@ if isfield(M,'onTimePackets')
         M.maxConsecutiveLoss,M.meanConsecutiveLoss,M.observationEnd_s);
     fprintf('%s',extra); summary=[summary extra];
 end
-if isfield(CFG,'weather') && ismember(string(CFG.channelScenario),["clear","cloudy","rainy"])
+if ~isfield(CFG,'environmentLoss_dB') && isfield(CFG,'weather') && ismember(string(CFG.channelScenario),["clear","cloudy","rainy"])
     W=CFG.weather;
     extra=sprintf('Weather inputs: T=%g C, P=%g Pa, vapor=%g g/m3, cloud=%g g/m3, rain=%g mm/h\nITU P.676/840/838 layer integration; defined conditions, NOT observed weather.\n', ...
         W.surfaceTemperature_C,W.surfacePressure_Pa,W.surfaceVaporDensity_g_m3,W.cloudWaterDensity_g_m3,W.rainRate_mm_h);

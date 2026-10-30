@@ -1,6 +1,7 @@
 function R = main_gsl_simulation(CFG)
-% Run (F5): native 3D playback + same-window weather / extra attenuation slider.
+% Run (F5): total environment attenuation slider and packet playback; no globe.
 if nargin == 0, CFG = configGSL(); end
+CFG.openViewer=false;
 assert(exist('satelliteScenario','file') ~= 0,'GSL:MissingToolbox', ...
     'satelliteScenario requires Aerospace Toolbox or Satellite Communications Toolbox.');
 validateattributes(CFG.duration_s,{'numeric'},{'scalar','positive','finite'});
@@ -41,40 +42,24 @@ if CFG.debug
     if CFG.exportResults, writetable(D,fullfile(CFG.outputDir,'serving_debug.csv')); end
 end
 if isfield(CFG,'enablePackets') && CFG.enablePackets
-    compareWeather=isfield(CFG,'enableWeatherComparison') && CFG.enableWeatherComparison ...
-        && ismember(string(CFG.channelScenario),["clear","cloudy","rainy"]);
-    if compareWeather
-        batch=CFG; batch.makePlots=false;
-        R.weatherResults=compareGSLWeather(L,batch);
-        selected=R.weatherResults.(CFG.channelScenario);
-        L=selected.linkState; P=selected.packetTable; M=selected.packetMetrics;
-    else
-        P = simulatePacketTransmission(L,CFG);
-        M = computePacketMetrics(P,CFG.rollingWindow_s);
-    end
+    initialLoss=2;
+    if isfield(CFG,'initialEnvironmentLoss_dB'), initialLoss=CFG.initialEnvironmentLoss_dB; end
+    Q=evaluateGSLAttenuation(L,CFG,initialLoss);
+    L=Q.linkState; P=Q.packetTable; M=Q.packetMetrics;
+    packetConfig=Q.config; packetConfig.makePlots=CFG.makePlots;
+    packetConfig.exportResults=CFG.exportResults; packetConfig.outputDir=CFG.outputDir;
     R.linkState = L; R.packetTable = P; R.packetMetrics = M;
     width=max(0,min(L.time_s(2:end),CFG.duration_s)-L.time_s(1:end-1));
     M.totalOutageDuration_s=sum(width.*double(~L.isLinkAvailable(1:end-1)));
     R.packetMetrics=M;
-    reportPacketResults(L,P,M,CFG);
-    if compareWeather && CFG.makePlots
-        R.weatherResultsFigure=attachGSLWeatherResults(R.weatherResults,CFG);
+    reportPacketResults(L,P,M,packetConfig);
+    if CFG.makePlots
+        R.attenuationResultsFigure=attachGSLAttenuationResults(Q,CFG);
     end
 else
     if CFG.makePlots, plotResults(L,[],[],CFG); end
 end
-if CFG.openViewer
-    R.viewerController = GSLNativeViewerController(sc,sats,gs,links,L,CFG);
-    R.viewer = R.viewerController.Viewer;
-    if CFG.enablePackets && isfield(CFG,'openPacketViewer') && CFG.openPacketViewer
-        R.packetViewer=GSLPacketViewer(R.packetTable,R.linkState,CFG,R.viewer,sc.StartTime);
-        R.viewerController.attachPacketViewer(R.packetViewer);
-    end
-    if isfield(CFG,'autoPlay3D') && CFG.autoPlay3D
-        playGSL(R);
-    end
-end
 if ~CFG.openViewer && CFG.enablePackets && isfield(CFG,'openPacketViewer') && CFG.openPacketViewer
-    R.packetViewer=GSLPacketViewer(R.packetTable,R.linkState,CFG,[],sc.StartTime);
+    R.packetViewer=GSLPacketViewer(R.packetTable,R.linkState,packetConfig,[],sc.StartTime);
 end
 end

@@ -8,7 +8,7 @@ L.handoverEvent(4)=true;
 B=compareGSLWeather(L,C);
 ref=B.clear.linkState;
 % Fix Eb/N0 to a known fixture; weather calculations are tested separately.
-ref.vacuumSNR_dB=9+ref.gasLoss_dB;
+ref.vacuumSNR_dB=9*ones(height(ref),1);
 B.clear.linkState=ref;
 q0=evaluateGSLAttenuation(ref,C,0);
 q1=evaluateGSLAttenuation(ref,C,7);
@@ -35,9 +35,9 @@ s=findall(f,'Tag','GSLAttenuationSlider');
 for value=[0 7 8 20]
     s.Value=value; cb=s.Callback; cb(s,[]);
     A=getappdata(f,'GSLWeatherCases'); Q=A.manual;
-    assert(Q.config.manualExtraLoss_dB==value);
+    assert(Q.config.environmentLoss_dB==value);
     assert(getappdata(f,'GSLSelectedWeather')=="manual");
-    assert(pv.CurrentTime_s==1.25 && contains(pv.WeatherName,'Manual'));
+    assert(pv.CurrentTime_s==1.25 && contains(pv.WeatherName,'Environment'));
     assert(numel(findall(groot,'Type','figure'))==count);
     H=getappdata(f,'GSLPacketPlotHandles');
     assert(isequaln(H.onTime.YData(:),Q.packetMetrics.rollingOnTimeDeliveryRate_pct));

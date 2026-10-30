@@ -23,8 +23,9 @@ H.lost=plot(P.time_s,M.cumulativeLost,'-.','LineWidth',1.5);
 H.knownReceived=plot(P.time_s,cumsum(double(P.received==1)),'--','Color',[.3 .6 .3],'LineWidth',1.1,'Visible','off');
 H.knownLost=plot(P.time_s,M.cumulativeKnownLoss,'--','Color',[.6 .2 .6],'LineWidth',1.1,'Visible','off');
 if M.pendingPackets>0
-    plot(P.time_s,M.cumulativeKnownLoss,'--','LineWidth',1.3);
-    legend('Generated','Received (N/A)','Lost (N/A)','Confirmed loss lower bound','Location','northwest');
+    H.knownReceived.Visible='on'; H.knownLost.Visible='on';
+    legend([H.generated H.received H.lost H.knownReceived H.knownLost], ...
+        {'Generated','Received (N/A)','Lost (N/A)','Known received lower bound','Known lost lower bound'},'Location','northwest');
 else
     legend('Generated','Received','Lost','Location','northwest');
 end
@@ -32,8 +33,7 @@ ylabel('Cumulative packets'); grid on; mark(events);
 nexttile; H.rollingLoss=plot(P.time_s,M.rollingPacketLossRatio,'LineWidth',1.4); hold on;
 H.lossAxes=gca;
 if M.pendingPackets>0
-    plot(P.time_s,M.rollingConfirmedLossLowerBound_pct,'--','LineWidth',1.4);
-    legend('Total loss ratio (N/A)','Confirmed loss lower bound','Location','northeast');
+    title('N/A windows contain unresolved PHY packets');
 end
 ylabel('Lost / Generated [%]'); grid on; mark(events);
 if M.pendingPackets>0
@@ -56,10 +56,6 @@ ylabel('Packets / Generated [%]'); ylim([0 105]); grid on; mark(events);
 nexttile; H.rate=plot(P.time_s,M.rollingReceivedPacketsPerSecond,'LineWidth',1.4);
 ylabel('Received packets/s'); xlabel('Time [s]'); ylim([0 CFG.packetRate_pps*1.1]); grid on; mark(events);
 title('Rolling successfully received packets/s');
-if M.pendingPackets>0
-    text(.5,.5,'N/A: receiver bandwidth / information rate not confirmed', ...
-        'Units','normalized','HorizontalAlignment','center','Color',[.7 .1 .1]);
-end
 for ax=findall(f,'Type','axes').', xlim(ax,[0 CFG.duration_s]); end
 if isfield(M,'onTimeDeliveryRate_pct')
     summary=sprintf('Overall on-time %.4f%% | Loss %.4f%% | Late %d | GSL deadline %.1f ms', ...
@@ -68,11 +64,6 @@ if isfield(M,'onTimeDeliveryRate_pct')
         sprintf('%s | %s | Final outcomes grouped by generation time',gs,CFG.channelScenario)},'Interpreter','none');
 else
     sgtitle(tl,{'UDP SESSION PERFORMANCE',gs,CFG.perModelSource},'Interpreter','none');
-end
-if M.pendingPackets>0
-    annotation(f,'textbox',[.12 .005 .85 .025],'String', ...
-        sprintf('%d unresolved PHY packets; dashed lower bounds are not total loss.',M.pendingPackets), ...
-        'EdgeColor','none','Color',[.7 .1 .1]);
 end
 saveFigure(f,'packet_performance.png',CFG); F(end+1)=f;
 H.layout=tl; setappdata(f,'GSLPacketPlotHandles',H);

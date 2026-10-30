@@ -19,8 +19,9 @@ CFG.gsAltitude_m = 0; % height above WGS84 ellipsoid, not terrain elevation
 CFG.gsName = 'GS-demo';
 CFG.minElevation_deg = 25;
 CFG.enablePackets = true;
-CFG.enableWeatherComparison = true; % original main shows all three weather results automatically
-CFG.enableAttenuationSlider = true; % controlled extra loss, separate from weather profiles
+CFG.enableWeatherComparison = false; % legacy comparison is not used by default main
+CFG.initialEnvironmentLoss_dB = 2; % illustrative assumption, not measured weather
+CFG.enableAttenuationSlider = true; % total environment loss; no additional weather stacking
 CFG.handoverMargin_deg = 4;
 CFG.carrierFrequency_Hz = 14e9;
 CFG.linkDirection = 'UPLINK';
@@ -64,11 +65,11 @@ CFG.informationBlockLength_bits = 1024;
 CFG.handoverInterruption_s = 0.100; % StarTCP APNet 2024 Section 3
 CFG.perModelSource = 'JPL IPN 42-184 Figure 14: QPSK AR4JA r=1/2 k=1024';
 CFG.debugPlots = false;
-CFG.openViewer = true;
+CFG.openViewer = false;
 CFG.autoPlay3D = false; % Wait at t=0; user starts the 600-second playback
 CFG.debug = false;
 CFG.viewerPlaybackSpeed = 1; % initial playback speed; adjustable in the panel
 CFG.makePlots = true;
 CFG.exportResults = true;
-CFG.outputDir = fullfile(fileparts(mfilename('fullpath')),'results_weather',CFG.channelScenario);
+CFG.outputDir = fullfile(fileparts(mfilename('fullpath')),'results_attenuation','loss_2.0_dB');
 end
