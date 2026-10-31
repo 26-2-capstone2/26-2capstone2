@@ -32,6 +32,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     G = build_grid(P)
     route = ROUTES[P.routeName]
     collector = C_STATE.collector if P.routeName == 'C_RL' else None   # 강화학습 경험 연결 장치 (학습 때만)
+    stepHook = getattr(P, 'stepHook', None)   # 웹 화면용: 매 step 끝에 상태를 넘겨받는 함수 (없으면 아무 일도 안 함)
     numLinks = G.numLinks
     queueMax = P.queueMax
 
@@ -250,7 +251,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
                 if nodeLog:
                     nodeLog.count[nodeLog.node(p, s), 0] += 1
             if collector is not None and choiceType != 4:   # C_RL 학습: 방금 결정을 경험으로 연결 (시뮬레이터 ε 무작위 결정은 제외)
-                collector.on_decision(int(packet_id), C_STATE.last, qAtLink, enqueued, status)
+                collector.on_decision(int(packet_id), C_STATE.last, qAtLink, enqueued)
 
         # 6. 전송: 링크마다 큐 앞쪽 최대 linkCapacity개
         if nodeLog:
@@ -276,6 +277,8 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
         if recordAnim and t <= animSteps:
             animQueue[:, t - 1] = queueLen
             animInFlight[:, t - 1] = np.bincount(onLink[onLink >= 0], minlength=numLinks)
+        if stepHook is not None:
+            stepHook(t, queueLen, status, curP, curS, onLink, numPackets)
 
         if t >= P.simTime and numPackets == statusCount.sum():   # 진행 중인 패킷 없음
             break

@@ -7,7 +7,7 @@
 # 에피소드 e: 혼잡 단계 = trainLevels를 돌아가며, 시드 = trainSeedStart + e (핫스팟 시나리오와 난수 둘 다)
 # 저장: 홈 폴더 rl_models/C_RL_날짜 (같은 날 또 돌리면 _2, _3)
 #   model_epN.pt   saveEvery마다 체크포인트, model_final.pt 마지막
-#   train_log.csv  에피소드별 기한 내 도착률, 손실률, 최대 연속 손실, ε, 평균 학습 손실, 경험 수
+#   train_log.csv  에피소드별 기한 내 도착률, 3개 이상 연속 손실, 보상 성분, ε, 학습 손실, 경험 수
 #   run_info.txt   학습 조건
 import csv
 import os
@@ -19,22 +19,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) 
 
 import numpy as np
 
+from analysis.compute_metrics import burst_summary
 from config_isl import apply_bg_level, config_isl
 from rl.config_rl import config_rl
 from rl.rl_agent import DQNAgent
 from rl.rl_collector import Collector
-from routing.C_RL import set_agent
+from routing.C_RL import STATE as C_STATE, set_agent
 from sim.bg_traffic import sample_hotspots
 from sim.build_grid import build_grid
 from sim.run_isl_sim import run_isl_sim
-
-
-def max_consec_loss(status):
-    # 생성 순서대로 손실(기한 내 도착이 아닌 것)이 연달아 나온 최대 길이
-    lost = np.concatenate([[0], (status != 1).astype(int), [0]])
-    edge = np.diff(lost)
-    runs = np.flatnonzero(edge == -1) - np.flatnonzero(edge == 1)
-    return int(runs.max()) if runs.size else 0
 
 
 def make_save_dir(RL):
@@ -70,7 +63,9 @@ def train(numEpisodes=None, simTime=None):
         f.write('강화학습 설정: ' + ', '.join(f'{k}={v}' for k, v in vars(RL).items()) + '\n')
 
     logPath = os.path.join(saveDir, 'train_log.csv')
-    cols = ['episode', 'level', 'seed', 'onTimeRate', 'lossRate', 'maxConsecLoss', 'epsilon',
+    cols = ['episode', 'level', 'seed', 'onTimeRate', 'lossRate', 'burstCount', 'burstPackets',
+            'burstPacketRate', 'maxConsecLoss', 'epsilon', 'burstPenalties',
+            'rewardHopSum', 'rewardOutcomeSum', 'rewardBurstSum', 'infeasibleMasks',
             'meanLoss', 'transitions', 'unfinished', 'bufferSize', 'seconds']
     with open(logPath, 'w', newline='', encoding='utf-8-sig') as f:
         csv.writer(f).writerow(cols)
@@ -83,16 +78,28 @@ def train(numEpisodes=None, simTime=None):
         G = build_grid(P)
         sample_hotspots(P, G, seed)
         collector.reset_stats()
+        maskFallbackStart = C_STATE.infeasibleMasks
 
         t0 = time.time()
         R = run_isl_sim(P, P.genRate, 0, seed, False)   # 시뮬레이터 ε는 0 (탐험은 에이전트가 함)
         unfinished = collector.finish()
+        burst = burst_summary(R.status, P.burstMinLen)
+        expectedPenalties = int(sum(max(0, length - P.burstMinLen + 1) for length in burst.lossRuns))
+        if RL.consecPenalty > 0 and collector.numBurstPenalties != expectedPenalties:
+            raise RuntimeError(f'연속 손실 보상 누락: 실제 {collector.numBurstPenalties}, 예상 {expectedPenalties}')
 
         row = dict(episode=ep + 1, level=level, seed=seed,
                    onTimeRate=round(float((R.status == 1).mean()) * 100, 2),
                    lossRate=round(float((R.status != 1).mean()) * 100, 2),
-                   maxConsecLoss=max_consec_loss(R.status),
+                   burstCount=burst.burstCount, burstPackets=burst.burstPackets,
+                   burstPacketRate=round(burst.burstPacketRate * 100, 2),
+                   maxConsecLoss=burst.maxConsecLoss,
                    epsilon=round(agent.epsilon(), 3),
+                   burstPenalties=collector.numBurstPenalties,
+                   rewardHopSum=round(collector.rewardHopSum, 3),
+                   rewardOutcomeSum=round(collector.rewardOutcomeSum, 3),
+                   rewardBurstSum=round(collector.rewardBurstSum, 3),
+                   infeasibleMasks=C_STATE.infeasibleMasks - maskFallbackStart,
                    meanLoss=round(float(np.mean(collector.losses)), 5) if collector.losses else '',
                    transitions=collector.numTransitions, unfinished=unfinished,
                    bufferSize=len(agent.buffer), seconds=round(time.time() - t0, 1))

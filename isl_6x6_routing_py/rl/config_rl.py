@@ -24,7 +24,7 @@ def config_rl(P):
     RL.rewardHopScale = P.deadline         # 홉 보상 = -(링크 지연 + 큐 길이 ÷ 링크 용량) ÷ 70
     RL.rewardOnTime = 1.0                  # 기한 내 도착 (끝)
     RL.rewardLoss = -1.0                   # 손실: 오버플로, 기한 초과, TTL 만료 (끝)
-    RL.consecPenalty = 0.0                 # 연속 손실 추가 벌점 (팀원의 패킷 번호, 연속 손실 정의가 나오면 켬)
+    RL.consecPenalty = 0.5                 # 3개째부터 이어지는 실패마다 추가 벌점 (0으로 두면 대조 실험)
 
     # ---- 신경망 (rl_agent.py) ----
     RL.hidden = [64, 64]                   # 중간층 크기: 입력 20 -> 64 -> 64 -> 출력 4 (방향별 Q값)

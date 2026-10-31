@@ -42,6 +42,7 @@ def config_isl():
     # ---- 패킷 ----
     P.ttlInit = 20                         # TTL 초기값 (잔여 홉)
     P.deadline = 70                       # 기한 (step), 최소 경로 45 step + 여유 25 step (90에서 줄임: D_LA_Dijkstra도 기한 초과 손실이 나도록)
+    P.burstMinLen = 3                      # 생성 순서상 실패가 3개 이상 이어지면 연속 손실 사건
     P.packetSize = 160                     # 패킷 크기 (Byte)
 
     # ---- 라우팅 알고리즘 ----

@@ -16,7 +16,7 @@ from datetime import datetime
 
 import numpy as np
 
-from analysis.compute_metrics import compute_metrics
+from analysis.compute_metrics import compute_metrics, loss_run_lengths
 from config_isl import BG_LEVELS, apply_bg_level, config_isl
 from sim.bg_traffic import sample_hotspots
 from sim.build_grid import build_grid
@@ -28,12 +28,7 @@ ALL_ROUTES = ['A_Dijkstra', 'B_LinkLoad', 'C_RL', 'D_LA_Dijkstra']
 
 def loss_runs(Rs):
     # 에피소드별 연속 손실 구간 길이 (에피소드 경계에서 끊음)
-    runs = []
-    for r in Rs:
-        lost = np.concatenate([[0], (r.status != 1).astype(int), [0]])
-        edge = np.diff(lost)
-        runs += (np.flatnonzero(edge == -1) - np.flatnonzero(edge == 1)).tolist()
-    return np.array(runs, dtype=int)
+    return np.concatenate([loss_run_lengths(r.status) for r in Rs])
 
 
 def evaluate(level, route, modelPath=None):
@@ -41,10 +36,11 @@ def evaluate(level, route, modelPath=None):
     apply_bg_level(P, level)
     P.routeName = route
     P.nodeLogEnable = False
+    C_STATE = None
     if route == 'C_RL':
         from rl.config_rl import config_rl   # PyTorch는 C를 평가할 때만 필요
         from rl.rl_agent import DQNAgent
-        from routing.C_RL import set_agent
+        from routing.C_RL import STATE as C_STATE, set_agent
         RL = config_rl(P)
         agent = DQNAgent(RL)
         agent.load(modelPath)
@@ -59,7 +55,10 @@ def evaluate(level, route, modelPath=None):
     runs = loss_runs(Rs)
     return dict(level=level, route=route,
                 onTimeRate=round(M.onTimeRate * 100, 2), lossRate=round(M.lossRate * 100, 2),
-                maxConsecLoss=M.maxConsecLoss, lossRuns=len(runs),
+                 burstMinLen=M.burstMinLen, burstCount=M.burstCount,
+                 burstPackets=M.burstPackets, burstPacketRate=round(M.burstPacketRate * 100, 2),
+                 maxConsecLoss=M.maxConsecLoss, lossRuns=len(runs),
+                 infeasibleMasks=C_STATE.infeasibleMasks if C_STATE is not None else 0,
                 runs_ge5=int((runs >= 5).sum()), runs_ge10=int((runs >= 10).sum()),
                 avgLatency_ms=round(M.avgLatency_ms, 2),
                 worstEpisodeOnTime=round(min(float((r.status == 1).mean()) for r in Rs) * 100, 1))

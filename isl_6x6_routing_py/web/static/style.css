@@ -1,0 +1,44 @@
+/* ISL RL Simulator 공통 스타일 - Figma 디자인(메인 화면 (Simulator) 페이지)과 같은 색, 글꼴 */
+:root {
+  --dk: #183D4E; --ink: #212121; --body: #333333; --sub: #777777; --line: #DDDDDD; --soft: #EEEEEE;
+  --blue: #0877BD; --orange: #F59322; --orange-soft: #F8C88E; --gray: #CFCFCF; --panel: #FAFBFC;
+  --font: "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --mono: "IBM Plex Mono", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #fff; color: var(--ink); font-family: var(--font); font-size: 14px; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sub { color: var(--sub); }
+
+/* 상단 띠 */
+.topbar { background: var(--dk); height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 60px; }
+.topbar .brand { color: #C9D6DC; font-weight: 500; letter-spacing: 0.04em; font-size: 14px; }
+.topbar nav { display: flex; gap: 32px; height: 100%; }
+.topbar nav a { color: #9FB4BF; font-size: 13px; display: flex; align-items: center; position: relative; text-decoration: none; }
+.topbar nav a.on { color: #fff; font-weight: 500; }
+.topbar nav a.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: 3px; height: 3px; background: var(--orange); }
+
+/* 조작 줄 */
+.controls { display: flex; align-items: center; gap: 22px; padding: 14px 60px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.btn-icon { background: none; border: none; cursor: pointer; padding: 4px; color: #777; }
+.btn-play { width: 56px; height: 56px; border-radius: 50%; background: var(--dk); border: none; cursor: pointer; display: grid; place-items: center; }
+.btn-play svg { fill: #fff; }
+.ctl { display: flex; flex-direction: column; gap: 2px; }
+.ctl label { font-size: 11px; color: var(--sub); }
+.ctl .big { font-size: 24px; font-weight: 300; font-family: var(--mono); }
+.ctl select { font: inherit; font-size: 15px; border: none; border-bottom: 1px solid #999; padding: 2px 18px 4px 0; background: transparent; color: var(--ink); }
+.progress { height: 3px; background: var(--soft); }
+.progress > div { height: 100%; background: var(--blue); width: 0; transition: width .2s; }
+.btn { font: inherit; font-size: 13.5px; padding: 8px 16px; border: 1px solid #bbb; background: #fff; cursor: pointer; border-radius: 2px; }
+.btn.primary { background: var(--dk); color: #fff; border-color: var(--dk); }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* 제목 */
+.h-col { font-size: 15px; font-weight: 500; margin: 0; }
+.h-en { font-size: 10.5px; color: var(--sub); letter-spacing: 0.08em; margin: 4px 0 14px; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 11.5px; color: var(--sub); align-items: center; }
+.ramp { display: inline-block; width: 120px; height: 8px; background: linear-gradient(90deg, #E3EEF6, #5FA5D4, var(--blue)); vertical-align: middle; margin-right: 6px; }
+.footer { background: #F4F4F4; border-top: 1px solid var(--line); padding: 36px 0 40px; }
+.footer > div { width: 740px; margin: 0 auto; color: var(--sub); font-size: 13px; line-height: 1.6; }

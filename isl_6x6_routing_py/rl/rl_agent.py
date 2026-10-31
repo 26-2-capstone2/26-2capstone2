@@ -87,6 +87,8 @@ class DQNAgent:
         # 관측, 마스크 -> 방향 번호 action (0 상, 1 하, 2 좌, 3 우)
         # explore=True(학습 중)면 ε 확률로 허용된 방향 중 무작위, 아니면 Q값이 가장 큰 허용 방향
         allowed = np.flatnonzero(mask)
+        if not len(allowed):
+            raise ValueError('행동 마스크에 선택 가능한 방향이 없습니다')
         if explore:
             eps = self.epsilon()
             self.numDecisions += 1
@@ -114,6 +116,8 @@ class DQNAgent:
 
         with torch.no_grad():
             blocked = nextMask <= 0
+            if torch.any((done == 0) & blocked.all(dim=1)):
+                raise ValueError('종료되지 않은 경험의 다음 행동 마스크가 비어 있습니다')
             if RL.doubleDQN:
                 # 배우는 신경망이 다음 방향을 고르고, 타깃 신경망이 그 방향의 점수를 매김
                 nextA = self.q(nextObs).masked_fill(blocked, -1e9).argmax(1, keepdim=True)

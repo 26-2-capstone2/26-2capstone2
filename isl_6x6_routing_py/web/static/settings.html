@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>변수 설정 - ISL RL Simulator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=Noto+Sans+KR:wght@300;400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+  main { padding: 36px 60px 0; }
+  h1 { font-weight: 300; font-size: 30px; margin: 0 0 10px; }
+  .lead { color: #555; font-size: 13.5px; margin: 0 0 30px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; }
+  .grp { margin-bottom: 34px; }
+  .grp-h { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 6px; }
+  .grp-h b { font-weight: 500; font-size: 16px; } .grp-h span { font-family: var(--mono); font-size: 11px; color: var(--sub); }
+  .row { display: grid; grid-template-columns: 170px 1fr 170px; align-items: center; min-height: 44px; border-bottom: 1px solid var(--soft); gap: 10px; }
+  .row .code { font-family: var(--mono); font-size: 11px; color: var(--sub); text-align: right; }
+  .row input[type=number], .row input[type=text] { width: 110px; font: 12.5px var(--mono); padding: 5px 8px; border: 1px solid #bbb; border-radius: 0; }
+  .row input.pair { width: 62px; }
+  .row input.changed { border: 1.5px solid var(--orange); }
+  .row input:disabled { background: #F3F3F3; color: #999; }
+  .row .unit { font-size: 12.5px; color: #555; margin-left: 8px; }
+  .row .note { font-size: 11px; color: #999; margin-left: 10px; }
+  .opts label { margin-right: 22px; font-size: 13px; }
+  .tbl { margin: 6px 0 4px 180px; font-size: 12px; border-collapse: collapse; }
+  .tbl td, .tbl th { padding: 3px 14px 3px 0; text-align: left; font-weight: 400; } .tbl th { color: var(--sub); font-size: 11.5px; }
+  .tbl tr.on { background: #EEF4F8; }
+  .bar { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #333; padding: 16px 60px; display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+  .bar .sum { color: #555; font-size: 13px; }
+  #msg { font-size: 13px; margin-right: 16px; }
+</style>
+</head>
+<body>
+<div id="topbar" data-on="settings"></div>
+<main>
+  <h1>변수 설정</h1>
+  <p class="lead">값은 코드의 설정 파일과 같습니다. 바꾼 값은 다음 실행부터 적용되고, 기본값과 다른 칸은 주황색으로 표시됩니다. 설정 파일 원본은 바뀌지 않고, 바꾼 값만 web/user_settings.json에 저장됩니다.</p>
+  <div class="cols"><div id="left"></div><div id="right"></div></div>
+</main>
+<div class="bar">
+  <span class="sum" id="sum"></span>
+  <span><span id="msg"></span><button class="btn" id="bDefault">기본값으로</button> <button class="btn primary" id="bSave">저장 후 실행</button></span>
+</div>
+<script src="common.js"></script>
+<script>
+const FILES = { left: 'config_isl.py', right: 'config_rl.py' };
+let fields = [];
+const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+function render() {
+  for (const side of ['left', 'right']) {
+    const box = document.getElementById(side); box.innerHTML = '';
+    let cur = null;
+    for (const f of fields.filter(f => f.side === side)) {
+      if (f.group !== cur) { cur = f.group; const g = document.createElement('div'); g.className = 'grp'; g.innerHTML = `<div class="grp-h"><b>${f.group}</b><span>${FILES[side]}</span></div>`; box.appendChild(g); }
+      const g = box.lastChild, row = document.createElement('div'); row.className = 'row';
+      let ctl = '';
+      if (f.kind === 'pair') ctl = f.value.map((v, i) => `<input class="pair" type="number" step="any" data-k="${f.key}" data-i="${i}" value="${v}">`).join(' , ');
+      else if (f.kind === 'choice') ctl = `<span class="opts">${f.options.map(o => `<label><input type="radio" name="${f.key}" data-k="${f.key}" value="${o}" ${o === f.value ? 'checked' : ''}> ${o}</label>`).join('')}</span>`;
+      else if (f.kind === 'multi') ctl = `<span class="opts">${f.options.map(o => `<label><input type="checkbox" data-k="${f.key}" value="${o}" ${f.value.includes(o) ? 'checked' : ''}> ${o}</label>`).join('')}</span>`;
+      else if (f.kind === 'bool') ctl = `<span class="opts"><label><input type="checkbox" data-k="${f.key}" ${f.value ? 'checked' : ''}> 사용</label></span>`;
+      else if (f.kind === 'fixed') ctl = `<input type="text" disabled value="${f.value}"><span class="note">${f.unit || '고정'}</span>`;
+      else ctl = `<input type="number" step="any" data-k="${f.key}" value="${f.value}">`;
+      const unit = f.kind === 'fixed' ? '' : `<span class="unit">${f.unit}</span>`;
+      row.innerHTML = `<span>${f.label}</span><span>${ctl}${unit}</span><span class="code">${f.key}</span>`;
+      g.appendChild(row);
+      if (f.table) { const t = document.createElement('table'); t.className = 'tbl';
+        t.innerHTML = '<tr><th></th><th>핫스팟 개수</th><th>켜짐 평균</th><th>꺼짐 평균</th></tr>' + Object.entries(f.table).map(([k, v]) =>
+          `<tr class="${k === f.value ? 'on' : ''}"><td><b>${k}</b></td><td class="mono">${v.bgNumMin} ~ ${v.bgNumMax}</td><td class="mono">${v.bgOnMean} ms</td><td class="mono">${v.bgOffMean} ms</td></tr>`).join(''); g.appendChild(t); }
+    }
+  }
+  document.querySelectorAll('[data-k]').forEach(el => el.addEventListener('input', mark));
+  mark();
+}
+function read(f) {
+  const els = [...document.querySelectorAll(`[data-k="${f.key}"]`)];
+  if (f.kind === 'pair') return els.map(e => +e.value);
+  if (f.kind === 'choice') return (els.find(e => e.checked) || {}).value;
+  if (f.kind === 'multi') return els.filter(e => e.checked).map(e => e.value);
+  if (f.kind === 'bool') return els[0].checked;
+  return +els[0].value;
+}
+function overrides() { const o = {}; for (const f of fields) if (f.kind !== 'fixed') { const v = read(f); if (!eq(v, f.default)) o[f.key] = v; } return o; }
+function mark() {
+  for (const f of fields) if (f.kind !== 'fixed') { const ch = !eq(read(f), f.default); document.querySelectorAll(`input[data-k="${f.key}"]`).forEach(e => { if (e.type === 'number') e.classList.toggle('changed', ch); }); }
+  const v = k => read(fields.find(f => f.key === k));
+  document.getElementById('sum').textContent = `${v('numPlanes')}x${v('satsPerPlane')} 격자   기한 ${v('deadline')} ms   초당 ${v('genRate')}개   연속 손실 ${v('burstMinLen')}개 이상, 벌점 ${v('consecPenalty')}   학습 ${v('trainEpisodes')} 에피소드   바꾼 칸 ${Object.keys(overrides()).length}개`;
+}
+async function load() { const d = await api('/api/settings'); fields = d.fields; render(); }
+document.getElementById('bSave').onclick = async () => {
+  const r = await api('/api/settings', { overrides: overrides() });
+  const m = document.getElementById('msg');
+  if (!r.ok) { m.style.color = '#C0392B'; m.textContent = '저장 안 됨: ' + r.error; return; }
+  m.style.color = '#0877BD'; m.textContent = '저장했습니다. 시뮬레이터로 이동합니다.'; setTimeout(() => location.href = 'sim.html', 700);
+};
+document.getElementById('bDefault').onclick = async () => { await api('/api/settings', { overrides: {} }); load(); document.getElementById('msg').textContent = '기본값으로 돌렸습니다.'; };
+load();
+</script>
+</body>
+</html>

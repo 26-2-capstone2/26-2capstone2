@@ -2,3 +2,6 @@
 results/
 __pycache__/
 results_batch/
+
+# 웹 시뮬레이터에서 바꾼 설정값 (사람마다 다름)
+web/user_settings.json

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 from rl.rl_state import obs_from_sim
 
-STATE = SimpleNamespace(agent=None, RL=None, explore=False, last=None, collector=None)
+STATE = SimpleNamespace(agent=None, RL=None, explore=False, last=None, collector=None, infeasibleMasks=0)
 
 
 def set_agent(agent, RL, explore=False, collector=None):
@@ -18,6 +18,7 @@ def set_agent(agent, RL, explore=False, collector=None):
     STATE.explore = explore
     STATE.last = None
     STATE.collector = collector
+    STATE.infeasibleMasks = 0
 
 
 def C_RL(curP, curS, queueLen, G, P, t=0, remDeadline=None, ttl=None, hops=None, **packet):
@@ -28,10 +29,11 @@ def C_RL(curP, curS, queueLen, G, P, t=0, remDeadline=None, ttl=None, hops=None,
     if STATE.agent is None:
         raise RuntimeError('C_RL: set_agent()로 에이전트를 먼저 붙여야 함')
 
-    obs, mask, q, N, L = obs_from_sim(curP, curS, queueLen, G, P, STATE.RL, remDeadline, ttl, withRaw=True)
-    action = STATE.agent.act(obs, mask, explore=STATE.explore)   # 0 상, 1 하, 2 좌, 3 우
+    observed = obs_from_sim(curP, curS, queueLen, G, P, STATE.RL, remDeadline, ttl)
+    STATE.infeasibleMasks += int(observed.deadlineFallback)
+    action = STATE.agent.act(observed.values, observed.mask, explore=STATE.explore)   # 0 상, 1 하, 2 좌, 3 우
     nextDir = action + 1
-    STATE.last = (obs, mask, action)
+    STATE.last = (observed.values, observed.mask, action)
 
     # 주 경로 = 목적지 쪽 좌/우, 대체 경로 = 목적지 쪽 상/하 (B와 같은 기준)
     remainP = G.dstSat[0] - curP
@@ -39,4 +41,4 @@ def C_RL(curP, curS, queueLen, G, P, t=0, remDeadline=None, ttl=None, hops=None,
     primaryDir = (3 + (remainP > 0)) if remainP != 0 else (1 + (remainS > 0))
     altDir = (1 + (remainS > 0)) if (remainP != 0 and remainS != 0) else 0
     choiceType = 1 if nextDir == primaryDir else 2 if nextDir == altDir else 3
-    return nextDir, choiceType, L, N
+    return nextDir, choiceType, observed.linkLoads, observed.neighborLoads
