@@ -56,7 +56,7 @@ CFG.packetRandomSeed = 20261003;
 CFG.noiseBandwidth_Hz = 50e6;
 CFG.informationBitRate_bps = 50e6;
 CFG.phyMappingSource = 'Experimental 50 Mbps information rate, QPSK r=1/2, ideal 50 MHz bandwidth; not measured Starlink';
-CFG.highSNRPolicy = 'CONSERVATIVE_ENDPOINT';
+CFG.highSNRPolicy = 'ZERO_CWER'; % above published support: PER=0 research approximation
 CFG.lowSNRPolicy = 'UNIT_CWER';
 CFG.modulation = 'QPSK';
 CFG.channelCoding = 'CCSDS AR4JA';

@@ -14,10 +14,19 @@ q0=evaluateGSLAttenuation(ref,C,0);
 q1=evaluateGSLAttenuation(ref,C,7);
 q2=evaluateGSLAttenuation(ref,C,8);
 q3=evaluateGSLAttenuation(ref,C,20);
-assert(q0.packetMetrics.pendingPackets==q0.packetMetrics.attemptedPackets);
-assert(isnan(q0.packetMetrics.packetLossRatio));
+assert(q0.packetMetrics.pendingPackets==0);
+assert(q0.packetMetrics.receivedPackets==q0.packetMetrics.attemptedPackets);
 assert(q1.packetMetrics.pendingPackets==0 && q2.packetMetrics.pendingPackets==0);
-assert(q3.packetMetrics.pendingPackets==q3.packetMetrics.attemptedPackets);
+assert(q3.packetMetrics.pendingPackets==0 && q3.packetMetrics.lostPackets==height(q3.packetTable));
+assert(all(q0.packetTable.phyStatus(q0.packetTable.attempted)=="HIGH_SNR_ZERO_CWER_ASSUMPTION"));
+assert(all(q3.packetTable.phyStatus(q3.packetTable.attempted)=="LOW_SNR_UNIT_CWER_ASSUMPTION"));
+strict=C; strict.highSNRPolicy='UNRESOLVED'; strict.lowSNRPolicy='UNRESOLVED';
+qs=evaluateGSLAttenuation(ref,strict,0);
+assert(qs.packetMetrics.pendingPackets==qs.packetMetrics.attemptedPackets);
+% Published endpoints remain lookup values, only strictly external points saturate.
+T=readtable(fullfile(fileparts(mfilename('fullpath')),'ar4ja_r12_k1024_cwer.csv'));
+[p,~,~,st]=getPERfromSNR([-1;T.ebNo_dB(1);T.ebNo_dB(end);3],C);
+assert(p(1)==1 && p(4)==0 && all(st(2:3)=="JPL_FIGURE14_LOOKUP"));
 assert(isequal(q1.packetTable.phyRandomDraw,q2.packetTable.phyRandomDraw));
 assert(all(q2.packetTable.snr_dB==q1.packetTable.snr_dB-1));
 assert(all(q2.packetTable.phyPER>=q1.packetTable.phyPER | ~q1.packetTable.attempted));
@@ -44,5 +53,5 @@ for value=[0 7 8 20]
 end
 popup=getappdata(f,'GSLWeatherSelector'); popup.Value=2; cb=popup.Callback; cb(popup,[]);
 assert(getappdata(f,'GSLSelectedWeather')=="cloudy" && pv.CurrentTime_s==1.25);
-fprintf('PASS attenuation: strict bounds, paired monotonic losses, accounting, unchanged rate, same figures/time, weather restore.\n');
+fprintf('PASS attenuation: explicit saturation, lookup endpoints, strict option, paired monotonic losses, accounting, same figures/time.\n');
 end

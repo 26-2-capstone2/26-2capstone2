@@ -1,6 +1,6 @@
 function [per,ebNo_dB,pCW,status] = getPERfromSNR(snr_dB,CFG)
 % C/N to INFORMATION Eb/N0, then source-backed AR4JA CWER lookup.
-% Missing mapping / outside published support remains NaN. No extrapolation.
+% Outside published support follows an explicitly named approximation policy.
 assert(strcmp(CFG.modulation,'QPSK') && strcmp(CFG.channelCoding,'CCSDS AR4JA') ...
     && CFG.codeRate==1/2 && CFG.informationBlockLength_bits==1024,'GSL:PHYConfiguration');
 per=nan(size(snr_dB)); ebNo_dB=per; pCW=per;
@@ -24,6 +24,10 @@ status(isfinite(pCW))="JPL_FIGURE14_LOOKUP";
 if isfield(CFG,'highSNRPolicy') && strcmp(CFG.highSNRPolicy,'CONSERVATIVE_ENDPOINT')
     pCW(high)=D.codewordErrorRate(end);
     status(high)="HIGH_SNR_ENDPOINT_BOUND_ASSUMPTION";
+end
+if isfield(CFG,'highSNRPolicy') && strcmp(CFG.highSNRPolicy,'ZERO_CWER')
+    pCW(high)=0;
+    status(high)="HIGH_SNR_ZERO_CWER_ASSUMPTION";
 end
 if isfield(CFG,'lowSNRPolicy') && strcmp(CFG.lowSNRPolicy,'UNIT_CWER')
     pCW(low)=1; status(low)="LOW_SNR_UNIT_CWER_ASSUMPTION";

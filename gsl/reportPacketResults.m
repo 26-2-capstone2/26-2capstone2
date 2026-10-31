@@ -33,7 +33,7 @@ summary=sprintf(['===== GSL UDP SESSION RESULT =====\n' ...
     M.confirmedLossLowerBound_pct,CFG.perModelSource,number(CFG.noiseBandwidth_Hz),number(CFG.informationBitRate_bps));
 fprintf('%s',summary);
 if isfield(CFG,'environmentLoss_dB')
-    extra=sprintf('ENVIRONMENT ATTENUATION: %.1f dB total; weather labels are illustrative assumptions.\nStrict published curve support; out-of-range PHY outcomes remain unresolved.\n',CFG.environmentLoss_dB);
+    extra=sprintf('ENVIRONMENT ATTENUATION: %.1f dB total; weather labels are illustrative assumptions.\nOutside-curve research approximation: high=%s; low=%s. Interior = JPL lookup.\n',CFG.environmentLoss_dB,CFG.highSNRPolicy,CFG.lowSNRPolicy);
     fprintf('%s',extra); summary=[summary extra];
 end
 if isfield(M,'onTimePackets')

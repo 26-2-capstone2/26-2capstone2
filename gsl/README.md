@@ -12,8 +12,7 @@
 
 슬라이더 값이 전체 환경 감쇠입니다. 기존 기체·구름·강우 감쇠를 다시 더하지 않습니다. 자유공간 경로 손실과 고정 구현 손실은 링크 버짓에 그대로 유지됩니다. 주파수 14 GHz / 잡음 대역폭 50 MHz / 정보율 50 Mbps / QPSK·AR4JA r=1/2, k=1024 조건입니다. 트래픽 160 Bytes·60pps·600초, GSL 도착 기한 20ms, 핸드오버 중단 100ms는 기존 실험 가정입니다.
 
-SNR → 정보 Eb/N0 → JPL Figure 14 CWER → `PER=1-(1-CWER)^2`. 공개 오류율 곡선 범위(약 0~2.2 dB) 밖은 높은 쪽·낮은 쪽 모두 **미확정**입니다. 범위 밖을 성공/손실로 임의 확정하지 않습니다. 미확정이 있으면 전체 손실률·기한 내 도착률은 N/A이며 확정 수신/손실 하한과 가능한 범위를 표시합니다. 그래프의 빈 구간은 0%가 아닙니다. [상세 사용법·한계](ATTENUATION_SLIDER.md).
-
+SNR → 정보 Eb/N0 → JPL Figure 14 CWER → `PER=1-(1-CWER)^2`를 사용합니다. **곡선보다 낮은 Eb/N0는 PER=1, 높은 Eb/N0는 PER=0으로 근사**하여 슬라이더 전 범위를 계산합니다. 곡선 내부는 논문 표 보간, 양 끝은 강화학습 비교를 위한 연구 가정입니다. [근사 규칙·민감도 실험·그래프 연동](PHY_APPROXIMATION.md).
 ## 패킷과 저장
 
 - 검은 박스=20ms 내 도착, 흰색=손실, 주황=늦은 도착, 회색=처리 중·미생성·모델 미확정. 패킷 번호를 클릭하면 구분됩니다.
@@ -21,10 +20,10 @@ SNR → 정보 Eb/N0 → JPL Figure 14 CWER → `PER=1-(1-CWER)^2`. 공개 오�
 - 감쇠값은 600초 전체에 일정하게 적용하여 다시 평가합니다. 시각별 날씨 관측이나 실시간 날씨 변화 재현이 아닙니다.
 - **결과 저장** → `results_attenuation/loss_<값>_dB/`의 CSV·MAT·요약·성능 이미지. 최초 실행 결과는 기본 2dB 폴더에 저장됩니다.
 - 전체 PLR = `(생성 - 최종 수신) / 생성 × 100`. 원인별 합산 검증 = `(PHY + 핸드오버 + 연결 불가 손실) / 생성 × 100`. 모든 결과가 확정됐을 때 동일합니다.
-- 미확정이 있으면 연속 손실 길이는 확정된 패킷만의 부분 결과입니다.
+- 정상 입력의 기본 근사 모델에서는 모든 패킷의 최종 결과를 계산합니다. 잘못되거나 누락된 PHY 입력은 여전히 미확정으로 남깁니다.
 
 이번 버전에는 큐·배경 트래픽·ACM·ML·복제 전송은 포함하지 않습니다. 과거 results_weather와 extra_* 폴더는 이전 실험 기록입니다. compareGSLWeather 등은 과거 기상 프로필 비교용으로 남아 있으며 기본 main에서는 호출하지 않습니다.
 
-검증: `verify_environment_slider`, `verify_attenuation_slider`. [검증 기록](validation_environment.md).
+검증: `verify_environment_slider`, `verify_attenuation_slider`, `verify_saturation_sweep`. [검증 기록](validation_saturation.md).
 
 ![환경 감쇠 슬라이더](docs/environment_slider.png)

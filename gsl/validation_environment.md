@@ -1,5 +1,7 @@
 # 환경 감쇠 슬라이더 검증
 
+**이 문서는 이전 미확정 정책의 기록입니다. 현재 기본 모델은 [전 범위 근사 검증](validation_saturation.md)을 확인하세요.**
+
 2026-10-31, MATLAB R2026a.
 
 - `verify_environment_slider`: PASS. 실제 main을 6초·1584개 위성으로 실행. globe viewer/controller가 생성되지 않음. 기존 날씨 표/선택 메뉴 없이 단일 슬라이더 생성. 2/4/8/12dB의 값이 그대로 `vacuumSNR - 환경감쇠`에 적용되고 기체/구름/비 손실의 중복 합산이 없는지 확인. 동일 패킷 난수·패킷 창 시각 유지.

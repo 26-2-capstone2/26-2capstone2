@@ -3,7 +3,9 @@ function Q=evaluateGSLAttenuation(referenceL,C,environmentLoss_dB)
 validateattributes(environmentLoss_dB,{'numeric'},{'scalar','finite','>=',0,'<=',20});
 assert(ismember('vacuumSNR_dB',referenceL.Properties.VariableNames));
 C.channelScenario='clear'; C.weather=weatherProfile('clear');
-C.channelSigma_dB=0; C.highSNRPolicy='UNRESOLVED'; C.lowSNRPolicy='UNRESOLVED';
+C.channelSigma_dB=0;
+if ~isfield(C,'highSNRPolicy'), C.highSNRPolicy='ZERO_CWER'; end
+if ~isfield(C,'lowSNRPolicy'), C.lowSNRPolicy='UNIT_CWER'; end
 C.environmentLoss_dB=environmentLoss_dB;
 C.experimentLabel=sprintf('Environment attenuation %.1f dB',environmentLoss_dB);
 C.exportResults=false; C.makePlots=false;
