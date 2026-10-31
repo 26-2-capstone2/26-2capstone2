@@ -31,8 +31,12 @@ N=computePacketMetrics(Q,1); assert(N.maxConsecutiveLoss==0 && isempty(N.lossRun
 Q.received(:)=0; Q.lost(:)=1; Q.phy_loss(:)=1; Q.onTime(:)=false;
 N=computePacketMetrics(Q,1); assert(N.maxConsecutiveLoss==120 && N.lossRunCount==1);
 [p,~,cw,status]=getPERfromSNR([-10;1;20],C);
-assert(p(1)==1 && p(3)>0 && p(3)<1e-5 && cw(3)>0 && all(isfinite(p)));
-assert(status(3)=="HIGH_SNR_ENDPOINT_BOUND_ASSUMPTION");
+assert(p(1)==1 && p(3)==0 && cw(3)==0 && all(isfinite(p)));
+assert(status(3)=="HIGH_SNR_ZERO_CWER_ASSUMPTION");
+% Endpoint approximation remains available for sensitivity analysis.
+endpoint=C; endpoint.highSNRPolicy='CONSERVATIVE_ENDPOINT';
+[pe,~,ce,se]=getPERfromSNR(20,endpoint);
+assert(pe>0 && pe<1e-5 && ce>0 && se=="HIGH_SNR_ENDPOINT_BOUND_ASSUMPTION");
 C.duration_s=600; C.channelScenario='synthetic_fade'; C.channelSigma_dB=.7;
 A=gslChannel(C); B=gslChannel(C); assert(isequal(A,B));
 assert(max(A.testFadeLoss_dB)>9.9);

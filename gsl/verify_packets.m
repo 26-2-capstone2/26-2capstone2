@@ -1,8 +1,14 @@
 function verify_packets()
 % Source-curve numeric tests + deterministic software fixtures (not research data).
 C=configGSL(); C.duration_s=4;
-[p,e,cw,status]=getPERfromSNR([0;1;2],C);
-assert(all(isnan(p)) && all(isnan(e)) && all(isnan(cw)) && all(status=="MISSING_BANDWIDTH_OR_INFORMATION_RATE"));
+% Missing inputs are explicit fixtures, independent of production defaults.
+for missing=[1 2 3]
+    U=C;
+    if missing==1 || missing==3, U.noiseBandwidth_Hz=NaN; end
+    if missing==2 || missing==3, U.informationBitRate_bps=NaN; end
+    [p,e,cw,status]=getPERfromSNR([0;1;2],U);
+    assert(all(isnan(p)) && all(isnan(e)) && all(isnan(cw)) && all(status=="MISSING_BANDWIDTH_OR_INFORMATION_RATE"));
+end
 D=readtable(fullfile(fileparts(mfilename('fullpath')),'ar4ja_r12_k1024_cwer.csv'));
 assert(height(D)==22 && D.ebNo_dB(1)==0 && all(diff(D.codewordErrorRate)<=0));
 % Unit fixture ONLY: ratio 1 and a documented synthetic mapping. Never exported.
@@ -13,7 +19,14 @@ assert(max(abs(cw-D.codewordErrorRate))<1e-12 && max(abs(e-D.ebNo_dB))<1e-12);
 assert(max(abs(p-(1-(1-cw).^2)))<1e-12);
 [~,e2,c2]=getPERfromSNR(4,setfield(F,'noiseBandwidth_Hz',25e6)); %#ok<SFLD>
 assert(abs(e2-(4+10*log10(.5)))<1e-12 && isfinite(c2));
-assert(all(isnan(getPERfromSNR([-1;3;24],F)))); % no endpoint clamping/extrapolation
+% Current research defaults: low Eb/N0 fails, high Eb/N0 succeeds.
+[p,~,cw,status]=getPERfromSNR([-1;3;24],F);
+assert(isequal(p,[1;0;0]) && isequal(cw,[1;0;0]));
+assert(status(1)=="LOW_SNR_UNIT_CWER_ASSUMPTION" && all(status(2:3)=="HIGH_SNR_ZERO_CWER_ASSUMPTION"));
+% Preserve strict out-of-curve behavior as a separate, opt-in policy fixture.
+strict=F; strict.highSNRPolicy='UNRESOLVED'; strict.lowSNRPolicy='UNRESOLVED';
+[p,~,cw,status]=getPERfromSNR([-1;3;24],strict);
+assert(all(isnan(p)) && all(isnan(cw)) && all(status=="OUTSIDE_PUBLISHED_CURVE"));
 bad=F; bad.phyMappingSource=''; failed=false;
 try, getPERfromSNR(1,bad); catch ex, failed=strcmp(ex.identifier,'GSL:MissingPHYMappingSource'); end
 assert(failed);
@@ -39,7 +52,7 @@ assert(sum(PH.handover_loss)==6 && ~PH.handover_loss(find(abs(PH.time_s-359.1)<1
 T.packetRate_pps=33; PH=simulatePacketTransmission(H,T); assert(sum(PH.handover_loss)==4);
 T.handoverInterruption_s=0; PH=simulatePacketTransmission(H,T); assert(~any(PH.handover_loss));
 % Unknown PHY accounting does not silently become success or zero loss.
-PU=simulatePacketTransmission(L,C); MU=computePacketMetrics(PU,1);
+PU=simulatePacketTransmission(L,U); MU=computePacketMetrics(PU,1);
 assert(MU.pendingPackets==174 && MU.resolvedLostPackets==66 && isnan(MU.lostPackets));
 assert(isnan(MU.receivedPackets) && isnan(MU.phyLossPackets) && isnan(MU.packetLossRatio));
 assert(all(isnan(PU.received(PU.outcome_pending))));
@@ -56,9 +69,9 @@ E=[40 39;40 44;40 44.01;24 45;24 24;30 29]; V=E>=25;
 [id,ho]=selectServingSatellite(E,V,4);
 assert(isequal(id,[1;1;2;2;0;1]) && isequal(ho,[false;false;true;false;false;false]));
 assert(all(id(any(V,2))>0));
-fprintf('PASS: actual JPL lookup; B/Rb units; no extrapolation; 2-codeword PER.\n');
+fprintf('PASS: JPL lookup; B/Rb units; default saturation and separate strict policies; 2-codeword PER.\n');
 fprintf('PASS: continuous IDs; exclusive PHY/HO/outage causes; strict hysteresis; 100ms half-open boundaries.\n');
-fprintf('PASS: RNG isolation; rolling window oracle; unknown PHY stays N/A.\n');
+fprintf('PASS: RNG isolation; rolling window oracle; explicit missing-input PHY stays N/A.\n');
 end
 function L=fixture(ids,ho,snr)
 n=numel(ids); L=table((0:n-1).',ids,ids>0,ho,snr,repmat(50,n,1),repmat(2,n,1), ...
