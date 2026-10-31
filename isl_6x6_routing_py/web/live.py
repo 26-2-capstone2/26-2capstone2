@@ -8,7 +8,7 @@ import time
 
 import numpy as np
 
-from routing.C_RL import STATE as C_STATE, set_agent
+from routing.route_C import STATE as C_STATE, set_agent
 from sim.bg_traffic import sample_hotspots
 from sim.build_grid import build_grid
 from sim.run_isl_sim import run_isl_sim
@@ -124,7 +124,7 @@ class LiveRunner:
         from rl.rl_agent import DQNAgent      # PyTorch는 실행할 때만 필요
         from rl.rl_collector import Collector
         P, RL = build_config(self.overrides)
-        P.routeName = 'C_RL'
+        P.routeName = 'routeC'
         train = self.state['mode'] == 'train'
         if self.agent is None:
             self.agent = DQNAgent(RL)
@@ -139,8 +139,8 @@ class LiveRunner:
         if self.selected is None:
             self.selected = (int(P.srcSat[0]), int(P.srcSat[1]))
         import sim.run_isl_sim as SIM
-        origRoute = SIM.ROUTES['C_RL']
-        SIM.ROUTES['C_RL'] = self._wrap_route(origRoute, agent, train)   # 원래 C_RL은 그대로, 결정을 엿보기만 함
+        origRoute = SIM.ROUTE_FUNCS['routeC']
+        SIM.ROUTE_FUNCS['routeC'] = self._wrap_route(origRoute, agent, train)   # 원래 route_C는 그대로, 결정을 엿보기만 함
         try:
             for ep in range(startEp, nEp):
                 level = levels[ep % len(levels)]
@@ -164,13 +164,13 @@ class LiveRunner:
             self.state['error'] = f'{type(e).__name__}: {e}'
             self.broadcast(dict(type='error', message=self.state['error']))
         finally:
-            SIM.ROUTES['C_RL'] = origRoute
+            SIM.ROUTE_FUNCS['routeC'] = origRoute
             P.stepHook = None
             self.state['status'] = 'idle'
             self.broadcast(dict(type='state', state=self.state))
 
     def _wrap_route(self, route, agent, train):
-        # C_RL을 그대로 부르고, 방금 결정(관측, 마스크, 행동)을 기록. 선택한 위성이면 Q값도 계산
+        # route_C를 그대로 부르고, 방금 결정(관측, 마스크, 행동)을 기록. 선택한 위성이면 Q값도 계산
         import torch
 
         def wrapped(p, s, queueLen, G, P, **kw):
@@ -186,10 +186,10 @@ class LiveRunner:
                 prob = [0.0] * 4
                 for d in allowed:
                     prob[d] = eps / len(allowed) + (1 - eps if d == best else 0.0)
-                # 방향별로 막힌 이유: 관측 12~15 링크 유무, 0~3 큐 ÷ 200
+                # 방향별로 막힌 이유: 관측 16~19 링크 유무, 0~3 큐 ÷ 200
                 why = []
                 for d in range(4):
-                    if obs[12 + d] == 0:
+                    if obs[16 + d] == 0:
                         why.append('링크 없음')
                     elif mask[d] > 0:
                         why.append('가능')
@@ -261,7 +261,7 @@ class LiveRunner:
         bursts = [r for r in runs if r >= P.burstMinLen]
         prevB = self.state.get('burstCount', 0) if self.prevStatus is not None else 0
         if len(bursts) > prevB:
-            self._event(t, '연속 손실', f'{bursts[-1]}개 연속, 벌점 -{self.collector.RL.consecPenalty if self.collector else 0}', 'burst')
+            self._event(t, '연속 손실', f'{bursts[-1]}개 연속', 'burst')
         self.prevStatus = st.copy()
         inflight = np.flatnonzero(st == 0)[-400:]
         pk = []

@@ -2,10 +2,10 @@
 #
 # 사용법: python run_batch.py 혼잡단계 라우팅 첫시작시드 세트수 [동시실행수]
 #   혼잡단계: base, high, severe, 또는 all (세 단계를 모두 돌림)
-#   예) python run_batch.py high D_LA_Dijkstra 1001 5
+#   예) python run_batch.py high routeB 1001 5
 #       -> 시작 시드 1001, 1021, 1041, 1061, 1081 (세트마다 에피소드 20개 = 시드 20개, 총 시드 100개)
-#   예) python run_batch.py high D_LA_Dijkstra 1001 5 3   -> 3개씩 동시에 실행 (CPU 코어가 넉넉할 때)
-#   예) python run_batch.py all D_LA_Dijkstra 1001 5      -> base, high, severe 각각 5세트 (모두 같은 시드)
+#   예) python run_batch.py high routeB 1001 5 3   -> 3개씩 동시에 실행 (CPU 코어가 넉넉할 때)
+#   예) python run_batch.py all routeB 1001 5      -> base, high, severe 각각 5세트 (모두 같은 시드)
 # 결과: 세트마다 홈 폴더 isl_saved_runs\라우팅_혼잡단계_날짜 에 저장 (같은 날 두 번째 세트부터 _2, _3이 붙음, 시드는 run_info.txt)
 # 진행 기록: isl_saved_runs\batch_logs\ 에 세트별 터미널 출력 저장
 import os

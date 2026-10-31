@@ -1,9 +1,11 @@
 # 보상 함수 - 보상 계산을 여기 한 곳에 모아, 식을 바꿔도 다른 코드는 안 고치게 함
 #
-#   매 홉:   -(고른 링크 지연 + 그 큐 길이 ÷ 링크 용량) ÷ 70   (빠르고 덜 막힌 길일수록 벌점이 작음)
-#   끝:      기한 내 도착 +1, 손실(목적지 기한 초과, 중간 기한 초과, 큐 오버플로, TTL 만료) -1
-#   연속 손실: 현재 패킷과 생성 순서상 앞의 2개가 모두 손실이면 추가 -consecPenalty
-#               길이 3 구간은 1회, 길이 4 구간은 2회 벌점을 받음
+#   매 홉:     -(고른 링크 지연 + 그 큐 길이 ÷ 링크 용량) ÷ 70   (빠르고 덜 막힌 길일수록 벌점이 작음)
+#   끝:        기한 내 도착 +1
+#              단발 손실 (패킷 번호 순서로 1~2개만 이어진 손실) -0.5
+#              연속 손실 (3개 이상 이어진 손실) k번째 패킷 -min(2.0, 1.0 + 0.1 x max(0, k - 3))
+#                -> 구간 전체(처음 2개 포함)에 단발 손실 대신 적용, 길이에 따라 -1.0 ~ -2.0
+#   손실 = 목적지 기한 초과, 중간 기한 초과, 큐 오버플로, TTL 만료
 #
 # 패킷 상태 status (sim/run_isl_sim.py): 1 기한 내 도착, 2 목적지 기한 초과, 3 중간 기한 초과, 4 큐 오버플로, 5 TTL 만료
 
@@ -18,14 +20,19 @@ def hop_reward(nextDir, queueLenAtLink, P, RL):
 
 
 def terminal_reward(status, RL):
-    # 패킷 자체의 도착/손실 보상. 연속 손실 벌점과 분리해 기록한다.
+    # 패킷 자체의 도착/단발 손실 보상. 연속 손실은 burst_extra로 더한다.
     if status == ON_TIME:
         return RL.rewardOnTime
     if status in LOSS_STATUS:
-        return RL.rewardLoss
+        return RL.rewardSingleLoss
     raise ValueError(f'끝나지 않은 패킷 상태: {status}')
 
 
-def burst_reward(inBurst, RL):
-    # 생성 순서상 burstMinLen번째 이후로 이어지는 실패에 대한 추가 벌점
-    return -RL.consecPenalty if inBurst else 0.0
+def burst_reward(k, P, RL):
+    # 연속 손실 구간에서 k번째(1부터) 패킷의 끝 보상
+    return -min(RL.burstMax, RL.burstBase + RL.burstStep * max(0, k - P.burstMinLen))
+
+
+def burst_extra(k, P, RL):
+    # 연속 손실 패킷이 단발 손실 대신 받는 보상과의 차이 (기록을 도착/단발 보상과 연속 손실 몫으로 나누기 위함)
+    return burst_reward(k, P, RL) - RL.rewardSingleLoss

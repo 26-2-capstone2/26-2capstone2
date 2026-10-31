@@ -1,11 +1,11 @@
-# 강화학습 학습 스크립트 - C_RL이 시뮬레이터 안에서 직접 라우팅하며 배움 (온라인 DQN)
+# 강화학습 학습 스크립트 - route_C가 시뮬레이터 안에서 직접 라우팅하며 배움 (온라인 DQN)
 #
 # 실행 (isl_6x6_routing_py 폴더에서):
 #   python rl/train_rl.py                  -> config_rl의 trainEpisodes만큼 학습
 #   python rl/train_rl.py 6 3000           -> 에피소드 6개, 에피소드 길이 3000 step (짧게 시험할 때)
 #
 # 에피소드 e: 혼잡 단계 = trainLevels를 돌아가며, 시드 = trainSeedStart + e (핫스팟 시나리오와 난수 둘 다)
-# 저장: 홈 폴더 rl_models/C_RL_날짜 (같은 날 또 돌리면 _2, _3)
+# 저장: 홈 폴더 rl_models/routeC_날짜 (같은 날 또 돌리면 _2, _3)
 #   model_epN.pt   saveEvery마다 체크포인트, model_final.pt 마지막
 #   train_log.csv  에피소드별 기한 내 도착률, 3개 이상 연속 손실, 보상 성분, ε, 학습 손실, 경험 수
 #   run_info.txt   학습 조건
@@ -19,12 +19,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) 
 
 import numpy as np
 
-from analysis.compute_metrics import burst_summary
+from analysis.burst_summary import burst_summary
 from config_isl import apply_bg_level, config_isl
 from rl.config_rl import config_rl
 from rl.rl_agent import DQNAgent
 from rl.rl_collector import Collector
-from routing.C_RL import STATE as C_STATE, set_agent
+from routing.route_C import STATE as C_STATE, set_agent
 from sim.bg_traffic import sample_hotspots
 from sim.build_grid import build_grid
 from sim.run_isl_sim import run_isl_sim
@@ -32,7 +32,7 @@ from sim.run_isl_sim import run_isl_sim
 
 def make_save_dir(RL):
     root = os.environ.get('RL_SAVE_ROOT', os.path.join(os.path.expanduser('~'), RL.modelDir))   # 환경 변수로 저장 위치 바꿀 수 있음
-    base = f'C_RL_{datetime.now():%Y-%m-%d}'
+    base = f'routeC_{datetime.now():%Y-%m-%d}'
     i = 1
     while True:
         d = os.path.join(root, base if i == 1 else f'{base}_{i}')
@@ -44,7 +44,7 @@ def make_save_dir(RL):
 
 def train(numEpisodes=None, simTime=None):
     P = config_isl()
-    P.routeName = 'C_RL'
+    P.routeName = 'routeC'
     P.nodeLogEnable = False
     if simTime:
         P.simTime = simTime
@@ -57,7 +57,7 @@ def train(numEpisodes=None, simTime=None):
     saveDir = make_save_dir(RL)
 
     with open(os.path.join(saveDir, 'run_info.txt'), 'w', encoding='utf-8') as f:
-        f.write(f'C_RL 온라인 DQN 학습 ({datetime.now():%Y-%m-%d %H:%M})\n')
+        f.write(f'route_C 온라인 DQN 학습 ({datetime.now():%Y-%m-%d %H:%M})\n')
         f.write(f'에피소드 {numEpisodes}개 x {P.simTime} step, 혼잡 단계 {RL.trainLevels} 돌아가며, 시드 {RL.trainSeedStart}부터\n')
         f.write(f'기한 {P.deadline}, TTL {P.ttlInit}, 큐 {P.queueMax}, 링크 용량 {P.linkCapacity}, 초당 {P.genRate}개\n')
         f.write('강화학습 설정: ' + ', '.join(f'{k}={v}' for k, v in vars(RL).items()) + '\n')
@@ -84,9 +84,8 @@ def train(numEpisodes=None, simTime=None):
         R = run_isl_sim(P, P.genRate, 0, seed, False)   # 시뮬레이터 ε는 0 (탐험은 에이전트가 함)
         unfinished = collector.finish()
         burst = burst_summary(R.status, P.burstMinLen)
-        expectedPenalties = int(sum(max(0, length - P.burstMinLen + 1) for length in burst.lossRuns))
-        if RL.consecPenalty > 0 and collector.numBurstPenalties != expectedPenalties:
-            raise RuntimeError(f'연속 손실 보상 누락: 실제 {collector.numBurstPenalties}, 예상 {expectedPenalties}')
+        if RL.burstEnabled and collector.numBurstPenalties != burst.burstPackets:   # 연속 손실 패킷마다 한 번씩 받아야 함
+            raise RuntimeError(f'연속 손실 보상 누락: 실제 {collector.numBurstPenalties}, 예상 {burst.burstPackets}')
 
         row = dict(episode=ep + 1, level=level, seed=seed,
                    onTimeRate=round(float((R.status == 1).mean()) * 100, 2),

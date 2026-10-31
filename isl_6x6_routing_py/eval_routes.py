@@ -1,10 +1,10 @@
 # 라우팅 비교 평가 - 평가 시드(1~20)로 A, B, C, D를 같은 조건에서 돌려 표로 비교
 #
 # 실행 (isl_6x6_routing_py 폴더에서):
-#   python eval_routes.py 모델경로                     -> 혼잡 3단계 x A, B, C, D, 에피소드 20개
+#   python eval_routes.py 모델경로                     -> 혼잡 3단계 x A, B, C, 에피소드 20개
 #   python eval_routes.py 모델경로 severe              -> severe만
-#   python eval_routes.py 모델경로 all A_Dijkstra,C_RL  -> 고른 라우팅만
-#   python eval_routes.py none all A_Dijkstra,D_LA_Dijkstra  -> C 없이 (모델 없음)
+#   python eval_routes.py 모델경로 all routeA,routeC  -> 고른 라우팅만
+#   python eval_routes.py none all routeA,routeB  -> C 없이 (모델 없음)
 #
 # 조건: main_isl.py와 같음 (에피소드 e: 핫스팟 시드 bgScenarioSeed + e, 난수 시드 randomSeed + e, ε 0)
 #       C는 탐험 없이 Q값이 가장 큰 방향만 고름, 학습도 안 함
@@ -16,14 +16,15 @@ from datetime import datetime
 
 import numpy as np
 
-from analysis.compute_metrics import compute_metrics, loss_run_lengths
+from analysis.burst_summary import loss_run_lengths
+from analysis.compute_metrics import compute_metrics
 from config_isl import BG_LEVELS, apply_bg_level, config_isl
 from sim.bg_traffic import sample_hotspots
 from sim.build_grid import build_grid
 from sim.episodes import merge_episodes, total_params
 from sim.run_isl_sim import run_isl_sim
 
-ALL_ROUTES = ['A_Dijkstra', 'B_LinkLoad', 'C_RL', 'D_LA_Dijkstra']
+ALL_ROUTES = ['routeA', 'routeB', 'routeC']
 
 
 def loss_runs(Rs):
@@ -37,10 +38,10 @@ def evaluate(level, route, modelPath=None):
     P.routeName = route
     P.nodeLogEnable = False
     C_STATE = None
-    if route == 'C_RL':
+    if route == 'routeC':
         from rl.config_rl import config_rl   # PyTorch는 C를 평가할 때만 필요
         from rl.rl_agent import DQNAgent
-        from routing.C_RL import STATE as C_STATE, set_agent
+        from routing.route_C import STATE as C_STATE, set_agent
         RL = config_rl(P)
         agent = DQNAgent(RL)
         agent.load(modelPath)
@@ -69,9 +70,9 @@ def main():
     modelPath = args[0] if args and args[0] != 'none' else None
     levels = list(BG_LEVELS) if len(args) < 2 or args[1] == 'all' else [args[1]]
     routes = args[2].split(',') if len(args) > 2 else ALL_ROUTES
-    if 'C_RL' in routes and not modelPath:
-        routes.remove('C_RL')
-        print('모델 경로가 없어서 C_RL은 빼고 평가')
+    if 'routeC' in routes and not modelPath:
+        routes.remove('routeC')
+        print('모델 경로가 없어서 route_C는 빼고 평가')
 
     root = os.environ.get('ISL_SAVE_ROOT', os.path.join(os.path.expanduser('~'), 'isl_saved_runs'))   # main_isl.py와 같은 환경 변수
     base = f'eval_{datetime.now():%Y-%m-%d}'

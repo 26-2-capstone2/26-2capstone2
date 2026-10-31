@@ -1,0 +1,7 @@
+# ISL 6x6 라우팅 시뮬레이션 + 강화학습에 필요한 패키지 (Python 3.10 이상)
+# 설치: pip install -r requirements.txt
+# 아래 버전에서 확인함 (Python 3.14): numpy 2.5.3, matplotlib 3.11.2, pillow 12.3.0, torch 2.15.0
+numpy>=1.24
+matplotlib>=3.7
+pillow>=10.0      # 애니메이션 GIF 저장
+torch>=2.0        # 강화학습 (route_C) 학습, 평가에만 필요. CPU 버전으로 충분함

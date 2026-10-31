@@ -1,8 +1,8 @@
-# 재생기용 기록 만들기 - 같은 상황(혼잡 단계, 평가 시드)에서 C와 D를 돌려 웹 재생기(viz/replay/replay.html)가 읽을 파일로 저장
+# 재생기용 기록 만들기 - 같은 상황(혼잡 단계, 평가 시드)에서 C와 B를 돌려 웹 재생기(viz/replay/replay.html)가 읽을 파일로 저장
 #
 # 실행 (isl_6x6_routing_py 폴더에서):
 #   python viz/export_replay.py 모델경로 [혼잡단계] [저장폴더]
-#   예) python viz/export_replay.py C:/Users/eun/rl_models/C_RL_2026-10-30/model_final.pt severe
+#   예) python viz/export_replay.py C:/Users/eun/rl_models/routeC_2026-10-30/model_final.pt severe
 # 저장: 저장폴더/replay_data.js + replay.html (기본: 홈 폴더 isl_saved_runs/replay_날짜) -> replay.html을 브라우저로 열면 됨
 #
 # 고르는 구간: 평가 에피소드 0~19 중 D의 연속 손실이 가장 긴 에피소드에서, 그 연속 손실이 시작되기 조금 전부터 WINDOW step
@@ -23,7 +23,7 @@ import sim.run_isl_sim as S
 from config_isl import apply_bg_level, config_isl
 from rl.config_rl import config_rl
 from rl.rl_agent import DQNAgent
-from routing.C_RL import STATE, set_agent
+from routing.route_C import STATE, set_agent
 from sim.bg_traffic import sample_hotspots
 from sim.build_grid import build_grid
 
@@ -41,9 +41,9 @@ def run(route, level, e, agent=None, RL=None):
     G = build_grid(P)
     sample_hotspots(P, G, P.bgScenarioSeed + e)
     qvals = []
-    if route == 'C_RL':
+    if route == 'routeC':
         set_agent(agent, RL, explore=False)
-        orig = S.ROUTES['C_RL']
+        orig = S.ROUTE_FUNCS['routeC']
 
         def wrapped(*a, **k):   # C가 고를 때마다 4방향 Q값을 같이 기록 (decision_log와 같은 순서)
             out = orig(*a, **k)
@@ -53,11 +53,11 @@ def run(route, level, e, agent=None, RL=None):
             mask = STATE.last[1]
             qvals.append([round(float(v), 3) if m > 0 else None for v, m in zip(q, mask)])
             return out
-        S.ROUTES['C_RL'] = wrapped
+        S.ROUTE_FUNCS['routeC'] = wrapped
         try:
             R = S.run_isl_sim(P, P.genRate, 0, P.randomSeed + e, True)
         finally:
-            S.ROUTES['C_RL'] = orig
+            S.ROUTE_FUNCS['routeC'] = orig
     else:
         R = S.run_isl_sim(P, P.genRate, 0, P.randomSeed + e, True)
     return P, G, R, qvals
@@ -97,12 +97,12 @@ def main():
     outDir = args[2] if len(args) > 2 else os.path.join(os.path.expanduser('~'), 'isl_saved_runs', f'replay_{datetime.now():%Y-%m-%d}')
     os.makedirs(outDir, exist_ok=True)
 
-    # 1. D가 가장 길게 연속으로 잃은 에피소드와 시점 찾기
+    # 1. B가 가장 길게 연속으로 잃은 에피소드와 시점 찾기
     best = None
     for e in range(SEARCH_EPISODES):
-        P, G, R, _ = run('D_LA_Dijkstra', level, e)
+        P, G, R, _ = run('routeB', level, e)
         start, length = longest_run_start(R.status)
-        print(f'에피소드 {e}: D 최대 연속 손실 {length}')
+        print(f'에피소드 {e}: B 최대 연속 손실 {length}')
         if best is None or length > best[1]:
             best = (e, length, int(R.genTime[start]), R)
     e, length, tLoss, RD = best
@@ -114,7 +114,7 @@ def main():
     RL = config_rl(P0)
     agent = DQNAgent(RL)
     agent.load(modelPath)
-    P, G, RC, qvals = run('C_RL', level, e, agent, RL)
+    P, G, RC, qvals = run('routeC', level, e, agent, RL)
 
     # 3. 링크 목록 (있는 링크만), 기록 묶기
     links = []
@@ -135,7 +135,7 @@ def main():
     with open(os.path.join(outDir, 'replay_data.js'), 'w', encoding='utf-8') as f:
         f.write('window.REPLAY = ' + json.dumps(data, separators=(',', ':'), ensure_ascii=False) + ';\n')
     shutil.copy(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'replay', 'replay.html'), outDir)
-    print(f'에피소드 {e} (시드 {P.randomSeed + e}), 구간 {t0}~{t1} step, D 최대 연속 손실 {length}')
+    print(f'에피소드 {e} (시드 {P.randomSeed + e}), 구간 {t0}~{t1} step, B 최대 연속 손실 {length}')
     print(f'저장: {outDir}')
 
 

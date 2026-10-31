@@ -75,7 +75,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(runner.info())
         if path == '/api/results':
             home = os.path.expanduser('~')
-            tf, train = latest_csv(os.path.join(home, 'rl_models', 'C_RL_*', 'train_log.csv'))
+            tf, train = latest_csv(os.path.join(home, 'rl_models', 'routeC_*', 'train_log.csv'))
             ef, ev = latest_csv(os.path.join(home, 'isl_saved_runs', 'eval_*', 'summary.csv'))
             return self._json(dict(trainFile=tf, train=train, evalFile=ef, eval=ev))
         if path == '/api/stream':

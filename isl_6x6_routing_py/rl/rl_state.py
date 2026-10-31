@@ -1,32 +1,31 @@
-# 관측 벡터(State 20개) C_RL이 방향을 고를 때 보는 상태 숫자 20개
+# 관측 벡터(State 24개) route_C가 방향을 고를 때 보는 상태 숫자 24개
 #
-# 학습 때(저장된 decision_log)와 실행 때(시뮬레이터 안)같은 상황이면 똑같은 숫자가 나와야 하므로
-# 정규화는 normalize() 하나에서만 함
+# 같은 상황이면 항상 똑같은 숫자가 나와야 하므로 정규화는 normalize() 하나에서만 함
+# 과거 값(큐 기록, 마지막 넘침 시각)은 시뮬레이터의 링크 기록(sim/link_history.py)에서 가져옴
 #
 # 관측 벡터 순서 (방향 : 상, 하, 좌, 우)
-#   0~3   큐 길이 q ÷ 200           (없는 방향은 0)
-#   4~7   이웃 위성 부하 N ÷ 200     (없는 방향은 0)
-#   8~11  링크 점유율 L (0~1)        (없는 방향은 0)
-#   12~15 상하좌우 각 링크 유무 (1 - 있음, 0 - 격자 끝)
-#   16~17 목적지까지 남은 거리 rem_dp, rem_ds ÷ 5 (목적지가 반대쪽이면 음수)
-#   18    남은 기한 ÷ 70
-#   19    남은 TTL ÷ 20
+#   0~3   큐 길이 q ÷ 200                          (없는 방향은 0)
+#   4~7   이웃 위성 부하 N ÷ 200                    (링크 지연만큼 늦게 받은 값: 좌우 2 step, 상하 7 step 전, 없는 방향은 0)
+#   8~11  큐 증가 속도 (현재 - 10 step 전) ÷ 50, -1~1 (시작 10 step 동안 0, 없는 방향은 0)
+#   12~15 최근 큐 넘침 min(지난 시간, 300) ÷ 300     (넘침 없으면 1, 없는 방향은 1)
+#   16~19 상하좌우 각 링크 유무 (1 - 있음, 0 - 격자 끝)
+#   20~21 목적지까지 남은 거리 rem_dp, rem_ds ÷ 5    (목적지가 반대쪽이면 음수)
+#   22    남은 기한 ÷ 70
+#   23    남은 TTL ÷ 20
+#
+# 링크 점유율 L은 큐 길이와 이웃 부하로 계산되는 중복 정보라 관측에서 뺐음 (decision_log 기록용으로만 계산)
 
 from dataclasses import dataclass
 
 import numpy as np
 
-from routing.A_Dijkstra import dist_to_dst
-from sim.build_grid import build_grid
+from routing.route_A import dist_to_dst
+from sim.link_history import HISTORY_STEPS
 
 DIR_NAMES = ['up', 'down', 'left', 'right']
-OBS_NAMES = ([f'q_{d}' for d in DIR_NAMES] + [f'N_{d}' for d in DIR_NAMES] + [f'L_{d}' for d in DIR_NAMES]
-             + [f'link_{d}' for d in DIR_NAMES] + ['rem_dp', 'rem_ds', 'rem_deadline', 'ttl'])
-
-# decision_log 열 번호 (sim/run_isl_sim.py 기록 순서)
-#   t, packet_id, hop, p, s, q 4, L 4, N 4, rem_dp, rem_ds, rem_deadline, ttl, next_dir, choice_type, enqueued
-COL_Q, COL_L, COL_N = slice(5, 9), slice(9, 13), slice(13, 17)
-COL_REM_DP, COL_REM_DS, COL_REM_DEADLINE, COL_TTL = 17, 18, 19, 20
+OBS_NAMES = ([f'q_{d}' for d in DIR_NAMES] + [f'N_{d}' for d in DIR_NAMES] + [f'dq_{d}' for d in DIR_NAMES]
+             + [f'overflow_{d}' for d in DIR_NAMES] + [f'link_{d}' for d in DIR_NAMES]
+             + ['rem_dp', 'rem_ds', 'rem_deadline', 'ttl'])
 
 
 @dataclass(frozen=True)
@@ -45,14 +44,15 @@ class RoutingObservation:
     deadlineFallback: bool
 
 
-def normalize(q, N, L, remDp, remDs, remDeadline, ttl, RL):
-    # 원래 값 -> 관측 벡터 20개 (없는 방향은 q = -1로 들어옴)
+def normalize(q, N, dq, sinceDrop, remDp, remDs, remDeadline, ttl, RL):
+    # 원래 값 -> 관측 벡터 24개 (없는 방향은 q = -1로 들어옴)
     q = np.asarray(q, dtype=float)
     link = (q >= 0).astype(float)
     obs = np.concatenate([
         np.where(link > 0, q / RL.normQueue, 0.0),
         np.where(link > 0, np.asarray(N, dtype=float) / RL.normQueue, 0.0),
-        np.where(link > 0, np.asarray(L, dtype=float), 0.0),
+        np.where(link > 0, np.clip(np.asarray(dq, dtype=float) / RL.normDelta, -1.0, 1.0), 0.0),
+        np.where(link > 0, np.minimum(np.asarray(sinceDrop, dtype=float), RL.overflowWindow) / RL.overflowWindow, 1.0),
         link,
         [remDp / RL.normDist, remDs / RL.normDist, remDeadline / RL.normDeadline, ttl / RL.normTtl],
     ])
@@ -83,37 +83,35 @@ def action_mask(q, P, G, curP, curS, remDeadline):
     return ActionMask(mask.astype(np.float32), True)
 
 
-def raw_from_sim(curP, curS, queueLen, G, P):
-    # 시뮬레이터 상태 -> 4방향 q, N, L (B, D와 같은 계산식, 없는 방향은 -1)
-    q = [-1.0] * 4
-    N = [-1.0] * 4
-    L = [-1.0] * 4
+def raw_from_sim(curP, curS, queueLen, G, P, RL, hist=None, t=0):
+    # 시뮬레이터 상태 -> 4방향 원래 값 (없는 방향은 -1)
+    #   q: 지금 큐 길이, N: 링크 지연만큼 늦게 받은 이웃 부하, dq: 큐 증가량, sinceDrop: 마지막 넘침 후 지난 step
+    #   Lnow, Nnow: 지금 값으로 계산한 링크 점유율과 이웃 부하 (decision_log 기록용, A, B와 같은 계산식)
+    # hist가 없으면 (테스트 등) 이웃 부하는 지금 값, 큐 증가량 0, 넘침 없음으로 둔다
+    if RL.deltaWindow >= HISTORY_STEPS or max(P.linkDelay) >= HISTORY_STEPS:
+        raise ValueError('링크 기록 길이(HISTORY_STEPS)가 관측에 필요한 과거보다 짧습니다')
+    q, N, dq, sinceDrop, Lnow, Nnow = ([-1.0] * 4 for _ in range(6))
     for d in G.validDirs[curP][curS]:
         nextP = curP + G.stepP[d - 1]
         nextS = curS + G.stepS[d - 1]
-        V = queueLen[G.linkId[curP, curS, d - 1]]
-        q[d - 1] = float(V)
-        N[d - 1] = float(np.mean(queueLen[G.outLinks[nextP][nextS]]))
-        L[d - 1] = (P.k * V + (1 - P.k) * N[d - 1]) / P.queueMax
-    return q, N, L
+        link = G.linkId[curP, curS, d - 1]
+        V = float(queueLen[link])
+        q[d - 1] = V
+        Nnow[d - 1] = float(np.mean(queueLen[G.outLinks[nextP][nextS]]))
+        Lnow[d - 1] = (P.k * V + (1 - P.k) * Nnow[d - 1]) / P.queueMax
+        if hist is None:
+            N[d - 1], dq[d - 1], sinceDrop[d - 1] = Nnow[d - 1], 0.0, float(RL.overflowWindow)
+            continue
+        past = hist.queue_at(t - int(G.linkDelay[link]))   # 이웃이 보낸 부하 정보는 링크 지연만큼 늦게 도착
+        N[d - 1] = float(np.mean(past[G.outLinks[nextP][nextS]]))
+        dq[d - 1] = V - float(hist.queue_at(t - RL.deltaWindow)[link]) if t > RL.deltaWindow else 0.0
+        sinceDrop[d - 1] = float(t - hist.lastDrop[link])
+    return q, N, dq, sinceDrop, Lnow, Nnow
 
 
-def obs_from_sim(curP, curS, queueLen, G, P, RL, remDeadline, ttl):
+def obs_from_sim(curP, curS, queueLen, G, P, RL, remDeadline, ttl, hist=None, t=0):
     # 실행용: 신경망 입력과 결정 기록용 원래 값을 이름 붙인 구조로 돌려준다.
-    q, N, L = raw_from_sim(curP, curS, queueLen, G, P)
-    obs = normalize(q, N, L, G.dstSat[0] - curP, G.dstSat[1] - curS, remDeadline, ttl, RL)
+    q, N, dq, sinceDrop, Lnow, Nnow = raw_from_sim(curP, curS, queueLen, G, P, RL, hist, t)
+    obs = normalize(q, N, dq, sinceDrop, G.dstSat[0] - curP, G.dstSat[1] - curS, remDeadline, ttl, RL)
     mask = action_mask(q, P, G, curP, curS, remDeadline)
-    return RoutingObservation(obs, mask.values, q, N, L, mask.deadlineFallback)
-
-
-def obs_from_log(decisionLog, P, RL):
-    # 학습용: decision_log 행들 (행 수 x 24) -> 관측 벡터 (행 수 x 20), 행동 마스크 (행 수 x 4)
-    D = np.asarray(decisionLog, dtype=float)
-    if D.size == 0:
-        return np.empty((0, RL.obsDim), dtype=np.float32), np.empty((0, RL.numActions), dtype=np.float32)
-    D = np.atleast_2d(D)
-    obs = np.stack([normalize(r[COL_Q], r[COL_N], r[COL_L], r[COL_REM_DP], r[COL_REM_DS],
-                              r[COL_REM_DEADLINE], r[COL_TTL], RL) for r in D])
-    G = build_grid(P)
-    mask = np.stack([action_mask(r[COL_Q], P, G, int(r[3]), int(r[4]), r[COL_REM_DEADLINE]).values for r in D])
-    return obs, mask
+    return RoutingObservation(obs, mask.values, q, Nnow, Lnow, mask.deadlineFallback)

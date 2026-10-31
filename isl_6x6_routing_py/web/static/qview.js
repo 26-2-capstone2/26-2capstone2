@@ -18,13 +18,13 @@ function cross(id, vals, dec, fmtv) {
   $(id).innerHTML = cells.join('');
 }
 
-const OBS_ROWS = [['큐 길이 ÷ 200', 0], ['이웃 부하 ÷ 200', 4], ['링크 점유율', 8], ['링크 유무', 12]];
+const OBS_ROWS = [['큐 길이 ÷ 200', 0], ['이웃 부하 ÷ 200', 4], ['큐 증가 속도', 8], ['최근 큐 넘침', 12], ['링크 유무', 16]];
 function obsTable(o) {
   let h = '<tr><th></th>' + DIRS.map(d => `<th style="text-align:right">${d}</th>`).join('') + '</tr>';
   for (const [name, k] of OBS_ROWS) h += `<tr><th>${name}</th>` + [0, 1, 2, 3].map(d => `<td>${o ? o[k + d].toFixed(2) : '-'}</td>`).join('') + '</tr>';
-  h += `<tr><th>남은 거리 p, s ÷ 5</th><td colspan="2">${o ? o[16].toFixed(2) : '-'}</td><td colspan="2">${o ? o[17].toFixed(2) : '-'}</td></tr>`;
-  h += `<tr><th>남은 기한 ÷ 70</th><td colspan="4">${o ? o[18].toFixed(2) : '-'}</td></tr>`;
-  h += `<tr><th>남은 TTL ÷ 20</th><td colspan="4">${o ? o[19].toFixed(2) : '-'}</td></tr>`;
+  h += `<tr><th>남은 거리 p, s ÷ 5</th><td colspan="2">${o ? o[20].toFixed(2) : '-'}</td><td colspan="2">${o ? o[21].toFixed(2) : '-'}</td></tr>`;
+  h += `<tr><th>남은 기한 ÷ 70</th><td colspan="4">${o ? o[22].toFixed(2) : '-'}</td></tr>`;
+  h += `<tr><th>남은 TTL ÷ 20</th><td colspan="4">${o ? o[23].toFixed(2) : '-'}</td></tr>`;
   $('obsTbl').innerHTML = h;
 }
 

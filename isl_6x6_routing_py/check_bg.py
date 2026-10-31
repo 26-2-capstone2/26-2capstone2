@@ -16,6 +16,7 @@ KEYS = ['genTime', 'endTime', 'hops', 'status', 'decisionLog', 'timeline']
 def run(eps, bg, seed=None, simTime=30000):
     P = config_isl()
     P.simTime = simTime               # 빠른 확인용
+    P.routeName = 'routeB'            # 검증은 B 라우팅 기준
     P.bgEnable = bg
     picked = rates = None
     if bg:

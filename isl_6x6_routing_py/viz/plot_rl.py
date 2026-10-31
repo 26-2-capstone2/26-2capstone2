@@ -2,7 +2,7 @@
 #
 # 실행 (isl_6x6_routing_py 폴더에서):
 #   python viz/plot_rl.py 학습폴더 평가summary.csv [기존ABD_summary.csv]
-#   예) python viz/plot_rl.py C:/Users/eun/rl_models/C_RL_2026-10-30
+#   예) python viz/plot_rl.py C:/Users/eun/rl_models/routeC_2026-10-30
 #              C:/Users/eun/isl_saved_runs/eval_2026-10-30/summary.csv
 #              C:/Users/eun/isl_saved_runs/compare_ABD_deadline70_2026-10-30/summary.csv
 # 저장: 학습폴더/learning_curve.png, 평가폴더/route_compare.png
@@ -21,8 +21,8 @@ from viz.viz_colors import use_korean_font, viz_colors
 
 LEVELS = ['base', 'high', 'severe']
 LEVEL_LABELS = {'base': '기본 (base)', 'high': '높음 (high)', 'severe': '매우 높음 (severe)'}
-ROUTES = ['A_Dijkstra', 'B_LinkLoad', 'C_RL', 'D_LA_Dijkstra']
-ROUTE_LABELS = {'A_Dijkstra': 'A 최단 경로', 'B_LinkLoad': 'B 부하 고려', 'C_RL': 'C 강화학습', 'D_LA_Dijkstra': 'D 부하 고려 최단 경로'}
+ROUTES = ['routeA', 'routeB', 'routeC']
+ROUTE_LABELS = {'routeA': 'A 최단 경로', 'routeB': 'B DRA', 'routeC': 'C 강화학습'}
 
 
 def read_csv(path):
@@ -95,7 +95,7 @@ def plot_route_compare(evalCsv, abdCsv, C):
             pos = x - 0.4 + width * (i + 0.5)
             ax.bar(pos, ys, width=width - 0.02, color=C.series[ROUTES.index(route)], label=ROUTE_LABELS[route],
                    edgecolor='white', linewidth=1)
-            if route == 'C_RL':   # C만 값 표시
+            if route == 'routeC':   # C만 값 표시
                 for px, y in zip(pos, ys):
                     ax.annotate(fmt.format(y), (px, y), xytext=(0, 3), textcoords='offset points',
                                 ha='center', fontsize=8, color=C.text, fontweight='bold')

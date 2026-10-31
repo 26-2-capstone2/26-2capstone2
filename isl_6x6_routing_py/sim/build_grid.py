@@ -1,7 +1,7 @@
 # 6x6 Grid 생성 - 위성 좌표, 상/하/좌/우 링크, 링크별 지연, 다음 위성을 만듦
 #
 # 흐름: (1) 방향 정의 -> (2) 링크 번호표 -> (3) 빈 표 준비 -> (4) 위성 x 방향마다 링크 채우기 -> (5) 출발/도착 저장
-# 결과 G는 run_isl_sim, A_Dijkstra, B_LinkLoad, node_log가 "이 위성에서 이 방향으로 가면 어디로, 몇 step?"을 찾을 때 씀
+# 결과 G는 run_isl_sim, route_A, route_B, node_log가 "이 위성에서 이 방향으로 가면 어디로, 몇 step?"을 찾을 때 씀
 from types import SimpleNamespace
 
 import numpy as np
@@ -48,7 +48,7 @@ def build_grid(P):
             G.validDirs[p][s] = [d for d in range(1, 5) if G.hasLink[p, s, d - 1]]
             G.outLinks[p][s] = np.array([G.linkId[p, s, d - 1] for d in G.validDirs[p][s]])
 
-    # (5) 출발/도착 위성 (A_Dijkstra, route_B가 목적지 방향을 계산할 때 사용)
+    # (5) 출발/도착 위성 (route_A, route_B가 목적지 방향을 계산할 때 사용)
     G.srcSat = P.srcSat.copy()
     G.dstSat = P.dstSat.copy()
     return G

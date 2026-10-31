@@ -13,13 +13,13 @@ import numpy as np
 def merge_episodes(Rs, P):
     # Rs: 같은 (genRate, epsilon)으로 돌린 에피소드 결과 리스트 (에피소드 순서대로)
     M = SimpleNamespace()
+    M.routeName = Rs[0].routeName
     M.genRate = Rs[0].genRate
     M.epsilon = Rs[0].epsilon
-    M.routeName = Rs[0].routeName
     M.grid = Rs[0].grid
     M.numEpisodes = len(Rs)
 
-    genT, endT, hops, status, ep, logs, nodeLogs = [], [], [], [], [], [], []
+    genT, endT, hops, status, ep, logs = [], [], [], [], [], []
     pktOffset = 0
     for e, R in enumerate(Rs):
         shift = e * P.simTime                       # 에피소드 길이만큼 시간 이동
@@ -32,10 +32,6 @@ def merge_episodes(Rs, P):
         D[:, 0] += shift                            # t
         D[:, 1] += pktOffset                        # packet_id
         logs.append(D)
-        if R.nodeLog is not None:                   # 노드 기록 (node_log.py): 기록 시각만 이어 붙임
-            Nl = R.nodeLog.copy()
-            Nl[:, 0] += shift
-            nodeLogs.append(Nl)
         pktOffset += R.numPackets
 
     M.genTime = np.concatenate(genT)
@@ -44,12 +40,24 @@ def merge_episodes(Rs, P):
     M.status = np.concatenate(status)
     M.packetEpisode = np.concatenate(ep)            # 패킷이 속한 에피소드 번호 (연속 손실 / 경로 변경 계산용)
     M.decisionLog = np.vstack(logs)
-    M.nodeLog = np.vstack(nodeLogs) if nodeLogs else None
     M.numPackets = pktOffset
     M.endStep = sum(R.endStep for R in Rs)
     M.linkSent = sum(R.linkSent for R in Rs)
     M.bg = {k: sum(R.bg[k] for R in Rs) for k in Rs[0].bg}
     M.perEpisode = Rs                               # 에피소드별 원본 결과 (애니메이션 등에 사용)
+
+    # 노드 기록: step을 에피소드 길이만큼 밀어서 이어 붙임
+    #   생성 종료 후 남은 패킷 처리 구간(maxDrainTime)의 기록은 다음 에피소드 시작 시각과 겹칠 수 있어 시각 순으로 정렬
+    if getattr(Rs[0], 'nodeLog', None) is not None:
+        NL = []
+        for e, R in enumerate(Rs):
+            T = R.nodeLog.copy()
+            T[:, 0] += e * P.simTime
+            NL.append(T)
+        NL = np.vstack(NL)
+        M.nodeLog = NL[np.argsort(NL[:, 0], kind='stable')]
+    else:
+        M.nodeLog = None
     return M
 
 
