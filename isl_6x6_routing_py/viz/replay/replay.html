@@ -1,0 +1,422 @@
+<title>ISL 라우팅 재생기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
+<style>
+/* 레이아웃: 위 조작 막대, 가운데 C와 D 격자 나란히 (좁으면 위아래), 오른쪽 선택 패킷 카드 */
+:root {
+  --bg: #f4f6f8; --panel: #ffffff; --ink: #14202e; --muted: #5b6676; --line: #dde2e8;
+  --c: #129a6b; --d: #c98a00; --lost: #d63a3a; --ok: #8fa3b8;
+  --q0: #e3e8ee; --q1: #9cc2ef; --q2: #2a78d6; --q3: #0d3a73;
+  --sat: #14202e; --sat-ring: #ffffff;
+  --sans: "IBM Plex Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f151c; --panel: #17202a; --ink: #e6ebf0; --muted: #9aa6b4; --line: #2a3542;
+  --c: #2cc48d; --d: #e6a51a; --lost: #ff6b6b; --ok: #5d7084;
+  --q0: #26313d; --q1: #2f5f93; --q2: #3f8ae6; --q3: #a9cdf7;
+  --sat: #e6ebf0; --sat-ring: #17202a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f151c; --panel: #17202a; --ink: #e6ebf0; --muted: #9aa6b4; --line: #2a3542;
+  --c: #2cc48d; --d: #e6a51a; --lost: #ff6b6b; --ok: #5d7084;
+  --q0: #26313d; --q1: #2f5f93; --q2: #3f8ae6; --q3: #a9cdf7;
+  --sat: #e6ebf0; --sat-ring: #17202a; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 16px; }
+header { display: grid; gap: 4px; }
+h1 { margin: 0; font-size: 1.45rem; font-weight: 700; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.controls button, .controls select { font: inherit; font-size: 0.88rem; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.controls button.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); min-width: 74px; }
+.controls button:focus-visible, .controls select:focus-visible, input[type=range]:focus-visible, canvas:focus-visible {
+  outline: 2px solid var(--q2); outline-offset: 2px; }
+.time { display: flex; align-items: center; gap: 10px; flex: 1 1 260px; min-width: 0; }
+.time input { flex: 1; min-width: 0; accent-color: var(--q2); }
+.clock { font-size: 0.9rem; white-space: nowrap; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 280px; gap: 16px; align-items: start; }
+@media (max-width: 1000px) { .main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .card { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .main { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 10px; min-width: 0; }
+.panel h2 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+.swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+canvas.grid { width: 100%; aspect-ratio: 1; display: block; cursor: pointer; border-radius: 6px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.stat { display: grid; gap: 2px; }
+.stat .k { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.02em; }
+.stat .v { font-size: 1.05rem; font-weight: 600; }
+.stat .v.bad { color: var(--lost); }
+.strip-label { font-size: 0.72rem; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+canvas.strip { width: 100%; height: 26px; display: block; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 12px; min-width: 0; }
+.card h3 { margin: 0; font-size: 0.95rem; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 0.85rem; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; text-align: right; }
+.qbars { display: grid; gap: 6px; }
+.qrow { display: grid; grid-template-columns: 34px 1fr 58px; gap: 8px; align-items: center; font-size: 0.85rem; }
+.qtrack { height: 12px; background: var(--q0); border-radius: 3px; overflow: hidden; }
+.qfill { height: 100%; background: var(--q1); border-radius: 3px; }
+.qrow.pick .qfill { background: var(--c); }
+.qrow.pick .dirname { font-weight: 700; }
+.qrow.off { color: var(--muted); }
+.note { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.8rem; color: var(--muted); align-items: center; }
+.ramp { display: inline-block; width: 90px; height: 8px; border-radius: 4px; vertical-align: middle;
+  background: linear-gradient(90deg, var(--q0), var(--q1), var(--q2), var(--q3)); }
+.x { color: var(--lost); font-weight: 700; }
+.empty { padding: 40px 0; text-align: center; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>ISL 라우팅 재생기</h1>
+    <div class="sub" id="scenario">기록 파일(replay_data.js)을 읽는 중</div>
+  </header>
+
+  <div class="controls" role="group" aria-label="재생 조작">
+    <button class="primary" id="play" type="button">재생</button>
+    <button id="back" type="button" title="10 ms 뒤로">−10 ms</button>
+    <button id="fwd" type="button" title="10 ms 앞으로">+10 ms</button>
+    <label class="sub" for="speed">속도</label>
+    <select id="speed">
+      <option value="25">0.25배 (초당 25 ms)</option>
+      <option value="50">0.5배</option>
+      <option value="100" selected>1배 (초당 100 ms)</option>
+      <option value="200">2배</option>
+      <option value="400">4배</option>
+    </select>
+    <button id="jump" type="button">D 연속 손실 시작으로</button>
+    <div class="time">
+      <input type="range" id="t" min="0" max="1" value="0" aria-label="재생 위치 (ms)">
+      <span class="clock mono" id="clock">t = 0 ms</span>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><span class="ramp"></span> 링크 큐 길이 0 → 200</span>
+    <span><span class="swatch" style="background:var(--c)"></span> C 패킷</span>
+    <span><span class="swatch" style="background:var(--d)"></span> D 패킷</span>
+    <span><span class="x">✕</span> 손실 지점</span>
+    <span>왼쪽 위 ● 출발 위성, 오른쪽 아래 ◎ 목적지 위성</span>
+  </div>
+
+  <div class="main">
+    <section class="panel" id="panelC">
+      <h2><span class="swatch" style="background:var(--c)"></span>C 강화학습</h2>
+      <canvas class="grid" id="gridC" tabindex="0" aria-label="C 라우팅 위성 격자"></canvas>
+      <div class="stats" id="statsC"></div>
+      <div class="strip-label"><span>이 구간에 생긴 패킷 (생성 순서, 끝난 것만 표시)</span><span>회색 도착, 빨강 손실</span></div>
+      <canvas class="strip" id="stripC" aria-label="C 패킷 결과 띠"></canvas>
+    </section>
+    <section class="panel" id="panelD">
+      <h2><span class="swatch" style="background:var(--d)"></span>B DRA</h2>
+      <canvas class="grid" id="gridD" tabindex="0" aria-label="D 라우팅 위성 격자"></canvas>
+      <div class="stats" id="statsD"></div>
+      <div class="strip-label"><span>이 구간에 생긴 패킷 (생성 순서, 끝난 것만 표시)</span><span>회색 도착, 빨강 손실</span></div>
+      <canvas class="strip" id="stripD" aria-label="D 패킷 결과 띠"></canvas>
+    </section>
+    <aside class="card" id="card">
+      <h3>선택한 패킷</h3>
+      <div id="pinfo" class="note">격자에서 패킷을 누르면 여기에 보입니다. 처음에는 C에서 가장 최근에 방향을 고른 패킷을 따라갑니다.</div>
+      <div class="note">
+        Q값: C의 신경망이 "이 방향으로 보내면 앞으로 받을 점수"로 예상한 값. 가장 큰 방향을 고릅니다.
+        링크가 없거나 큐가 꽉 찬 방향은 고를 수 없습니다.
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script src="replay_data.js"></script>
+<script>
+(function () {
+  const R = window.REPLAY;
+  if (!R) {
+    document.getElementById('scenario').textContent = 'replay_data.js가 없습니다. viz/export_replay.py를 먼저 실행해 같은 폴더에 만들어 주세요.';
+    return;
+  }
+  const DIRS = ['상', '하', '좌', '우'];
+  const STEP_P = [0, 0, -1, 1], STEP_S = [-1, 1, 0, 0];
+  const LEVEL = { base: '기본 (base)', high: '높음 (high)', severe: '매우 높음 (severe)' };
+  const N = R.grid.planes, M = R.grid.sats;
+  const delay = R.linkDelay;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  document.getElementById('scenario').textContent =
+    `혼잡 ${LEVEL[R.level] || R.level}, 평가 에피소드 ${R.episode} (시드 ${R.seed}), 구간 ${R.t0}~${R.t1} ms, ` +
+    `기한 ${R.deadline} ms. 같은 핫스팟 상황에서 C와 D를 나란히 재생합니다. 모델 ${R.model}.`;
+
+  // 패킷별 위치 계산 준비
+  function prep(route) {
+    const pk = route.packets;
+    for (const p of pk) {
+      p.t = p.hops.map(h => h[0]);
+      p.endPos = endPos(p);
+    }
+    const inWin = pk.filter(p => p.gen >= R.t0 && p.gen <= R.t1).sort((a, b) => a.id - b.id);
+    return { packets: pk, inWin, queues: route.queues };
+  }
+  function nextSat(h) { return [h[1] + STEP_P[h[3] - 1], h[2] + STEP_S[h[3] - 1]]; }
+  function endPos(p) {
+    const h = p.hops[p.hops.length - 1];
+    if (p.result === 4) return [h[1], h[2]];          // 큐 오버플로: 고른 위성에서 버려짐
+    return nextSat(h);                                // 도착, 기한 초과, TTL: 다음 위성에 도착한 순간
+  }
+  // t에서 패킷 위치 (격자 좌표, 소수), 없으면 null
+  function posAt(p, t) {
+    if (t < p.gen || t > p.end) return null;
+    let i = p.t.length - 1;
+    while (i > 0 && p.t[i] > t) i--;
+    const h = p.hops[i];
+    if (p.t[i] > t) return null;
+    const d = delay[h[3] - 1];
+    const tArrive = i + 1 < p.hops.length ? p.t[i + 1] : (p.result === 4 ? null : p.end);
+    if (tArrive === null) return [h[1], h[2]];
+    const tDepart = tArrive - d;
+    if (t < tDepart) return [h[1], h[2]];            // 큐에서 기다리는 중
+    const f = Math.min(1, (t - tDepart) / d);
+    const ns = nextSat(h);
+    return [h[1] + (ns[0] - h[1]) * f, h[2] + (ns[1] - h[2]) * f];
+  }
+  function lastHopAt(p, t) {
+    let i = -1;
+    for (let k = 0; k < p.t.length; k++) if (p.t[k] <= t) i = k;
+    return i < 0 ? null : { i, h: p.hops[i] };
+  }
+
+  const routes = { C: prep(R.routes.C), D: prep(R.routes.D) };
+
+  // ---- 상태 ----
+  const slider = document.getElementById('t');
+  slider.min = R.t0; slider.max = R.t1;
+  let t = Math.max(R.t0, Math.min(R.t1, R.tLoss - 50));
+  let playing = false, last = 0, acc = 0;
+  let selected = null;     // { key: 'C'|'D', id }
+  let follow = true;
+
+  // ---- 그리기 ----
+  function rampColor(q) {
+    const f = Math.min(1, q / R.queueMax);
+    const stops = [css('--q0'), css('--q1'), css('--q2'), css('--q3')];
+    const x = f * 3, i = Math.min(2, Math.floor(x)), u = x - i;
+    return mix(stops[i], stops[i + 1], u);
+  }
+  function hex(c) { c = c.replace('#', ''); return [0, 2, 4].map(k => parseInt(c.substr(k, 2), 16)); }
+  function mix(a, b, u) { const A = hex(a), B = hex(b); return `rgb(${A.map((v, k) => Math.round(v + (B[k] - v) * u)).join(',')})`; }
+
+  function setupCanvas(cv) {
+    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w: r.width, h: r.height };
+  }
+  function geom(w) {
+    const pad = w * 0.08, cell = (w - 2 * pad) / (N - 1);
+    return { pad, cell, X: p => pad + p * cell, Y: s => pad + s * cell };
+  }
+
+  function drawGrid(key) {
+    const cv = document.getElementById('grid' + key);
+    const { ctx, w } = setupCanvas(cv);
+    const g = geom(w);
+    const route = routes[key];
+    ctx.clearRect(0, 0, w, w);
+    const row = route.queues[t - R.t0] || [];
+    const off = Math.max(2.5, g.cell * 0.05);
+    // 링크 (방향마다 한 줄, 진행 방향 오른쪽으로 살짝 띄움)
+    R.links.forEach((l, k) => {
+      const q = row[k] || 0;
+      const x1 = g.X(l.p), y1 = g.Y(l.s);
+      const x2 = g.X(l.p + STEP_P[l.dir - 1]), y2 = g.Y(l.s + STEP_S[l.dir - 1]);
+      const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
+      const ox = -dy / len * off, oy = dx / len * off;
+      ctx.strokeStyle = rampColor(q);
+      ctx.lineWidth = 2 + 3 * Math.min(1, q / R.queueMax);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x1 + ox + dx * 0.12, y1 + oy + dy * 0.12);
+      ctx.lineTo(x2 + ox - dx * 0.12, y2 + oy - dy * 0.12);
+      ctx.stroke();
+    });
+    // 위성
+    const rs = Math.max(4, g.cell * 0.09);
+    for (let p = 0; p < N; p++) for (let s = 0; s < M; s++) {
+      ctx.beginPath(); ctx.arc(g.X(p), g.Y(s), rs, 0, Math.PI * 2);
+      ctx.fillStyle = css('--sat'); ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = css('--sat-ring'); ctx.stroke();
+    }
+    const [sp, ss] = R.grid.src, [dp, ds] = R.grid.dst;
+    ctx.lineWidth = 2; ctx.strokeStyle = css('--sat');
+    ctx.beginPath(); ctx.arc(g.X(dp), g.Y(ds), rs + 5, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = css('--muted'); ctx.font = `12px ${css('--sans')}`;
+    ctx.textAlign = 'left'; ctx.fillText('출발', g.X(sp) + rs + 4, g.Y(ss) - rs - 2);
+    ctx.textAlign = 'right'; ctx.fillText('목적지', g.X(dp) - rs - 8, g.Y(ds) + rs + 16);
+
+    // 패킷
+    const color = css(key === 'C' ? '--c' : '--d'), lostC = css('--lost');
+    const jitter = id => [((id * 37) % 11 - 5) * 0.012, ((id * 53) % 11 - 5) * 0.012];
+    cv._hit = [];
+    for (const p of route.packets) {
+      // 손실 표시 (400 ms 동안)
+      if (p.result !== 1 && p.result !== 0 && t >= p.end && t < p.end + 400) {
+        const a = 1 - (t - p.end) / 400;
+        const x = g.X(p.endPos[0]), y = g.Y(p.endPos[1]), s = 5;
+        ctx.globalAlpha = a; ctx.strokeStyle = lostC; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y + s); ctx.moveTo(x + s, y - s); ctx.lineTo(x - s, y + s); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      const pos = posAt(p, t);
+      if (!pos) continue;
+      const [jx, jy] = jitter(p.id);
+      const x = g.X(pos[0] + jx), y = g.Y(pos[1] + jy);
+      const isSel = selected && selected.key === key && selected.id === p.id;
+      ctx.beginPath(); ctx.arc(x, y, isSel ? 6 : 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = color; ctx.fill();
+      if (isSel) { ctx.lineWidth = 2; ctx.strokeStyle = css('--ink'); ctx.stroke(); }
+      cv._hit.push({ x, y, id: p.id });
+    }
+  }
+
+  function drawStrip(key) {
+    const cv = document.getElementById('strip' + key);
+    const { ctx, w, h } = setupCanvas(cv);
+    ctx.clearRect(0, 0, w, h);
+    const list = routes[key].inWin, n = list.length;
+    if (!n) return;
+    const cw = w / n;
+    list.forEach((p, i) => {
+      if (p.end > t) return;
+      ctx.fillStyle = p.result === 1 ? css('--ok') : css('--lost');
+      ctx.fillRect(i * cw, p.result === 1 ? h * 0.35 : 0, Math.max(1, cw - (cw > 3 ? 1 : 0)), p.result === 1 ? h * 0.3 : h);
+    });
+  }
+
+  function stats(key) {
+    const list = routes[key].inWin;
+    let ok = 0, lost = 0, run = 0, maxRun = 0, cur = 0;
+    for (const p of list) {
+      if (p.end > t) { run = 0; continue; }
+      if (p.result === 1) { ok++; run = 0; } else { lost++; run++; maxRun = Math.max(maxRun, run); }
+    }
+    // 지금 진행 중인 연속 손실: 끝난 패킷 중 가장 최근 생성된 것부터 거꾸로
+    const ended = list.filter(p => p.end <= t);
+    for (let i = ended.length - 1; i >= 0 && ended[i].result !== 1; i--) cur++;
+    const el = document.getElementById('stats' + key);
+    const tot = ok + lost;
+    el.innerHTML =
+      `<div class="stat"><span class="k">도착</span><span class="v mono">${ok}</span></div>` +
+      `<div class="stat"><span class="k">손실</span><span class="v mono ${lost ? 'bad' : ''}">${lost}</span></div>` +
+      `<div class="stat"><span class="k">도착률</span><span class="v mono">${tot ? (100 * ok / tot).toFixed(1) : '0.0'}%</span></div>` +
+      `<div class="stat"><span class="k">최대 연속 손실</span><span class="v mono ${maxRun >= 5 ? 'bad' : ''}">${maxRun}</span></div>`;
+  }
+
+  function autoSelect() {
+    // C에서 t 이하로 가장 최근에 방향을 고른, 아직 진행 중인 패킷
+    let best = null, bt = -1;
+    for (const p of routes.C.packets) {
+      if (t < p.gen || t > p.end) continue;
+      const lh = lastHopAt(p, t);
+      if (lh && lh.h[0] > bt) { bt = lh.h[0]; best = p; }
+    }
+    if (best) selected = { key: 'C', id: best.id };
+  }
+
+  function drawCard() {
+    const box = document.getElementById('pinfo');
+    if (!selected) { box.className = 'note'; return; }
+    const p = routes[selected.key].packets.find(x => x.id === selected.id);
+    if (!p) return;
+    const lh = lastHopAt(p, t);
+    const res = { 0: '진행 중', 1: '기한 내 도착', 2: '목적지 기한 초과', 3: '중간 기한 초과', 4: '큐 오버플로', 5: 'TTL 만료' };
+    const state = t < p.end ? '진행 중' : res[p.result];
+    let html = `<dl class="kv">
+      <dt>라우팅</dt><dd>${selected.key === 'C' ? 'C 강화학습' : 'B DRA'}</dd>
+      <dt>패킷 번호</dt><dd class="mono">${p.id}</dd>
+      <dt>생성</dt><dd class="mono">${p.gen} ms</dd>
+      <dt>남은 기한</dt><dd class="mono">${Math.max(0, R.deadline - (Math.min(t, p.end) - p.gen))} ms</dd>
+      <dt>지금까지 홉</dt><dd class="mono">${lh ? lh.i : 0}</dd>
+      <dt>상태</dt><dd>${state}</dd>
+    </dl>`;
+    if (lh) {
+      const h = lh.h;
+      html += `<div class="note">t = ${h[0]} ms, 위성 (${h[1]}, ${h[2]})에서 <b>${DIRS[h[3] - 1]}</b> 선택</div>`;
+      if (h[4]) {
+        const qs = h[4], valid = qs.filter(v => v !== null);
+        const lo = Math.min(...valid), hi = Math.max(...valid), span = (hi - lo) || 1;
+        html += '<div class="qbars">' + qs.map((v, k) => {
+          if (v === null) return `<div class="qrow off"><span class="dirname">${DIRS[k]}</span><div class="qtrack"></div><span class="mono">없음</span></div>`;
+          const pct = 15 + 85 * (v - lo) / span;
+          return `<div class="qrow ${k === h[3] - 1 ? 'pick' : ''}"><span class="dirname">${DIRS[k]}</span>` +
+                 `<div class="qtrack"><div class="qfill" style="width:${pct}%"></div></div><span class="mono">${v.toFixed(3)}</span></div>`;
+        }).join('') + '</div>';
+      } else {
+        html += '<div class="note">D는 규칙(지연 + 큐 비용이 가장 작은 방향)으로 고르므로 Q값이 없습니다.</div>';
+      }
+    }
+    box.className = '';
+    box.innerHTML = html;
+  }
+
+  function render() {
+    if (follow) autoSelect();
+    slider.value = t;
+    document.getElementById('clock').textContent = `t = ${t} ms`;
+    drawGrid('C'); drawGrid('D'); drawStrip('C'); drawStrip('D'); stats('C'); stats('D'); drawCard();
+  }
+
+  // ---- 재생 ----
+  const playBtn = document.getElementById('play');
+  function setPlaying(v) { playing = v; playBtn.textContent = v ? '멈춤' : '재생'; if (v) { last = performance.now(); acc = 0; requestAnimationFrame(tick); } }
+  function tick(now) {
+    if (!playing) return;
+    const rate = +document.getElementById('speed').value;
+    acc += (now - last) / 1000 * rate; last = now;
+    const adv = Math.floor(acc);
+    if (adv > 0) { acc -= adv; t = Math.min(R.t1, t + adv); render(); }
+    if (t >= R.t1) { setPlaying(false); return; }
+    requestAnimationFrame(tick);
+  }
+  playBtn.addEventListener('click', () => { if (t >= R.t1) t = R.t0; setPlaying(!playing); });
+  document.getElementById('back').addEventListener('click', () => { t = Math.max(R.t0, t - 10); render(); });
+  document.getElementById('fwd').addEventListener('click', () => { t = Math.min(R.t1, t + 10); render(); });
+  document.getElementById('jump').addEventListener('click', () => { t = Math.max(R.t0, R.tLoss - 50); render(); });
+  slider.addEventListener('input', () => { t = +slider.value; render(); });
+
+  for (const key of ['C', 'D']) {
+    const cv = document.getElementById('grid' + key);
+    cv.addEventListener('click', ev => {
+      const r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
+      let best = null, bd = 14;
+      for (const h of cv._hit || []) { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = h; } }
+      if (best) { selected = { key, id: best.id }; follow = false; }
+      else { follow = true; }
+      render();
+    });
+  }
+  document.addEventListener('keydown', ev => {
+    if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'SELECT') return;
+    if (ev.key === ' ') { ev.preventDefault(); playBtn.click(); }
+    if (ev.key === 'ArrowRight') { t = Math.min(R.t1, t + 1); render(); }
+    if (ev.key === 'ArrowLeft') { t = Math.max(R.t0, t - 1); render(); }
+  });
+  window.addEventListener('resize', render);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', render);
+  new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+  render();
+})();
+</script>

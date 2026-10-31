@@ -1,3 +1,8 @@
 # 시뮬레이션 결과 (용량이 커서 제외, main_isl.py 실행하면 다시 생성됨)
 results/
 __pycache__/
+results_batch/
+
+# 웹 시뮬레이터에서 바꾼 설정값 (사람마다 다름)
+web/user_settings.json
+.venv/

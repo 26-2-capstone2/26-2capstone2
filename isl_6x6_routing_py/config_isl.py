@@ -6,6 +6,26 @@ from types import SimpleNamespace
 import numpy as np
 
 
+# 혼잡 단계별 배경 트래픽 값 (P.bgLevel로 고름): 핫스팟 개수 범위, ON/OFF 평균 길이 (step)
+# 나머지 배경 값(세기 0.7~2.0배, 막힘 기준 1.8, 주 흐름 쪽 가중치 3 등)은 모든 단계에서 같음
+# 켜짐 + 꺼짐 = 900 step으로 맞춰 주기는 같고 켜진 시간 비율만 커짐
+BG_LEVELS = {
+    'base':   dict(bgNumMin=2, bgNumMax=5, bgOnMean=150, bgOffMean=750),   # 기본, 켜진 시간 약 1/6 (평상시)
+    'high':   dict(bgNumMin=3, bgNumMax=6, bgOnMean=300, bgOffMean=600),   # 높음, 약 1/3 (붐비는 시간대)
+    'severe': dict(bgNumMin=4, bgNumMax=7, bgOnMean=450, bgOffMean=450),   # 매우 높음, 약 1/2 (피크, 이벤트 상황)
+}
+
+
+def apply_bg_level(P, level):
+    # 혼잡 단계 이름으로 위 표의 값을 P에 덮어씀 (config_isl 끝과 main_isl 실행 인자에서 사용)
+    if level not in BG_LEVELS:
+        raise ValueError(f'혼잡 단계는 {list(BG_LEVELS)} 중 하나: {level}')
+    P.bgLevel = level
+    for k, v in BG_LEVELS[level].items():
+        setattr(P, k, v)
+    return P
+
+
 def config_isl():
     # ISL 2D Grid 라우팅 시뮬레이션 설정값
     P = SimpleNamespace()
@@ -25,13 +45,19 @@ def config_isl():
     P.deadline = 70                       # 기한 (step)
     P.packetSize = 160                     # 패킷 크기 (Byte)
 
-    # ---- 라우팅 알고리즘 ----
-    P.routeName = 'routeB'                 # 'routeA': 최단 경로 (부하 무시), 'routeB': 부하 고려 (Liu 단순화)
+    # ---- 연속 손실 ----
+    P.burstMinLen = 3                      # 패킷 번호 순서로 손실이 이 개수 이상 이어지면 '연속 손실' 1번 (burst_loss.py)
 
-    # ---- B 라우팅 (Liu et al. 단순화) ----
-    P.X = 0.5                              # Idle / Relatively Busy 경계
-    P.Y = 0.8                              # Relatively Busy / Busy 경계
-    P.k = 0.5                              # 가중치 (1: V만, 0: N만)
+    # ---- B 라우팅 (DRA, Ekici et al. 2001) ----
+    P.draThreshold = 0.5                   # 송신 큐가 queueMax의 이 비율 이상이면 '혼잡' -> 보조 방향 사용 (0.5 = 100 packets)
+    P.k = 0.5                              # decision_log의 링크 점유율 L 계산용 가중치 (1: V만, 0: N만, 결정에는 안 씀)
+
+    # ---- 라우팅 알고리즘 선택 ----
+    # 'routeA': 정적 다익스트라 (링크 지연만, 부하 무시 - 기준선)
+    # 'routeB': DRA (Ekici et al. 2001, 자기 송신 큐만 보고 주/보조 방향 선택)
+    # 'routeC': 강화학습 (학습된 모델이 필요해서 eval_routes.py, rl/train_rl.py, main_isl.py 실행 인자로 돌림)
+    P.routeName = ['routeA', 'routeB']     # 비교할 라우팅 목록 (ε = 0으로 하나씩 실행). 하나만 돌리려면 'routeB'처럼 문자열
+    P.collectRoute = 'routeB'              # ε > 0 (강화학습 데이터 수집) 실행에 쓰는 라우팅
 
     # ---- 실험 ----
     P.genRate = 60                         # 1초마다 생성하는 패킷 수 (일정 간격)
@@ -42,13 +68,13 @@ def config_isl():
     P.randomSeed = 1                       # 난수 시드                             [설정]
     P.stepTime = 1e-3                      # 1 step = 1 ms (초 단위)
 
-    # ---- 노드 기록 (node_log CSV: 노드 기준 상태) ----
-    P.nodeLogEnable = True                 # False면 node_log 저장 안 함
-    P.nodeLogInterval = 100                # 몇 step마다 노드 36개를 1줄씩 기록 (작을수록 파일이 커짐) [설정]
-
     # ---- 애니메이션 ----
     P.animDuration = 200                   # 애니메이션에 담을 step 수             [설정]
     P.animFrameInterval = 2                # 몇 step마다 한 프레임                 [설정]
+
+    # ---- 노드 기록 (node_log) ----
+    P.nodeLogEnable = True                 # False면 노드 기록 안 함 (node_log CSV / node 그림 생략)
+    P.nodeLogInterval = 100                # 몇 step마다 노드별 1줄 기록 (100 step = 0.1초)
 
     # ---- 배경 트래픽 (송신 큐 핫스팟) ----
     # 핫스팟 = 위성 하나의 한 방향 송신 큐가 과부하. 켜지면(ON) 큐가 차서 패킷이 버려지고, 꺼지면(OFF) 서서히 비워짐
@@ -69,5 +95,7 @@ def config_isl():
     P.bgFlows = []                         # 아래 3개는 sample_hotspots가 채움 (직접 쓰지 않음)
     P.bgOnRate = []
     P.bgSeed = 0
+    P.bgLevel = 'base'                     # 혼잡 단계: 'base', 'high', 'severe' (위 BG_LEVELS 값으로 핫스팟 개수, ON/OFF를 덮어씀)
+    apply_bg_level(P, P.bgLevel)
 
     return P

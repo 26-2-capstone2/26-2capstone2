@@ -4,6 +4,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from analysis.burst_loss import burst_info
+
 
 def compute_metrics(R, P):
     # 성능 평가 지표 7개 + 손실 원인별 개수
@@ -34,14 +36,26 @@ def compute_metrics(R, P):
     # On-time Delivery Rate
     M.onTimeRate = float(onTime.sum() / R.numPackets)
 
-    # Consecutive Packet Loss Length: 패킷 id 순서로 연속 손실 최대 길이
-    lossFlag = ~onTime
-    if hasattr(R, 'packetEpisode'):   # 에피소드 경계에서는 연속 손실이 이어지지 않게 끊음
-        cut = np.flatnonzero(np.diff(R.packetEpisode)) + 1
-        lossFlag = np.insert(lossFlag, cut, False)
-    edge = np.diff(np.concatenate([[0], lossFlag.astype(int), [0]]))
-    runLengths = np.flatnonzero(edge == -1) - np.flatnonzero(edge == 1)
-    M.maxConsecLoss = int(runLengths.max()) if runLengths.size else 0
+    # Consecutive Packet Loss Length: 패킷 id 순서로 연속 손실 최대 길이 (에피소드 경계에서 끊음)
+    B = burst_info(R, P)
+    M.maxConsecLoss = int(B.runLen.max()) if B.runLen.size else 0
+
+    # 연속 손실 (패킷 id 순서로 손실이 P.burstMinLen개 이상 이어진 구간 = 1번) - burst_loss.py
+    #   burstCount       : 연속 손실 횟수
+    #   burstLossPackets : 연속 손실에 속한 패킷 수
+    #   burstLossRate    : 연속 손실에 속한 패킷 수 / 생성 수
+    #   burstShareOfLoss : 연속 손실에 속한 패킷 수 / 전체 손실 수 (손실 중 몰려서 난 비율)
+    #   avgBurstLen      : 연속 손실 1번의 평균 길이 (패킷)
+    #   burstPerMin      : 1분당 연속 손실 횟수
+    lens = B.table[:, 4]
+    numLost = int(R.numPackets - onTime.sum())
+    M.burstMinLen = B.minLen
+    M.burstCount = int(len(lens))
+    M.burstLossPackets = int(lens.sum())
+    M.burstLossRate = float(lens.sum() / R.numPackets)
+    M.burstShareOfLoss = float(lens.sum() / numLost) if numLost else 0.0
+    M.avgBurstLen = float(lens.mean()) if lens.size else 0.0
+    M.burstPerMin = float(len(lens) / (P.simTime * P.stepTime / 60))
 
     # Route Change Count: 도착 패킷끼리 id 순서로 직전 패킷과 경로가 다른 횟수
     D = R.decisionLog[R.decisionLog[:, 23] == 1, :]
@@ -57,17 +71,17 @@ def compute_metrics(R, P):
     numChanges = 0
     for j in range(1, len(reachedIds)):
         sameEp = (not hasattr(R, 'packetEpisode')) or R.packetEpisode[reachedIds[j]] == R.packetEpisode[reachedIds[j - 1]]
-        if sameEp and paths[reachedIds[j]] != paths[reachedIds[j - 1]]:   # 에피소드가 바뀌는 곳은 세지 않음
+        if sameEp and paths[reachedIds[j]] != paths[reachedIds[j - 1]]:
             numChanges += 1
     M.routeChanges = numChanges
 
     # Average Hop Count: 도착 패킷의 홉 수 평균
     M.avgHops = float(np.mean(R.hops[reachedDst]))
 
-    # 배경 트래픽 개수 (위 지표는 모두 주 흐름만으로 계산)
+    # 배경 트래픽 개수 (지표에는 안 들어감, 확인용)
     M.bgGenerated = int(R.bg['generated'])
     M.bgDelivered = int(R.bg['delivered'])
     M.bgOverflow = int(R.bg['overflow'])
     M.bgTtlExpired = int(R.bg['ttlExpired'])
-    M.bgSrcDrop = int(R.bg['srcDrop'])   # 배경 패킷 자리가 모자라 못 만든 수 (0이어야 정상)
+    M.bgSrcDrop = int(R.bg['srcDrop'])
     return M

@@ -3,7 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from viz_colors import use_korean_font, viz_colors
+from viz.viz_colors import use_korean_font, viz_colors
 
 DIRS = ['up', 'down', 'left', 'right']
 DIRS_KO = ['상', '하', '좌', '우']

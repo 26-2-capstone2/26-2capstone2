@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시뮬레이터 - ISL RL Simulator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=Noto+Sans+KR:wght@300;400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap { display: grid; grid-template-columns: 640px 1fr; gap: 60px; padding: 30px 60px 10px; }
+  #grid { width: 640px; height: 640px; display: block; background: var(--panel); border: 1px solid var(--line); cursor: pointer; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 16px; }
+  .stats .k { font-size: 11.5px; color: var(--sub); }
+  .stats .v { font-size: 26px; font-weight: 300; font-family: var(--mono); }
+  .stats .v.s { font-size: 15px; }
+  .stats .v.or { color: var(--orange); }
+  .sec { border-top: 1px solid #E5E5E5; padding-top: 16px; margin-top: 18px; }
+  .sec h3 { font-size: 13.5px; font-weight: 500; margin: 0 0 10px; }
+  .sec h3 span { font-weight: 400; color: var(--sub); font-size: 11.5px; margin-left: 8px; }
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .charts canvas { width: 100%; height: 150px; }
+  .bars div { display: grid; grid-template-columns: 120px 1fr 70px; align-items: center; gap: 10px; font-size: 12px; margin: 6px 0; }
+  .bars i { display: block; height: 12px; }
+  #events { margin: 26px 60px 0; border-top: 1px solid #333; }
+  #events h3 { font-size: 13.5px; font-weight: 500; margin: 14px 0 10px; }
+  #events h3 span { font-weight: 400; color: var(--sub); font-size: 11.5px; margin-left: 8px; }
+  #evlist { max-height: 260px; overflow-y: auto; }
+  .ev { display: grid; grid-template-columns: 170px 60px 100px 1fr; gap: 10px; font-size: 12.5px; padding: 5px 12px; }
+  .ev:nth-child(odd) { background: #FAFAFA; }
+  .ev .loss { color: #E0A060; font-weight: 500; } .ev .burst { color: var(--orange); font-weight: 500; }
+  #err { display: none; margin: 10px 60px 0; padding: 10px 14px; background: #FFF4E5; border: 1px solid var(--orange); font-size: 13px; }
+  .next { border-top: 1px solid var(--line); margin-top: 30px; padding: 16px 60px 40px; font-size: 13px; color: var(--blue); }
+  #q32 { border-top: 1px solid #333; margin: 30px 60px 50px; padding-top: 18px; }
+  #q32 h2 { font-size: 20px; font-weight: 300; margin: 0 0 4px; } #q32 .qhead p { font-size: 13px; margin: 0 0 22px; }
+  .qgrid { display: grid; grid-template-columns: 300px 252px 252px minmax(300px, 1fr); gap: 40px; }
+  #pmap { width: 300px; height: 300px; background: var(--panel); border: 1px solid var(--line); cursor: pointer; display: block; }
+  .qnote { font-size: 11.5px; margin-top: 8px; line-height: 1.5; }
+  .cross { display: grid; grid-template-columns: repeat(3, 80px); grid-template-rows: repeat(3, 80px); gap: 6px; }
+  .cross .c { display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--line); background: #fff; font-size: 11px; color: var(--sub); text-align: center; }
+  .cross .c b { font-family: var(--mono); font-weight: 400; font-size: 17px; color: var(--ink); margin-top: 2px; }
+  .cross .c.mid { background: var(--panel); color: var(--ink); font-size: 12px; }
+  .cross .c.no { background: #F2F2F2; color: #AAA; } .cross .c.no b { color: #AAA; font-size: 13px; font-family: var(--font); }
+  .cross .c.pick { background: #E3F4EE; border: 2px solid #1E9E78; } .cross .c.pick b { color: #137A5C; font-weight: 500; }
+  table.obs { border-collapse: collapse; font-size: 12px; width: 100%; } table.obs th { text-align: left; font-weight: 400; color: var(--sub); padding: 3px 8px 3px 0; }
+  table.obs td { font-family: var(--mono); padding: 3px 8px 3px 0; text-align: right; }
+  .rhead, .rrow { display: grid; grid-template-columns: 90px repeat(4, 80px) 90px 90px 90px; gap: 8px; font-size: 12.5px; padding: 5px 12px; }
+  .rhead { color: var(--sub); font-size: 11.5px; } .rrow:nth-child(odd) { background: #FAFAFA; } .rrow span { font-family: var(--mono); } .rrow span.kr { font-family: var(--font); }
+  .rrow .pk { color: #137A5C; font-weight: 500; } .rrow .rnd { color: var(--orange); }
+</style>
+</head>
+<body>
+<div id="topbar" data-on="sim"></div>
+
+<div class="controls">
+  <button class="btn-icon" id="bReset" title="처음으로 (신경망 초기화)" aria-label="처음으로"><svg width="26" height="26" viewBox="0 0 28 28"><path d="M14 4a10 10 0 1 0 10 10" fill="none" stroke="#777" stroke-width="2"/><path d="M24 4v7h-7" fill="none" stroke="#777" stroke-width="2"/></svg></button>
+  <button class="btn-play" id="bPlay" title="재생 / 멈춤" aria-label="재생"><svg id="playIcon" width="22" height="22" viewBox="0 0 22 22"><path d="M6 3 L19 11 L6 19 Z"/></svg></button>
+  <button class="btn-icon" id="bStep" title="10 ms 진행" aria-label="한 단계"><svg width="26" height="26" viewBox="0 0 28 28"><path d="M8 7 L18 14 L8 21 Z" fill="#777"/><rect x="20" y="7" width="3" height="14" fill="#777"/></svg></button>
+  <div class="ctl"><label>에피소드</label><div class="big" id="cEp">000 / 000</div></div>
+  <div class="ctl"><label>시간</label><div class="big" id="cT">0 / 0 ms</div></div>
+  <div class="ctl"><label for="sSpeed">속도</label><select id="sSpeed"><option value="slow">느리게 (패킷 보기)</option><option value="normal" selected>보통</option><option value="max">최대</option></select></div>
+  <div class="ctl"><label for="sMode">모드</label><select id="sMode"><option value="train">학습</option><option value="eval">평가 (탐험 없음)</option></select></div>
+  <div class="ctl"><label for="sLevel">혼잡 단계</label><select id="sLevel"><option value="rotate">돌아가며</option><option value="base">base</option><option value="high">high</option><option value="severe">severe</option></select></div>
+  <div class="ctl"><label>상태</label><div id="cState" style="font-size:15px">대기</div></div>
+</div>
+<div class="progress"><div id="prog"></div></div>
+<div id="err"></div>
+
+<div class="wrap">
+  <div>
+    <p class="h-col">위성망</p>
+    <p class="h-en">CONSTELLATION <span id="gridSize">6 x 6</span>   라우팅 C (DQN)</p>
+    <canvas id="grid" width="640" height="640"></canvas>
+    <div class="legend" style="margin-top:12px">
+      <span><span class="ramp"></span>링크 큐 0 → <span id="qmax">200</span> (한 링크에 두 방향)</span>
+      <span><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#F59322" stroke-width="5" opacity=".5"/></svg> 핫스팟</span>
+      <span><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="#183D4E"/></svg> 패킷</span>
+      <span style="color:#F59322;font-weight:500">X 손실</span>
+    </div>
+    <p class="sub" style="font-size:11.5px;margin-top:8px">위성을 누르면 점선 네모로 표시됩니다. 그 위성의 방향 선택은 아래 3-2에서 실시간으로 볼 수 있습니다.</p>
+  </div>
+
+  <div>
+    <p class="h-col">지금 에피소드</p>
+    <p class="h-en" id="epInfo">EPISODE -</p>
+    <div class="stats">
+      <div><div class="k">기한 내 도착률</div><div class="v" id="sOn">-</div></div>
+      <div><div class="k">손실률</div><div class="v" id="sLoss">-</div></div>
+      <div><div class="k">최대 연속 손실</div><div class="v" id="sMax">-</div></div>
+      <div><div class="k">연속 손실 구간 (<span id="bmin">3</span>개+)</div><div class="v or" id="sBurst">-</div></div>
+      <div><div class="k">만든 패킷</div><div class="v s" id="sGen">-</div></div>
+      <div><div class="k">도착</div><div class="v s" id="sArr">-</div></div>
+      <div><div class="k">손실</div><div class="v s" id="sLost">-</div></div>
+      <div><div class="k">진행 중</div><div class="v s" id="sIn">-</div></div>
+    </div>
+
+    <div class="sec">
+      <h3>손실 타임라인<span>패킷 생성 순서, 최근 120개</span></h3>
+      <canvas id="tl" width="620" height="26" style="width:100%;height:26px"></canvas>
+      <p class="sub" style="font-size:11.5px;margin:8px 0 0">회색 도착, 연한 주황 손실, 진한 주황 연속 손실, 아주 연한 칸은 아직 가는 중</p>
+    </div>
+
+    <div class="sec">
+      <h3>학습 진행<span>에피소드별</span></h3>
+      <div class="charts">
+        <div><div class="sub" style="font-size:11.5px">기한 내 도착률 (%)</div><canvas id="c1" width="300" height="150"></canvas></div>
+        <div><div class="sub" style="font-size:11.5px">연속 손실 구간 수</div><canvas id="c2" width="300" height="150"></canvas></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>학습 상태</h3>
+      <div class="stats">
+        <div><div class="k">탐험 ε</div><div class="v s" id="lEps">-</div></div>
+        <div><div class="k">경험 카드</div><div class="v s" id="lBuf">-</div></div>
+        <div><div class="k">학습 횟수</div><div class="v s" id="lUpd">-</div></div>
+        <div><div class="k">최근 학습 오차</div><div class="v s" id="lLoss">-</div></div>
+      </div>
+      <div class="sub" style="font-size:11.5px;margin:14px 0 4px">이번 에피소드 보상 합계</div>
+      <div class="bars" id="bars"></div>
+    </div>
+  </div>
+</div>
+
+<div id="events">
+  <h3>이벤트 기록<span>손실, 연속 손실만 표시 (최근 것이 위)</span></h3>
+  <div id="evlist"></div>
+</div>
+<section id="q32">
+  <div class="qhead"><h2>3-2 방향 선택 들여다보기</h2>
+    <p class="sub">선택한 위성 <b id="qSat" class="mono">-</b> 에서 패킷이 올 때마다 C(강화학습)가 상, 하, 좌, 우 중 어디로 보낼지 정하는 과정입니다. 위성은 위 격자나 왼쪽 정책 지도에서 누르면 바뀝니다.</p></div>
+  <div class="qgrid">
+    <div><h3 class="h-col">정책 지도</h3><p class="h-en">POLICY MAP</p>
+      <canvas id="pmap" width="300" height="300"></canvas>
+      <p class="sub qnote">위성마다 마지막으로 고른 방향입니다. 주황 점선 네모가 선택한 위성입니다.</p></div>
+    <div><h3 class="h-col">방향별 점수</h3><p class="h-en">Action Values Q(s,a)</p>
+      <div class="cross" id="qCross"></div>
+      <p class="sub qnote">클수록 그 방향이 낫다고 봅니다. 초록이 고른 방향입니다.</p></div>
+    <div><h3 class="h-col">선택 확률</h3><p class="h-en">Action Probabilities π(a|s)</p>
+      <div class="cross" id="pCross"></div>
+      <p class="sub qnote" id="pNote"></p></div>
+    <div><h3 class="h-col">이번 결정 때 본 상태</h3><p class="h-en">Observation (20)</p>
+      <table class="obs" id="obsTbl"></table>
+      <div class="sub qnote" id="obsMeta"></div></div>
+  </div>
+  <div class="sec" style="margin-top:26px"><h3>최근 결정 기록<span>이 위성에서 내린 결정 (최근 것이 위)</span></h3>
+    <div class="rhead"><span>시각 t</span><span>상</span><span>하</span><span>좌</span><span>우</span><span>고른 방향</span><span>방식</span><span>남은 기한</span></div>
+    <div id="qRecent"><div class="sub" style="padding:8px 12px">아직 결정이 없습니다. C로 실행하고 패킷이 이 위성을 지나가면 나타납니다.</div></div></div>
+</section>
+
+<script src="common.js"></script>
+<script src="sim.js"></script>
+<script src="qview.js"></script>
+</body>
+</html>

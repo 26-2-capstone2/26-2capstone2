@@ -1,4 +1,4 @@
-# A 라우팅 결정 - 링크 지연 합이 가장 작은 경로(최단 경로)로만 보냄, 부하(큐)는 보지 않음 (기준선)
+# A 라우팅 결정 (route_A) - 링크 지연 합이 가장 작은 경로(최단 경로)로만 보냄, 부하(큐)는 보지 않음 (기준선)
 #
 import heapq
 
@@ -7,7 +7,7 @@ import numpy as np
 TIE_ORDER = [4, 3, 2, 1]   # 최단 경로가 여러 개면 우 > 좌 > 하 > 상 순서 (좌/우 먼저, route_B 주 경로와 같은 규칙)
 
 
-def route_A(curP, curS, queueLen, G, P):
+def route_A(curP, curS, queueLen, G, P, **packet):   # packet: B가 쓰는 패킷 정보 (여기서는 안 씀)
     # A: 최단 경로 라우팅 (링크 지연을 가중치로 한 Dijkstra, 부하 무시)
     # 입력/출력은 route_B와 같음 (나중에 run_isl_sim에서 바꿔 끼우기 쉽게)
     # 출력: nextDir 방향(1 상, 2 하, 3 좌, 4 우), choiceType = 1 (항상 최단 경로)

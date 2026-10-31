@@ -16,10 +16,11 @@
 # (1) VS Code에서 이 폴더(isl_6x6_routing_py) 열기
 # (2) main_isl.py 를 열고, 오른쪽 위 ▶ "Run Python File" 버튼 클릭
 #     또는 터미널에 입력:  python main_isl.py
-# (3) 약 1~2분 기다리기
-#     터미널에 아래 두 줄이 찍히고 결과가 나오면 끝
-#       [rate60pps_eps0.0] ...   (성능 측정용 실행)
-#       [rate60pps_eps0.1] ...   (강화학습 데이터 수집용 실행)
+# (3) 약 3~4분 기다리기
+#     터미널에 아래 세 줄이 찍히고 결과가 나오면 끝
+#       [routeA_rate60pps_eps0.0] ...   (A 성능 측정)
+#       [routeB_rate60pps_eps0.0] ...   (B 성능 측정)
+#       [routeB_rate60pps_eps0.1] ...   (강화학습 데이터 수집용 실행)
 #       결과 저장 완료: ...
 #
 # =====================================================================
@@ -35,12 +36,15 @@
 #   * show_results.py도 노드 요약 지도와 손실이 가장 많은 노드 그림을 같이 띄움
 #
 # 방법 2) 파일로 보기 (isl_6x6_routing_py\results 폴더 또는 아래 3번 저장 폴더)
-#   metrics_summary.png               : 성능 지표 7개를 실행별 막대로 비교
+#   metrics_summary.png               : 성능 지표 11개(기본 7개 + 연속 손실 4개)를 실행별 막대로 비교
 #   run_analysis.png                  : 실행 분석 (지연 분포, 시간별 변화, 링크 사용량 지도, 홉 수, 선택 유형, 손실 원인)
+#   burst_analysis.png                : 연속 손실 분석 (길이별 손실 패킷 수, 발생 시각, 연속/단발 손실 원인, 에피소드별 횟수)
 #   metrics_summary.csv               : 성능 지표 숫자 (엑셀로 열림)
-#   anim_rate60pps_eps0.0.gif         : 0~0.2초 애니메이션 (첫 에피소드) (링크 색 = 큐가 찬 정도, 점 = 이동 중인 패킷)
-#   packet_log_*.csv                  : 패킷 1개 = 1줄 (생성 시각, 도착 시각, 결과, 홉 수)
-#   decision_log_rate60pps_eps0.1.csv : 라우팅 결정 1번 = 1줄 (강화학습 학습용 데이터)
+#   (파일 이름의 <라우팅>_rate60pps_eps0.0 = 어떤 라우팅, 어떤 ε로 돌린 결과인지)
+#   anim_<라우팅>_rate60pps_eps0.0.gif : 0~0.2초 애니메이션 (첫 에피소드) (링크 색 = 큐가 찬 정도, 점 = 이동 중인 패킷)
+#   packet_log_*.csv                  : 패킷 1개 = 1줄 (생성 시각, 도착 시각, 결과, 홉 수, 속한 손실 구간 길이, 연속 손실 번호)
+#   burst_log_*.csv                   : 연속 손실 1번 = 1줄 (시작/끝 패킷 번호, 길이, 시각, 손실 원인별 개수)
+#   decision_log_routeB_rate60pps_eps0.1.csv : 라우팅 결정 1번 = 1줄 (강화학습 학습용 데이터)
 #   node_log_*.csv                    : 노드 기준 기록 (100 step마다 노드 1개 = 1줄, 큐, 보낸 수, 손실)
 #   node_map_*.png                    : 노드별 요약 지도 (6x6, 평균/최대 큐, 보낸 수, 오버플로, 기한 초과)
 #   node_time_*.png                   : 주 흐름 손실이 가장 많은 노드의 시간 변화
@@ -50,8 +54,9 @@
 # =====================================================================
 # 3. 결과 저장 경로
 # =====================================================================
-# 시뮬레이션이 끝나면 자동으로 아래 폴더에 저장됨 (실행할 때마다 날짜_시분 폴더가 새로 생김)
-#   (사용자 홈 폴더)\isl_saved_runs\2026-10-10_1320\     예) C:\Users\eun\isl_saved_runs\...
+# 시뮬레이션이 끝나면 자동으로 아래 폴더에 저장됨 (실행할 때마다 날짜_시분_라우팅 폴더가 새로 생김)
+#   (사용자 홈 폴더)\isl_saved_runs\2026-10-10_1320_routeA-routeB\     예) C:\Users\eun\isl_saved_runs\...
+#   * results 폴더는 실행할 때마다 비워지고 새로 채워짐 (지난 결과는 위 저장 폴더에 남아 있음)
 #       code\     그때 사용한 .py 파일 전부 (어떤 설정으로 돌렸는지 확인용)
 #       results\  이미지(.png, .gif) + CSV (bg_scenario.csv: 에피소드별 핫스팟 목록 포함)
 #
@@ -69,7 +74,7 @@
 #       P.packetSize = 160    패킷 크기 (Byte)
 #       P.simTime = 30000     에피소드 1개 길이 (step, 1 step = 1 ms -> 30000 = 30초)
 #       P.numEpisodes = 20    에피소드 개수 (30초 x 20 = 10분)
-#       P.k, P.X, P.Y         B 라우팅 가중치 / 임계값
+#       P.draThreshold        B(DRA) 혼잡 임계값 (송신 큐 / queueMax)
 #       P.bg...               배경 트래픽 (핫스팟 개수, 세기, ON/OFF, 시작 시드)
 # 수정 후 main_isl.py 다시 실행 (배경 시작 시드는 python main_isl.py 7 처럼 바로 줄 수도 있음)
 # 모든 변수 설명은 variables_isl.py 참고
@@ -90,9 +95,10 @@
 #   variables_isl.py   변수 정리
 # 자동으로 불리는 파일 (직접 실행 X)
 #   run_isl_sim.py     시뮬레이션 1회 실행
-#   route_A.py         A 라우팅 결정 (최단 경로, 부하 무시 - 기준선)
-#   route_B.py         B 라우팅 결정 (부하 고려, Liu 단순화)
-#   * 어떤 라우팅을 쓸지는 config_isl.py의 P.routeName ('routeA' / 'routeB')
+#   route_A.py         A 라우팅 결정 (정적 다익스트라 최단 경로, 부하 무시 - 기준선)
+#   route_B.py         B 라우팅 결정 (DRA, Ekici et al. 2001 - 자기 송신 큐만 보고 주/보조 방향 선택)
+#   * 비교할 라우팅은 config_isl.py의 P.routeName (기본 ['routeA', 'routeB'])
+#   * 강화학습 데이터 수집(ε > 0)에 쓸 라우팅은 P.collectRoute (기본 'routeB')
 #   build_grid.py      6x6 Grid 생성
 #   compute_metrics.py 성능 지표 계산
 #   bg_traffic.py      배경 트래픽 (핫스팟 뽑기, ON/OFF 스케줄, XY 고정 경로)
@@ -102,6 +108,8 @@
 #   animate_run.py     애니메이션 GIF 저장
 #   plot_metrics.py    지표 비교 그래프 PNG 저장
 #   plot_analysis.py   실행 분석 그래프 PNG 저장
+#   burst_loss.py      연속 손실 계산 (패킷 번호 순서로 P.burstMinLen개 이상 연달아 손실 = 1번)
+#   plot_bursts.py     연속 손실 분석 그래프 PNG 저장
 #   viz_colors.py      그래프 색 모음
 #   save_results.py    결과를 저장 경로로 복사
 #

@@ -5,10 +5,10 @@ import sys
 
 import numpy as np
 
-from bg_traffic import describe_hotspots, link_load_report, sample_hotspots
-from build_grid import build_grid
+from sim.bg_traffic import describe_hotspots, link_load_report, sample_hotspots
+from sim.build_grid import build_grid
 from config_isl import config_isl
-from run_isl_sim import run_isl_sim
+from sim.run_isl_sim import run_isl_sim
 
 KEYS = ['genTime', 'endTime', 'hops', 'status', 'decisionLog', 'timeline']
 
@@ -16,6 +16,7 @@ KEYS = ['genTime', 'endTime', 'hops', 'status', 'decisionLog', 'timeline']
 def run(eps, bg, seed=None, simTime=30000):
     P = config_isl()
     P.simTime = simTime               # 빠른 확인용
+    P.routeName = 'routeB'            # 검증은 B 라우팅 기준
     P.bgEnable = bg
     picked = rates = None
     if bg:

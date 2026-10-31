@@ -6,15 +6,18 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from build_grid import build_grid
-from route_A import route_A
-from route_B import route_B
-from bg_traffic import make_bg_schedule, xy_next_dir
-from node_log import NodeLog
+from sim.build_grid import build_grid
+from routing.route_A import route_A
+from routing.route_B import route_B
+from routing.route_C import route_C, STATE as C_STATE
+from sim.bg_traffic import make_bg_schedule, xy_next_dir
+from sim.node_log import NodeLog
 
-# 라우팅 알고리즘 (config_isl.py P.routeName으로 고름, 입력/출력이 같아서 바꿔 끼우기만 하면 됨)
-ROUTES = {'routeA': route_A, 'routeB': route_B}
-ROUTE_LABELS = {'routeA': 'A 최단 경로', 'routeB': 'B 부하 고려', 'routeC': 'C 강화학습'}
+# 라우팅 알고리즘 (config_isl.py의 P.routeName으로 선택)
+#   ROUTE_LABELS: 그래프/애니메이션에 쓰는 이름 (첫 글자 = 짧은 이름, plot_analysis가 [0]으로 씀)
+#   강화학습 라우터를 추가할 때는 아래 두 표에 한 줄씩 넣으면 됨 (입출력은 route_B와 같게)
+ROUTE_FUNCS = {'routeA': route_A, 'routeB': route_B, 'routeC': route_C}
+ROUTE_LABELS = {'routeA': 'A 정적 최단 경로', 'routeB': 'B DRA', 'routeC': 'C 강화학습'}
 
 
 def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
@@ -28,7 +31,6 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
 
     rng = np.random.RandomState(randomSeed)   # MATLAB rng(seed, 'twister')와 같은 난수열
     G = build_grid(P)
-    route = ROUTES[P.routeName]
     numLinks = G.numLinks
     queueMax = P.queueMax
 
@@ -65,6 +67,17 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
         bgCount = make_bg_schedule(P)
     linkSent = np.zeros(numLinks, dtype=np.int64)
 
+    # 라우팅 함수 선택
+    routeName = getattr(P, 'routeName', 'routeB')
+    if not isinstance(routeName, str) or routeName not in ROUTE_FUNCS:
+        raise ValueError(f'P.routeName은 {list(ROUTE_FUNCS)} 중 하나여야 함 (지금: {routeName!r})')
+    route = ROUTE_FUNCS[routeName]
+    collector = C_STATE.collector if routeName == 'routeC' else None   # 강화학습 경험 연결 장치 (학습 때만)
+    stepHook = getattr(P, 'stepHook', None)   # 웹 화면용: 매 step 끝에 상태를 넘겨받는 함수 (없으면 아무 일도 안 함)
+
+    # 노드 기록 (node_log.py). 패킷 id < maxPackets 이면 주 흐름, 이상이면 배경
+    nlog = NodeLog(P, G, maxPackets) if getattr(P, 'nodeLogEnable', False) else None
+
     # 도착 예정 패킷 (도착 step별 칸, 원형)
     numSlots = int(max(P.linkDelay)) + P.processingDelay + 1
     arrivalSlot = [[] for _ in range(numSlots)]
@@ -74,7 +87,6 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     numDecisions = 0
 
     maxSteps = P.simTime + P.maxDrainTime
-    nodeLog = NodeLog(P, G, maxPackets) if getattr(P, 'nodeLogEnable', False) else None   # 노드 기준 기록 (node_log.py)
     timeline = np.zeros((maxSteps, 6), dtype=np.int64)   # 누적: 생성, 기한 내 도착, 목적지 기한 초과, 중간 기한 초과, 오버플로, TTL 만료
     if recordAnim:
         animSteps = min(P.animDuration, maxSteps)
@@ -115,21 +127,21 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
         overDeadline = t - genTime[inTransit] > P.deadline
         status[inTransit[overDeadline]] = 3
         endTime[inTransit[overDeadline]] = t
-        if nodeLog and overDeadline.any():
-            ids = inTransit[overDeadline]
-            nodeLog.add(2, nodeLog.node(curP[ids], curS[ids]))
+        lateMidIds = inTransit[overDeadline]
         inTransit = inTransit[~overDeadline]
         ttlExpired = ttl[inTransit] <= 0
         status[inTransit[ttlExpired]] = 5
         endTime[inTransit[ttlExpired]] = t
-        if nodeLog and arrived.size:
-            if ttlExpired.any():
-                ids = inTransit[ttlExpired]
-                nodeLog.add(3, nodeLog.node(curP[ids], curS[ids]))
-            nodeLog.count[nodeLog.dstNode, 4] += len(onTimeIds)
-            nodeLog.count[nodeLog.dstNode, 5] += len(lateIds)
+        ttlIds = inTransit[ttlExpired]
         inTransit = inTransit[~ttlExpired]
         statusCount += [len(onTimeIds), len(lateIds), int(overDeadline.sum()), 0, int(ttlExpired.sum())]
+        if nlog is not None:   # 주 흐름 패킷이 끝난 노드 (= 방금 도착한 위성)
+            nlog.add(4, nlog.node(curP[onTimeIds], curS[onTimeIds]))
+            nlog.add(5, nlog.node(curP[lateIds], curS[lateIds]))
+            nlog.add(2, nlog.node(curP[lateMidIds], curS[lateMidIds]))
+            nlog.add(3, nlog.node(curP[ttlIds], curS[ttlIds]))
+        if collector is not None:
+            collector.on_end(arrived[status[arrived] != 0], status)   # 이번 step에 끝난 패킷 (강화학습 보상)
 
         # 3-B. 배경 패킷 도착 처리
         bgRoute = np.zeros(0, dtype=np.int64)
@@ -196,16 +208,17 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
                 if k < len(ids):
                     lost = ids[k:]
                     bgStat['overflow'] += len(lost)
+                    if nlog is not None:
+                        nlog.add(1, np.full(len(lost), nlog.linkNode[link]))
                     bgFree.extend(lost.tolist())
-                    if nodeLog:
-                        nodeLog.count[nodeLog.linkNode[link], 1] += len(lost)
 
         # 5. 라우팅 결정 (도착 패킷 -> 생성 패킷 순)
         toRoute = np.concatenate([inTransit, newIds])
         for packet_id in toRoute:
             p = int(curP[packet_id])
             s = int(curS[packet_id])
-            nextDir, choiceType, L, N = route(p, s, queueLen, G, P)
+            nextDir, choiceType, L, N = route(p, s, queueLen, G, P, t=t, remDeadline=P.deadline - (t - genTime[packet_id]),
+                                              ttl=int(ttl[packet_id]), hops=int(hops[packet_id]))   # 패킷 정보는 route_C만 씀
             if epsilon > 0 and rng.random_sample() < epsilon:
                 dirs = G.validDirs[p][s]
                 nextDir = dirs[math.ceil(rng.random_sample() * len(dirs)) - 1]
@@ -213,6 +226,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
 
             link = G.linkId[p, s, nextDir - 1]
             enqueued = queueLen[link] < queueMax
+            qAtLink = int(queueLen[link])   # 넣기 전 큐 길이 (강화학습 홉 보상용)
 
             qNow = [-1] * 4
             for d, l in zip(G.validDirs[p][s], G.outLinks[p][s]):
@@ -234,12 +248,16 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
                 status[packet_id] = 4   # 큐 오버플로
                 endTime[packet_id] = t
                 statusCount[3] += 1
-                if nodeLog:
-                    nodeLog.count[nodeLog.node(p, s), 0] += 1
+                if nlog is not None:
+                    nlog.add(0, [nlog.node(p, s)])
+            if collector is not None and choiceType != 4:   # route_C 학습: 방금 결정을 경험으로 연결 (ε 무작위 결정은 제외)
+                collector.on_decision(int(packet_id), C_STATE.last, qAtLink, enqueued)
+
+        if nlog is not None:
+            nlog.peak(queueLen)   # 라우팅 후 전송 전 (큐가 가장 찬 순간)
 
         # 6. 전송: 링크마다 큐 앞쪽 최대 linkCapacity개
-        if nodeLog:
-            nodeLog.peak(queueLen)
+        sentLinks, sentN, sentPktLink, sentIds = [], [], [], []   # 노드 기록용
         for link in np.flatnonzero(queueLen > 0):
             n = min(queueLen[link], P.linkCapacity)
             pos = (queueHead[link] + np.arange(n)) % queueMax
@@ -252,26 +270,33 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             arriveSlot = (t + G.linkDelay[link] + P.processingDelay) % numSlots
             arrivalSlot[arriveSlot].extend(ids.tolist())
             onLink[ids] = link
-            if nodeLog:
-                nodeLog.sent(link, n, np.full(n, link), ids)
+            if nlog is not None:
+                sentLinks.append(link)
+                sentN.append(n)
+                sentPktLink.append(np.full(n, link))
+                sentIds.append(ids)
+        if nlog is not None and sentLinks:
+            nlog.sent(np.array(sentLinks), np.array(sentN), np.concatenate(sentPktLink), np.concatenate(sentIds))
 
         timeline[t - 1, :] = [numPackets, *statusCount]
-        if nodeLog:
-            nodeLog.record(t, queueLen, queueBuf, queueHead, queueMax, genTime)
+        if nlog is not None:
+            nlog.record(t, queueLen, queueBuf, queueHead, queueMax, genTime)
         if recordAnim and t <= animSteps:
             animQueue[:, t - 1] = queueLen
             animInFlight[:, t - 1] = np.bincount(onLink[onLink >= 0], minlength=numLinks)
+        if stepHook is not None:
+            stepHook(t, queueLen, status, curP, curS, onLink, numPackets)
 
         if t >= P.simTime and numPackets == statusCount.sum():   # 진행 중인 패킷 없음
             break
 
-    if nodeLog and t % nodeLog.interval:
-        nodeLog.record(t, queueLen, queueBuf, queueHead, queueMax, genTime, force=True)   # 마지막 남은 구간
+    if nlog is not None and t % nlog.interval:   # 마지막 기록 이후 남은 구간
+        nlog.record(t, queueLen, queueBuf, queueHead, queueMax, genTime, force=True)
 
     R = SimpleNamespace()
+    R.routeName = routeName
     R.genRate = genRate
     R.epsilon = epsilon
-    R.routeName = P.routeName
     R.numPackets = numPackets
     R.endStep = t
     R.genTime = genTime[:numPackets]
@@ -284,7 +309,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     R.linkSent = linkSent
     R.bg = bgStat
     R.bg['inFlight'] = bgPool - len(bgFree)
-    R.nodeLog = nodeLog.table() if nodeLog else None   # 노드 기록 (열: node_log.NODE_LOG_COLUMNS)
+    R.nodeLog = nlog.table() if nlog is not None else None   # node_log.NODE_LOG_COLUMNS 순서
     if recordAnim:
         R.animQueue = animQueue[:, :min(animSteps, t)]
         R.animInFlight = animInFlight[:, :min(animSteps, t)]

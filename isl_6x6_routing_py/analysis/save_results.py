@@ -14,10 +14,23 @@ def save_results(codeDir, resultDir, saveDir):
     os.makedirs(codeOut, exist_ok=True)
     os.makedirs(resultOut, exist_ok=True)
 
-    numCopied = copy_files(codeDir, ['*.py'], codeOut) \
-        + copy_files(resultDir, ['*.png', '*.gif', '*.csv'], resultOut)
+    numCopied = copy_code(codeDir, codeOut) \
+        + copy_files(resultDir, ['*.png', '*.gif', '*.csv', '*.txt'], resultOut)
 
     print(f'결과 저장 완료: {saveDir} ({numCopied}개 파일)')
+
+
+def copy_code(codeDir, dstDir):
+    # .py를 폴더 구조 그대로 복사 (routing, sim, analysis, viz, docs, rl 하위 폴더 포함)
+    n = 0
+    for f in sorted(glob.glob(os.path.join(codeDir, '**', '*.py'), recursive=True)):
+        if '__pycache__' in f or 'results_batch' in f:
+            continue
+        out = os.path.join(dstDir, os.path.relpath(f, codeDir))
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        shutil.copyfile(f, out)
+        n += 1
+    return n
 
 
 def copy_files(srcDir, patterns, dstDir):

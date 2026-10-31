@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ISL RL Simulator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=Noto+Sans+KR:wght@300;400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+  .hero { background: var(--dk); color: #fff; padding: 20px 60px 44px; }
+  .hero .top { display: flex; justify-content: space-between; align-items: center; }
+  .hero .top a { color: #9FB4BF; font-size: 13px; margin-left: 28px; }
+  .hero .brand { color: #9FB4BF; font-weight: 500; letter-spacing: .04em; font-size: 14px; }
+  .hero h1 { font-weight: 300; font-size: 30px; line-height: 1.45; margin: 26px 0 26px; }
+  .hero .go { display: inline-block; background: var(--orange); color: #fff; padding: 11px 22px; font-size: 14px; font-weight: 500; border-radius: 2px; text-decoration: none; }
+  .hero .go2 { color: #C9D6DC; margin-left: 18px; font-size: 14px; }
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 36px 60px; border-bottom: 1px solid var(--line); }
+  .card { border: 1px solid var(--line); padding: 18px 20px; display: block; color: var(--ink); text-decoration: none; }
+  .card:hover { border-color: var(--blue); text-decoration: none; }
+  .card b { font-weight: 500; font-size: 15px; } .card p { color: #555; font-size: 13px; margin: 8px 0 0; line-height: 1.6; }
+  .card.off { color: #999; pointer-events: none; }
+  article { width: 720px; margin: 0 auto; padding: 60px 0 80px; color: var(--body); font-size: 15px; line-height: 1.8; }
+  article h2 { font-weight: 500; font-size: 24px; color: var(--ink); margin: 44px 0 14px; }
+  article table { width: 100%; border-collapse: collapse; font-size: 14px; border-top: 1px solid #333; border-bottom: 1px solid #333; }
+  article td { padding: 9px 10px 9px 0; border-bottom: 1px solid #E5E5E5; vertical-align: top; } article td:nth-child(2) { font-family: var(--mono); font-size: 13px; } article td:nth-child(3) { color: var(--sub); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="top"><span class="brand">ISL RL Simulator</span><span><a href="sim.html">시뮬레이터</a><a href="guide.html">사용 설명</a><a href="settings.html">변수 설정</a><a title="준비 중">결과 분석</a><a title="준비 중">라우팅 비교</a></span></div>
+  <h1>위성 사이의 패킷 길을, 강화학습 에이전트가 직접 배우는 모습을<br>브라우저에서 바로 실험해 보세요.</h1>
+  <a class="go" href="sim.html">시뮬레이터 열기</a><a class="go2" href="guide.html">사용 설명 보기 →</a>
+</div>
+<div class="cards">
+  <a class="card" href="guide.html"><b>사용 설명</b><p>화면 보는 법, 변수 바꾸기, 알고리즘 순서도 5개, 용어 정리</p></a>
+  <a class="card" href="settings.html"><b>변수 설정</b><p>위성망, 트래픽, 보상, 학습 조건. 코드 설정 파일과 같은 값</p></a>
+  <a class="card" href="sim.html"><b>시뮬레이터</b><p>학습을 실시간으로 지켜보기. 위성망, 손실 타임라인, 학습 곡선</p></a>
+  <a class="card off"><b>결과 분석, 라우팅 비교</b><p>준비 중</p></a>
+</div>
+<article>
+  <h2 style="margin-top:0">음, 이게 뭔가요?</h2>
+  <p>저궤도 위성들은 서로 레이저 링크(ISL)로 연결되어 패킷을 주고받습니다. 화상 통화나 게임처럼 실시간 패킷은 70 ms 안에 도착하지 못하면 쓸모가 없고, 특히 패킷이 연달아 사라지면 소리가 뚝 끊기거나 화면이 멈춥니다.</p>
+  <p>이 시뮬레이터에서는 강화학습 에이전트(DQN)가 위성마다 "이 패킷을 위, 아래, 왼쪽, 오른쪽 중 어디로 보낼까?"를 직접 고르며 배웁니다. 목표는 기한 안에 많이 도착시키는 것, 그리고 연속 손실을 줄이는 것입니다.</p>
+  <h2>에이전트는 무엇을 보고, 무엇을 하나요?</h2>
+  <p>에이전트는 망 전체를 보지 못합니다. 지금 패킷이 있는 위성과 바로 옆 위성의 정보만 봅니다. 36개 위성은 같은 신경망 하나를 함께 쓰고(파라미터 공유), 결정은 각 위성이 따로 내립니다.</p>
+  <p>행동은 상, 하, 좌, 우 4개뿐입니다. 링크가 없거나, 큐가 꽉 찼거나, 그 길로 가면 기한 안에 도착할 수 없는 방향은 미리 지웁니다. 학습 중에는 가끔(확률 ε) 일부러 아무 방향이나 골라 새 길을 시험합니다.</p>
+  <h2>점수는 어떻게 매기나요?</h2>
+  <table>
+    <tr><td>방향을 한 번 고를 때마다</td><td>−(링크 지연 + 큐 ÷ 5) ÷ 70</td><td>빠르고 덜 막힌 길일수록 덜 깎임</td></tr>
+    <tr><td>기한(70 ms) 안에 도착</td><td>+1</td><td>가장 중요한 목표</td></tr>
+    <tr><td>손실 (늦게 도착, 큐 넘침, TTL 만료)</td><td>−1</td><td></td></tr>
+    <tr><td>바로 앞 두 패킷도 손실이었을 때</td><td>추가 −0.5</td><td>3개 이상 연달아 잃으면 벌점</td></tr>
+  </table>
+  <h2>왜 "연속" 손실인가요?</h2>
+  <p>패킷 하나를 잃는 것은 코덱이 어느 정도 메꿔 줍니다. 하지만 3개 이상 연달아 잃으면 사람이 끊김을 느낍니다. 기존 최단 경로 라우팅은 막힌 링크로 패킷을 계속 보내서, 손실이 한꺼번에 몰리는 경우가 많습니다. 그래서 이 시뮬레이터는 손실률뿐 아니라 몇 개가 연달아 끊겼는지를 따로 셉니다.</p>
+  <h2>어떻게 배우나요?</h2>
+  <p>에이전트가 고른 결과는 경험 카드 [상태, 행동, 점수, 다음 상태]로 쌓입니다. 카드가 5,000장 넘게 쌓이면, 방향을 4번 고를 때마다 카드 64장을 꺼내 "점수 + 0.95 × 다음 위성에서의 최고 점수"를 정답으로 삼아 신경망을 조금씩 고칩니다. 이를 30초짜리 에피소드 60번 동안 반복합니다.</p>
+</article>
+<div class="footer"><div><b style="color:#212121">ISL RL Simulator</b><br>명지대학교 캡스톤디자인 26-2, ISL 파트. 시뮬레이터 코드는 GitHub의 RL 브랜치에 있습니다.</div></div>
+</body>
+</html>

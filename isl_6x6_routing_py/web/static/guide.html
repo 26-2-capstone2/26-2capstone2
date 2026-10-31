@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사용 설명 - ISL RL Simulator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=Noto+Sans+KR:wght@300;400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+  .layout { display: grid; grid-template-columns: 300px 1fr; }
+  .toc { border-right: 1px solid #E5E5E5; padding: 40px 0 40px 60px; min-height: calc(100vh - 64px); }
+  .toc .g { font-size: 11px; color: var(--sub); letter-spacing: .06em; margin: 22px 0 10px; }
+  .toc a { display: block; color: #555; font-size: 13.5px; padding: 5px 0 5px 12px; margin-left: -12px; border-left: 3px solid transparent; text-decoration: none; }
+  .toc a.on { color: var(--ink); font-weight: 500; border-left-color: var(--orange); }
+  main { padding: 36px 60px 60px; max-width: 900px; color: var(--body); font-size: 14px; line-height: 1.8; }
+  main .grp { font-size: 12px; color: var(--sub); }
+  main h1 { font-weight: 300; font-size: 28px; color: var(--ink); margin: 2px 0 8px; }
+  main .lead { color: #555; font-size: 13.5px; }
+  main h2 { font-weight: 500; font-size: 18px; color: var(--ink); margin: 32px 0 10px; }
+  .rows div { display: grid; grid-template-columns: 140px 1fr; gap: 16px; margin: 8px 0; } .rows b { font-weight: 500; color: var(--ink); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; border-top: 1px solid #333; border-bottom: 1px solid #333; }
+  th { text-align: left; font-weight: 500; color: var(--sub); padding: 8px 12px 8px 0; border-bottom: 1px solid #ccc; }
+  td { padding: 8px 12px 8px 0; border-bottom: 1px solid #EEE; vertical-align: top; } td:first-child { font-weight: 500; color: var(--ink); white-space: nowrap; }
+  pre { background: #F4F6F7; padding: 12px 16px; font-family: var(--mono); font-size: 12.5px; overflow-x: auto; }
+  .flow { margin: 16px 0 0 -20px; overflow-x: auto; }
+  .flow pre.mermaid { background: #fff; padding: 0; text-align: center; }
+  .navrow { display: flex; justify-content: space-between; border-top: 1px solid #E5E5E5; margin-top: 40px; padding-top: 16px; }
+  .code { font-family: var(--mono); font-size: 12px; color: #555; }
+</style>
+</head>
+<body>
+<div id="topbar" data-on="guide"></div>
+<div class="layout">
+  <nav class="toc" id="toc"></nav>
+  <main id="page"></main>
+</div>
+<script src="common.js"></script>
+<script src="guide.js"></script>
+</body>
+</html>
