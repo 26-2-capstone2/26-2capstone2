@@ -17,8 +17,13 @@ def plot_analysis(Rs, P, pngPath):
     nRun = len(Rs)
     labels = [f'{ROUTE_LABELS[R.routeName][0]} (ε = {R.epsilon:.1f})' for R in Rs]
 
-    fig, axs = plt.subplots(2, 4, figsize=(17, 8.2), constrained_layout=True)
-    axs = axs.ravel()
+    # 1줄: 지연 분포, 시간별 도착률/지연, 홉 수 / 2줄: 실행별 링크 사용량 지도 (최대 4개) / 3줄: 선택 유형, 손실 원인
+    fig = plt.figure(figsize=(17, 12.5), constrained_layout=True)
+    gs = fig.add_gridspec(3, 4)
+    axs = [fig.add_subplot(gs[0, k]) for k in range(4)]
+    mapAxs = [fig.add_subplot(gs[1, k]) for k in range(4)]
+    axType = fig.add_subplot(gs[2, :2])
+    axLoss = fig.add_subplot(gs[2, 2:])
 
     # ---- 1. 패킷별 지연 분포 ----
     ax = axs[0]
@@ -87,13 +92,16 @@ def plot_analysis(Rs, P, pngPath):
     ax.set_title('홉 수 분포')
     ax.legend(loc='upper right', frameon=False)
 
-    # ---- 5, 6. 링크 사용량 지도 (실행별) ----
-    for r in range(min(nRun, 2)):
-        draw_link_usage(axs[4 + r], Rs[r], P, C, fig)
-        axs[4 + r].set_title(f'링크 사용량: {labels[r]}')
+    # ---- 5. 링크 사용량 지도 (실행별, 최대 4개) ----
+    for r in range(4):
+        if r < nRun:
+            draw_link_usage(mapAxs[r], Rs[r], P, C, fig)
+            mapAxs[r].set_title(f'링크 사용량: {labels[r]}')
+        else:
+            mapAxs[r].axis('off')
 
-    # ---- 7. 선택 유형 비율 ----
-    ax = axs[6]
+    # ---- 6. 선택 유형 비율 ----
+    ax = axType
     typeNames = ['주 경로', '대체 경로', '우회', '무작위']
     share = np.zeros((nRun, 4))
     for r, R in enumerate(Rs):
@@ -113,8 +121,8 @@ def plot_analysis(Rs, P, pngPath):
     for r in range(nRun):
         ax.text(1, y[r], f'주 {share[r, 0]:.1f}%', color='w', fontsize=9, va='center')
 
-    # ---- 8. 손실 원인 ----
-    ax = axs[7]
+    # ---- 7. 손실 원인 ----
+    ax = axLoss
     lossNames = ['목적지 기한 초과', '중간 기한 초과', '큐 오버플로', 'TTL 만료']
     lossCnt = np.array([[(R.status == s).sum() for s in (2, 3, 4, 5)] for R in Rs])
     bottom = np.zeros(nRun)
@@ -127,13 +135,13 @@ def plot_analysis(Rs, P, pngPath):
     ax.set_xticks(x, labels)
     ax.set_ylabel('손실 패킷 수')
     total = lossCnt.sum(axis=1)
-    ax.set_ylim(0, max(total.max(), 1) * 1.25)
+    ax.set_ylim(0, max(total.max(), 1) * 1.35)
     for r in range(nRun):
         ax.text(x[r], total[r], f'{total[r]}개', ha='center', va='bottom', color=C.text)
     if np.all(total == 0):
         ax.text(np.mean([1, nRun]), 0.5, '손실 없음', ha='center', color=C.muted, fontsize=12)
     ax.set_title('손실 원인')
-    ax.legend(loc='upper left', frameon=False)
+    ax.legend(loc='upper center', ncol=4, frameon=False)
 
     fig.suptitle(f'실행 분석 (1초마다 {P.genRate}개 생성, {P.simTime * P.stepTime:.0f}초)', fontsize=15, color=C.text)
     fig.savefig(pngPath, dpi=120, facecolor='w')

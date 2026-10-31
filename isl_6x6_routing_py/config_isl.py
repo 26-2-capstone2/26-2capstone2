@@ -25,10 +25,18 @@ def config_isl():
     P.deadline = 70                       # 기한 (step)
     P.packetSize = 160                     # 패킷 크기 (Byte)
 
-    # ---- B 라우팅 (Liu et al. 단순화) ----
-    P.X = 0.5                              # Idle / Relatively Busy 경계
-    P.Y = 0.8                              # Relatively Busy / Busy 경계
-    P.k = 0.5                              # 가중치 (1: V만, 0: N만)
+    # ---- 연속 손실 ----
+    P.burstMinLen = 3                      # 패킷 번호 순서로 손실이 이 개수 이상 이어지면 '연속 손실' 1번 (burst_loss.py)
+
+    # ---- B 라우팅 (DRA, Ekici et al. 2001) ----
+    P.draThreshold = 0.5                   # 송신 큐가 queueMax의 이 비율 이상이면 '혼잡' -> 보조 방향 사용 (0.5 = 100 packets)
+    P.k = 0.5                              # decision_log의 링크 점유율 L 계산용 가중치 (1: V만, 0: N만, 결정에는 안 씀)
+
+    # ---- 라우팅 알고리즘 선택 ----
+    # 'routeA': 정적 다익스트라 (링크 지연만, 부하 무시 - 기준선)
+    # 'routeB': DRA (Ekici et al. 2001, 자기 송신 큐만 보고 주/보조 방향 선택)
+    P.routeName = ['routeA', 'routeB']     # 비교할 라우팅 목록 (ε = 0으로 하나씩 실행). 하나만 돌리려면 'routeB'처럼 문자열
+    P.collectRoute = 'routeB'              # ε > 0 (강화학습 데이터 수집) 실행에 쓰는 라우팅
 
     # ---- 실험 ----
     P.genRate = 60                         # 1초마다 생성하는 패킷 수 (일정 간격)
@@ -42,6 +50,10 @@ def config_isl():
     # ---- 애니메이션 ----
     P.animDuration = 200                   # 애니메이션에 담을 step 수             [설정]
     P.animFrameInterval = 2                # 몇 step마다 한 프레임                 [설정]
+
+    # ---- 노드 기록 (node_log) ----
+    P.nodeLogEnable = True                 # False면 노드 기록 안 함 (node_log CSV / node 그림 생략)
+    P.nodeLogInterval = 100                # 몇 step마다 노드별 1줄 기록 (100 step = 0.1초)
 
     # ---- 배경 트래픽 (송신 큐 핫스팟) ----
     # 핫스팟 = 위성 하나의 한 방향 송신 큐가 과부하. 켜지면(ON) 큐가 차서 패킷이 버려지고, 꺼지면(OFF) 서서히 비워짐

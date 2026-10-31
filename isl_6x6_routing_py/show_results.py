@@ -28,6 +28,8 @@ def show_image(name, title):
 show_image('metrics_summary.png', '성능 지표 비교')
 if os.path.exists(os.path.join(outDir, 'run_analysis.png')):
     show_image('run_analysis.png', '실행 분석')
+if os.path.exists(os.path.join(outDir, 'burst_analysis.png')):
+    show_image('burst_analysis.png', '연속 손실 분석')
 for png in sorted(glob.glob(os.path.join(outDir, 'node_*.png'))):   # 노드 기준 그림 (node_map: 요약 지도, node_time: 손실 많은 노드)
     name = os.path.basename(png)
     show_image(name, ('노드별 요약 지도: ' if name.startswith('node_map') else '노드 시간 변화: ') + name[:-4].split('_', 2)[2])

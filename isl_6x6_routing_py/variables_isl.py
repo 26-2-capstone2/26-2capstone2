@@ -33,22 +33,26 @@
 # 기한: P.deadline = 70 step [배경 트래픽 실험: 100 -> 70, 팀원 설정]
 #
 # ---------------- 5-0. 라우팅 알고리즘 선택 ----------------
-# 라우팅 알고리즘: P.routeName = 'routeA' (최단 경로) / 'routeB' (부하 고려)  * 결과 폴더 이름으로도 쓰임
+# 비교할 라우팅 목록: P.routeName = ['routeA', 'routeB'] (ε = 0으로 하나씩 실행, 문자열 하나도 가능)  * 결과 파일/폴더 이름으로도 쓰임
+# 데이터 수집용 라우팅: P.collectRoute = 'routeB' (ε > 0 실행에 사용)
 # A 최단 경로 (route_A.py): 링크 지연 합이 가장 작은 경로로만 보냄 (Dijkstra, 큐는 안 봄)
 #   목적지까지 최소 지연: G.distToDst (처음 한 번 계산), 동점이면 우 > 좌 > 하 > 상 (좌/우 먼저)
 #   choiceType은 항상 1, decision_log의 L, N은 기록용 (결정에는 안 씀)
 #
-# ---------------- 5. 라우팅 알고리즘 B ----------------
+# ---------------- 5. 라우팅 알고리즘 B: DRA (route_B.py, Ekici·Akyildiz·Bender 2001) ----------------
+# 극궤도 격자형(이리듐형) LEO 위성망용 분산 라우팅. 위성끼리 정보를 주고받지 않고 자기 송신 큐만 봄
+# 주 방향: primaryDir (목적지 쪽 좌/우, 같은 열이면 상/하)
+# 보조 방향: secondaryDir (목적지 쪽 상/하, 없으면 0) - 둘 다 목적지에 가까워지는 방향 (뒤로 가지 않음)
+# 혼잡 임계값: P.draThreshold = 0.5 (송신 큐 >= 0.5 x queueMax = 100 packets이면 혼잡) [원 논문에 숫자가 없어 설정값]
+# 결정: 보조 없음 -> 주 / 주가 혼잡하지 않음 -> 주 / 주 혼잡 + 보조 여유 -> 보조 / 둘 다 혼잡 -> 주
+# 선택 유형: choiceType = 1 주, 2 보조(그래프에서는 '대체 경로'), 4 무작위 (확률 ε로 갈 수 있는 방향 중 하나, 라우팅이 고른 방향일 수도 있음)
+#
+# decision_log 기록용 상태 (결정에는 안 씀, 강화학습 입력용)
 # 링크 점유율: L = (k*V + (1-k)*N) / Q
 # 링크 부하: V = 보내려는 링크의 큐 길이
 # 이웃 부하: N = 다음 위성의 링크 큐 길이 평균
 # 링크 큐 최대 용량: Q = P.queueMax = 200
-# 가중치: P.k = 0.5 [추천값]
-# 임계값 X: P.X = 0.5 [추천값]
-# 임계값 Y: P.Y = 0.8 [추천값]
-# 주 경로: primaryDir (좌/우 방향)
-# 대체 경로: altDir (상/하 방향)
-# 선택 유형: choiceType = 1 주, 2 대체, 3 우회, 4 무작위 (확률 ε로 갈 수 있는 방향 중 하나, 라우팅이 고른 방향일 수도 있음)
+# 가중치: P.k = 0.5
 #
 # ---------------- 5-1. 배경 트래픽 (송신 큐 핫스팟, 지표 계산에서 제외) - bg_traffic.py ----------------
 # 핫스팟 = 위성 하나의 한 방향 송신 큐가 과부하 (그 위성 -> 그 방향 이웃으로 가는 1홉 배경 흐름)
@@ -74,8 +78,8 @@
 # ε 무작위 선택 시드: P.randomSeed = 1 (에피소드 e는 randomSeed + e) [설정]
 # 애니메이션 길이: P.animDuration = 200 step (0.2초, 첫 에피소드만) [설정]
 # 애니메이션 간격: P.animFrameInterval = 2 step (100장) [설정]
-# 결과 저장 경로: (홈 폴더)\isl_saved_runs\날짜_시분 (환경변수 ISL_SAVE_ROOT로 바꿀 수 있음, main_isl.py 맨 아래)
-# 라우팅 알고리즘 이름: P.routeName = 'routeA' / 'routeB'
+# 결과 저장 경로: (홈 폴더)\isl_saved_runs\날짜_시분_라우팅 (예: 2026-10-29_1830_routeA-routeB, 환경변수 ISL_SAVE_ROOT로 바꿀 수 있음, main_isl.py 맨 아래)
+# 라우팅 알고리즘 이름: P.routeName = ['routeA', 'routeB'], 수집용 P.collectRoute = 'routeB'
 #
 # ---------------- 7. 손실 / 결과 (패킷 기록 result) ----------------
 # 기한 내 도착: result = 1   (코드 안에서는 status)
@@ -90,6 +94,19 @@
 # Throughput: throughput_Mbps
 # On-time Delivery Rate: onTimeRate
 # Consecutive Packet Loss Length: maxConsecLoss (에피소드 경계에서 끊어서 셈)
+#
+# ---------------- 8-1. 연속 손실 (burst_loss.py) ----------------
+# 기준: 패킷 번호(packet_id) 순서로 손실이 P.burstMinLen = 3개 이상 이어지면 연속 손실 1번 (에피소드 경계에서 끊음)
+# 손실: 기한 내 도착(result 1)이 아닌 모든 패킷 (목적지 기한 초과, 중간 기한 초과, 큐 오버플로, TTL 만료)
+# 연속 손실 횟수: burstCount
+# 연속 손실에 속한 패킷 수: burstLossPackets
+# 연속 손실 패킷 비율 (/ 생성 수): burstLossRate
+# 손실 중 연속 손실 비중 (/ 전체 손실 수): burstShareOfLoss
+# 연속 손실 평균 길이: avgBurstLen
+# 1분당 연속 손실 횟수: burstPerMin
+# 패킷 기록 열: loss_run_len (속한 손실 구간 길이, 손실 아니면 0), burst_id (연속 손실 번호, 아니면 -1)
+# 연속 손실 기록 (burst_log CSV): burst_id, episode, first_packet_id, last_packet_id, length,
+#   first_gen_step, last_gen_step, span_ms, n_late_dst, n_late_mid, n_overflow, n_ttl, main_cause
 # Route Change Count: routeChanges (에피소드 경계에서 끊어서 셈)
 # Average Hop Count: avgHops
 #
