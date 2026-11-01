@@ -1,6 +1,7 @@
 # 설정값 모음 - 시뮬레이션에 쓰이는 모든 변수값을 여기서 정함
 # (값 바꾸려면 여기서 수정하면 됩니다!)
 #
+import os
 from types import SimpleNamespace
 
 import numpy as np
@@ -35,6 +36,10 @@ def config_isl():
     P.satsPerPlane = 6                     # 궤도면당 위성 수 (상/하)
     P.srcSat = np.array([0, 0])            # 출발 위성 (p,s)
     P.dstSat = np.array([5, 5])            # 도착 위성 (p,s)
+    # 망 구조: 'grid' (지금 6x6), 'grid:8x8' (크기 지정), 'iridium', 'starlink', 'starlink:12x12' (축소판) - sim/topology.py
+    #   실행할 때 환경 변수로 바꿈: ISL_TOPOLOGY=iridium python main_isl.py  (기본은 'grid' = 아래 6x6 값 그대로)
+    #   grid가 아니면 크기, 원형 연결, 링크 지연, 출발/도착, 기한, TTL을 그 구조에 맞게 덮어씀 (config 끝에서 적용)
+    P.topology = os.environ.get('ISL_TOPOLOGY', 'grid')
     P.queueMax = 200                       # 링크별 큐 최대 용량 (packets)
     P.linkCapacity = 5                    # ISL 대역폭 (packets/step)
     P.linkDelay = np.array([7, 7, 2, 2])   # 링크 지연 [상 하 좌 우] (step)
@@ -97,5 +102,9 @@ def config_isl():
     P.bgSeed = 0
     P.bgLevel = 'base'                     # 혼잡 단계: 'base', 'high', 'severe' (위 BG_LEVELS 값으로 핫스팟 개수, ON/OFF를 덮어씀)
     apply_bg_level(P, P.bgLevel)
+
+    if P.topology != 'grid':
+        from sim.topology import apply_topology
+        apply_topology(P, P.topology)
 
     return P

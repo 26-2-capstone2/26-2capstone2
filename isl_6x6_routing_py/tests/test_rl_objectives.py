@@ -51,7 +51,7 @@ class ObjectiveTests(unittest.TestCase):
         status = np.zeros(len(results), dtype=int)
         for packet_id in range(len(results)):
             obs = np.full(RL.obsDim, packet_id, dtype=np.float32)
-            collector.on_decision(packet_id, (obs, mask, 0), 0, True)
+            collector.on_decision(packet_id, (obs, mask, 0), 0, True, int(P.linkDelay[0]))
         for packet_id in (order or range(len(results))):
             status[packet_id] = results[packet_id]
             collector.on_end([packet_id], status)
@@ -64,19 +64,19 @@ class ObjectiveTests(unittest.TestCase):
         P = config_isl()
         RL = config_rl(P)
         self.assertEqual([round(burst_reward(k, P, RL), 2) for k in (1, 3, 4, 5, 10, 13, 20)],
-                         [-1.0, -1.0, -1.1, -1.2, -1.7, -2.0, -2.0])
+                         [-0.2, -0.2, -0.3, -0.4, -0.9, -1.0, -1.0])
         results = [1, 4, 4, 1] + [4] * 5 + [1]           # 단발 2개, 연속 5개
         _, RL, collector, rewards = self._run_collector(results, order=list(range(len(results)))[::-1])
         self.assertEqual(collector.numBurstPenalties, 5)
-        for packet_id, expected in [(0, 1.0), (1, -0.5), (2, -0.5), (3, 1.0), (4, -1.0), (5, -1.0), (6, -1.0),
-                                    (7, -1.1), (8, -1.2), (9, 1.0)]:
+        for packet_id, expected in [(0, 0.5), (1, -0.1), (2, -0.1), (3, 0.5), (4, -0.2), (5, -0.2), (6, -0.2),
+                                    (7, -0.3), (8, -0.4), (9, 0.5)]:
             self.assertAlmostEqual(rewards[packet_id], expected, msg=f'패킷 {packet_id}')
 
     def test_burst_at_episode_end_is_judged_at_finish(self):
         _, _, collector, rewards = self._run_collector([1, 4, 4])
         self.assertEqual(collector.numBurstPenalties, 0)
-        self.assertAlmostEqual(rewards[1], -0.5)
-        self.assertAlmostEqual(rewards[2], -0.5)
+        self.assertAlmostEqual(rewards[1], -0.1)
+        self.assertAlmostEqual(rewards[2], -0.1)
 
     def test_success_breaks_burst_even_if_packets_finish_out_of_order(self):
         _, _, collector, _ = self._run_collector([1, 4, 4, 1, 4], order=[2, 1, 4, 3, 0])
@@ -89,6 +89,9 @@ class ObjectiveTests(unittest.TestCase):
         queue = np.zeros(G.numLinks, dtype=int)
         observed = obs_from_sim(1, 0, queue, G, P, RL, 43, 20)
         self.assertEqual(observed.values.shape, (24,))
+        np.testing.assert_array_equal(observed.mask, [0, 1, 1, 1])   # 'link': 없는 방향(상)만 막음
+        RL.maskMode = 'full'
+        observed = obs_from_sim(1, 0, queue, G, P, RL, 43, 20)
         np.testing.assert_array_equal(observed.mask, [0, 1, 0, 1])
         self.assertFalse(observed.deadlineFallback)
         fallback = action_mask(observed.queueLengths, P, G, 1, 0, 1)

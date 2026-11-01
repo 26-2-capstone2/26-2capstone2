@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from sim.build_grid import build_grid
+from sim.build_grid import build_grid, displacement
 from routing.route_A import route_A
 from routing.route_B import route_B
 from routing.route_C import route_C, STATE as C_STATE
@@ -81,7 +81,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     nlog = NodeLog(P, G, maxPackets) if getattr(P, 'nodeLogEnable', False) else None
 
     # 도착 예정 패킷 (도착 step별 칸, 원형)
-    numSlots = int(max(P.linkDelay)) + P.processingDelay + 1
+    numSlots = int(G.maxLinkDelay) + P.processingDelay + 1   # 가장 긴 링크 지연까지 (실제 위성군은 링크마다 다름)
     arrivalSlot = [[] for _ in range(numSlots)]
 
     # 결정 기록 (라우팅 결정 1번 = 1줄)
@@ -195,7 +195,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
         if len(bgIds):
             bp = curP[bgIds]
             bs = curS[bgIds]
-            bd = xy_next_dir(bp, bs, dstP[bgIds], dstS[bgIds])
+            bd = xy_next_dir(bp, bs, dstP[bgIds], dstS[bgIds], G)
             bl = G.linkId[bp, bs, bd - 1]
             order = np.argsort(bl, kind='stable')
             bgIds = bgIds[order]
@@ -238,7 +238,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             if numDecisions >= decisionLog.shape[0]:
                 decisionLog = np.vstack([decisionLog, np.zeros_like(decisionLog)])
             decisionLog[numDecisions, :] = [t, packet_id, hops[packet_id], p, s, *qNow, *L, *N,
-                                            G.dstSat[0] - p, G.dstSat[1] - s,
+                                            *displacement(G, p, s, G.dstSat[0], G.dstSat[1]),
                                             P.deadline - (t - genTime[packet_id]), ttl[packet_id],
                                             nextDir, choiceType, enqueued]
             numDecisions += 1
@@ -255,7 +255,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
                 if nlog is not None:
                     nlog.add(0, [nlog.node(p, s)])
             if collector is not None and choiceType != 4:   # route_C 학습: 방금 결정을 경험으로 연결 (ε 무작위 결정은 제외)
-                collector.on_decision(int(packet_id), C_STATE.last, qAtLink, enqueued)
+                collector.on_decision(int(packet_id), C_STATE.last, qAtLink, enqueued, int(G.linkDelay[link]))
 
         if nlog is not None:
             nlog.peak(queueLen)   # 라우팅 후 전송 전 (큐가 가장 찬 순간)

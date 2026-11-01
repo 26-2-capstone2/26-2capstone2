@@ -87,6 +87,8 @@ elif P.bgScenarioSeed is None:
     P.bgScenarioSeed = random.randrange(100000)
 seeds = [P.bgScenarioSeed + e for e in range(numEp)]
 runName = '-'.join(dict.fromkeys(r for r, _, _ in runPlan)) + f'_{P.bgLevel}'   # 저장 폴더 이름 (라우팅_혼잡단계, 시작 시드는 run_info.txt에 기록)
+if P.topology != 'grid':   # 실제 위성군이나 크기를 바꾼 격자는 구조 이름도 붙임 (예: routeA-routeB_high_iridium)
+    runName += '_' + P.topology.replace(':', '')
 print(f'[실행] {runName} (혼잡 {P.bgLevel}, 시작 시드 {P.bgScenarioSeed}, 기한 {P.deadline})')
 if P.bgEnable:
     print(f'[배경 시나리오] 시작 시드 {P.bgScenarioSeed}, 에피소드 {numEp}개 x {P.simTime * P.stepTime:.0f}초')

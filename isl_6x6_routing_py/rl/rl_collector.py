@@ -1,4 +1,4 @@
-# 경험 연결 장치 - 시뮬레이터가 돌아가는 동안 route_C의 결정을 (s, a, r, s', done) 경험으로 이어 붙여 버퍼에 넣고 학습
+# 경험 연결 장치 : 시뮬레이터가 돌아가는 동안 route_C의 결정을 (s, a, r, s', done) 경험으로 이어 붙여 버퍼에 넣고 학습
 #
 # 패킷 하나의 흐름
 #   위성 A에서 결정 -> (결과를 아직 모름, 대기 pending에 보관)
@@ -46,10 +46,10 @@ class Collector:
         self.rewardBurstSum = 0.0
         self.losses = []
 
-    def on_decision(self, packetId, last, queueLenAtLink, enqueued):
-        # last: route_C가 남긴 (관측, 마스크, 행동), queueLenAtLink: 고른 링크의 큐 길이 (넣기 전)
+    def on_decision(self, packetId, last, queueLenAtLink, enqueued, linkDelay):
+        # last: route_C가 남긴 (관측, 마스크, 행동), queueLenAtLink: 고른 링크의 큐 길이 (넣기 전), linkDelay: 고른 링크의 지연
         obs, mask, action = last
-        r = hop_reward(action + 1, queueLenAtLink, self.P, self.RL)
+        r = hop_reward(linkDelay, queueLenAtLink, self.P, self.RL)
         self.rewardHopSum += r
 
         prev = self.pending.pop(packetId, None)

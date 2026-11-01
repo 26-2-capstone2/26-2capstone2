@@ -14,23 +14,26 @@ def config_rl(P):
 
     # ---- 관측 벡터 (rl_state.py) ----
     RL.obsDim = 24                         # 관측 24개: 큐 4 + 이웃 부하 4 + 큐 증가 속도 4 + 최근 큐 넘침 4 + 링크 유무 4 + 남은 거리 2 + 남은 기한 1 + 남은 TTL 1
-    RL.numActions = 4                      # 행동 4개 : 상, 하, 좌, 우 (없는 방향, 꽉 찬 큐, 기한 안에 못 가는 방향은 마스크로 막음)
+    RL.numActions = 4                      # 행동 4개 : 상, 하, 좌, 우
+    RL.maskMode = 'link'                   # 'link': 없는 방향만 막음 (꽉 찬 큐, 기한 초과는 손실 보상으로 직접 배움)
+                                           # 'full': 예전 방식, 꽉 찬 큐와 기한 안에 못 가는 방향도 막음 (비교용)
     RL.normQueue = P.queueMax              # 큐 길이, 이웃 부하 N ÷ 200
     RL.deltaWindow = 10                    # 큐 증가 속도: 현재 - 10 step 전 큐 길이
     RL.normDelta = 10 * P.linkCapacity     # 큐 증가 속도 ÷ 50 (10 step 동안 비울 수 있는 최대 개수), -1~1로 자름
     RL.overflowWindow = 300                # 최근 큐 넘침: min(지난 시간, 300) ÷ 300 (핫스팟 켜짐 평균 150~450의 가운데)
-    RL.normDist = max(P.numPlanes, P.satsPerPlane) - 1   # 남은 거리 ÷ 5 (6x6 격자에서 한 축 최대 거리)
+    RL.normDist = max(P.numPlanes // 2 if getattr(P, 'wrapP', False) else P.numPlanes - 1,
+                      P.satsPerPlane // 2 if getattr(P, 'wrapS', False) else P.satsPerPlane - 1)   # 남은 거리 ÷ 한 축 최대 거리 (6x6: 5, 원형이면 절반)
     RL.normDeadline = P.deadline           # 남은 기한 ÷ 70
     RL.normTtl = P.ttlInit                 # 남은 TTL ÷ 20
 
     # ---- 보상 (rl_reward.py) ----
     RL.rewardHopScale = P.deadline         # 홉 보상 = -(링크 지연 + 큐 길이 ÷ 링크 용량) ÷ 70
-    RL.rewardOnTime = 1.0                  # 기한 내 도착 (끝)
-    RL.rewardSingleLoss = -0.5             # 단발 손실 (1~2개): 오버플로, 기한 초과, TTL 만료 (끝)
+    RL.rewardOnTime = 0.5                  # 기한 내 도착 (끝)
+    RL.rewardSingleLoss = -0.1            # 단발 손실 (1~2개): 오버플로, 기한 초과, TTL 만료 (끝)
     RL.burstEnabled = True                 # False면 연속 손실도 단발 손실과 같은 보상 (대조 실험)
-    RL.burstBase = 1.0                     # 연속 손실 (3개 이상) k번째 패킷: -min(2.0, 1.0 + 0.1 x max(0, k - 3))
+    RL.burstBase = 0.2                     # 연속 손실 (3개 이상) k번째 패킷: -min(1.0, 0.2 + 0.1 x max(0, k - 3))
     RL.burstStep = 0.1                     #   구간 전체(처음 2개 포함)에 단발 손실 대신 적용
-    RL.burstMax = 2.0
+    RL.burstMax = 1.0
 
     # ---- 신경망 (rl_agent.py) ----
     RL.hidden = [64, 64]                   # 중간층 크기: 입력 24 -> 64 -> 64 -> 출력 4 (방향별 Q값)

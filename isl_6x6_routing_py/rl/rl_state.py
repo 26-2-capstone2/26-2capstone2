@@ -13,13 +13,14 @@
 #   22    남은 기한 ÷ 70
 #   23    남은 TTL ÷ 20
 #
-# 링크 점유율 L은 큐 길이와 이웃 부하로 계산되는 중복 정보라 관측에서 뺐음 (decision_log 기록용으로만 계산)
+# 링크 점유율 L은 큐 길이와 이웃 부하로 계산되는 중복 정보라 관측에서 제외
 
 from dataclasses import dataclass
 
 import numpy as np
 
 from routing.route_A import dist_to_dst
+from sim.build_grid import displacement
 from sim.link_history import HISTORY_STEPS
 
 DIR_NAMES = ['up', 'down', 'left', 'right']
@@ -59,11 +60,16 @@ def normalize(q, N, dq, sinceDrop, remDp, remDs, remDeadline, ttl, RL):
     return obs.astype(np.float32)
 
 
-def action_mask(q, P, G, curP, curS, remDeadline):
-    # 링크/큐 조건과 기한 내 도착의 낙관적인 최소 지연을 함께 확인한다.
-    # 모든 큐가 꽉 차거나 기한상 가능한 방향이 없으면 빈 마스크 대신 기존 후보로 되돌린다.
+def action_mask(q, P, G, curP, curS, remDeadline, mode='full'):
+    # mode 'link': 없는 방향만 막음 (링크가 없으면 보낼 수 없으므로 이것만은 항상 막음)
+    # mode 'full': 링크/큐 조건과 기한 내 도착의 낙관적인 최소 지연을 함께 확인한다.
+    #   모든 큐가 꽉 차거나 기한상 가능한 방향이 없으면 빈 마스크 대신 기존 후보로 되돌린다.
     q = np.asarray(q, dtype=float)
     link = q >= 0
+    if mode == 'link':
+        if not link.any():
+            raise ValueError(f'({curP}, {curS})에서 선택할 수 있는 링크가 없습니다')
+        return ActionMask(link.astype(np.float32), False)
     mask = link & (q < P.queueMax)
     if not mask.any():
         mask = link
@@ -73,8 +79,7 @@ def action_mask(q, P, G, curP, curS, remDeadline):
     dist = dist_to_dst(G)
     feasible = np.zeros(4, dtype=bool)
     for d in np.flatnonzero(mask):
-        nextP = int(curP + G.stepP[d])
-        nextS = int(curS + G.stepS[d])
+        nextP, nextS = int(G.nbrP[int(curP), int(curS), d]), int(G.nbrS[int(curP), int(curS), d])
         linkId = G.linkId[int(curP), int(curS), d]
         lowerBound = G.linkDelay[linkId] + P.processingDelay + dist[nextP, nextS]
         feasible[d] = lowerBound <= remDeadline
@@ -88,12 +93,11 @@ def raw_from_sim(curP, curS, queueLen, G, P, RL, hist=None, t=0):
     #   q: 지금 큐 길이, N: 링크 지연만큼 늦게 받은 이웃 부하, dq: 큐 증가량, sinceDrop: 마지막 넘침 후 지난 step
     #   Lnow, Nnow: 지금 값으로 계산한 링크 점유율과 이웃 부하 (decision_log 기록용, A, B와 같은 계산식)
     # hist가 없으면 (테스트 등) 이웃 부하는 지금 값, 큐 증가량 0, 넘침 없음으로 둔다
-    if RL.deltaWindow >= HISTORY_STEPS or max(P.linkDelay) >= HISTORY_STEPS:
+    if RL.deltaWindow >= HISTORY_STEPS or G.maxLinkDelay >= HISTORY_STEPS:
         raise ValueError('링크 기록 길이(HISTORY_STEPS)가 관측에 필요한 과거보다 짧습니다')
     q, N, dq, sinceDrop, Lnow, Nnow = ([-1.0] * 4 for _ in range(6))
     for d in G.validDirs[curP][curS]:
-        nextP = curP + G.stepP[d - 1]
-        nextS = curS + G.stepS[d - 1]
+        nextP, nextS = G.nbrP[curP, curS, d - 1], G.nbrS[curP, curS, d - 1]   # 이웃 위성 (원형 연결 반영)
         link = G.linkId[curP, curS, d - 1]
         V = float(queueLen[link])
         q[d - 1] = V
@@ -112,6 +116,7 @@ def raw_from_sim(curP, curS, queueLen, G, P, RL, hist=None, t=0):
 def obs_from_sim(curP, curS, queueLen, G, P, RL, remDeadline, ttl, hist=None, t=0):
     # 실행용: 신경망 입력과 결정 기록용 원래 값을 이름 붙인 구조로 돌려준다.
     q, N, dq, sinceDrop, Lnow, Nnow = raw_from_sim(curP, curS, queueLen, G, P, RL, hist, t)
-    obs = normalize(q, N, dq, sinceDrop, G.dstSat[0] - curP, G.dstSat[1] - curS, remDeadline, ttl, RL)
-    mask = action_mask(q, P, G, curP, curS, remDeadline)
+    remDp, remDs = displacement(G, curP, curS, G.dstSat[0], G.dstSat[1])   # 원형이면 짧은 쪽 방향
+    obs = normalize(q, N, dq, sinceDrop, remDp, remDs, remDeadline, ttl, RL)
+    mask = action_mask(q, P, G, curP, curS, remDeadline, getattr(RL, 'maskMode', 'full'))
     return RoutingObservation(obs, mask.values, q, Nnow, Lnow, mask.deadlineFallback)

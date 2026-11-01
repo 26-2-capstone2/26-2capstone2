@@ -5,6 +5,7 @@
 #   python eval_routes.py 모델경로 severe              -> severe만
 #   python eval_routes.py 모델경로 all routeA,routeC  -> 고른 라우팅만
 #   python eval_routes.py none all routeA,routeB  -> C 없이 (모델 없음)
+#   python eval_routes.py 모델경로 all routeA,routeB,routeC 10  -> 에피소드 10개만 (평가 시드 1~10, 빠르게 볼 때)
 #
 # 조건: main_isl.py와 같음 (에피소드 e: 핫스팟 시드 bgScenarioSeed + e, 난수 시드 randomSeed + e, ε 0)
 #       C는 탐험 없이 Q값이 가장 큰 방향만 고름, 학습도 안 함
@@ -32,8 +33,10 @@ def loss_runs(Rs):
     return np.concatenate([loss_run_lengths(r.status) for r in Rs])
 
 
-def evaluate(level, route, modelPath=None):
+def evaluate(level, route, modelPath=None, numEpisodes=None):
     P = config_isl()
+    if numEpisodes:
+        P.numEpisodes = numEpisodes
     apply_bg_level(P, level)
     P.routeName = route
     P.nodeLogEnable = False
@@ -57,7 +60,8 @@ def evaluate(level, route, modelPath=None):
     return dict(level=level, route=route,
                 onTimeRate=round(M.onTimeRate * 100, 2), lossRate=round(M.lossRate * 100, 2),
                  burstMinLen=M.burstMinLen, burstCount=M.burstCount,
-                 burstPackets=M.burstPackets, burstPacketRate=round(M.burstPacketRate * 100, 2),
+                 burstPackets=M.burstLossPackets, burstPacketRate=round(M.burstLossRate * 100, 2),
+                 burstShareOfLoss=round(M.burstShareOfLoss * 100, 1), avgBurstLen=round(M.avgBurstLen, 2),
                  maxConsecLoss=M.maxConsecLoss, lossRuns=len(runs),
                  infeasibleMasks=C_STATE.infeasibleMasks if C_STATE is not None else 0,
                 runs_ge5=int((runs >= 5).sum()), runs_ge10=int((runs >= 10).sum()),
@@ -70,12 +74,14 @@ def main():
     modelPath = args[0] if args and args[0] != 'none' else None
     levels = list(BG_LEVELS) if len(args) < 2 or args[1] == 'all' else [args[1]]
     routes = args[2].split(',') if len(args) > 2 else ALL_ROUTES
+    numEpisodes = int(args[3]) if len(args) > 3 else None   # 없으면 config의 numEpisodes (20)
     if 'routeC' in routes and not modelPath:
         routes.remove('routeC')
         print('모델 경로가 없어서 route_C는 빼고 평가')
 
     root = os.environ.get('ISL_SAVE_ROOT', os.path.join(os.path.expanduser('~'), 'isl_saved_runs'))   # main_isl.py와 같은 환경 변수
-    base = f'eval_{datetime.now():%Y-%m-%d}'
+    topo = config_isl().topology
+    base = f'eval_{datetime.now():%Y-%m-%d}' if topo == 'grid' else f"eval_{topo.replace(':', '')}_{datetime.now():%Y-%m-%d}"
     i = 1
     while os.path.exists(os.path.join(root, base if i == 1 else f'{base}_{i}')):
         i += 1
@@ -85,7 +91,7 @@ def main():
     rows = []
     for level in levels:
         for route in routes:
-            row = evaluate(level, route, modelPath)
+            row = evaluate(level, route, modelPath, numEpisodes)
             rows.append(row)
             print(f"{level:6s} {route:14s} 도착률 {row['onTimeRate']:6.2f}%  손실률 {row['lossRate']:5.2f}%  "
                   f"최대 연속 손실 {row['maxConsecLoss']:4d}  평균 지연 {row['avgLatency_ms']} ms")
@@ -95,6 +101,8 @@ def main():
         w.writeheader()
         w.writerows(rows)
     P = config_isl()
+    if numEpisodes:
+        P.numEpisodes = numEpisodes
     with open(os.path.join(saveDir, 'run_info.txt'), 'w', encoding='utf-8') as f:
         f.write(f'라우팅 비교 평가 ({datetime.now():%Y-%m-%d %H:%M})\n')
         f.write(f'C 모델: {modelPath}\n')

@@ -2,6 +2,8 @@
 # 핫스팟 = 위성 하나의 한 방향 송신 큐가 과부하. 1홉짜리 배경 흐름(위성 -> 그 방향 이웃)으로 표현함
 import numpy as np
 
+from sim.build_grid import displacement
+
 
 def make_bg_schedule(P):
     # bgCount[f, t] = 흐름 f가 step t에 만드는 패킷 수 (t = 1 ~ simTime, 0열은 안 씀)
@@ -25,23 +27,29 @@ def make_bg_schedule(P):
     return count
 
 
-def xy_next_dir(curP, curS, dstP, dstS):
+def xy_next_dir(curP, curS, dstP, dstS, G=None):
     # 차원 순서(XY) 라우팅: p(좌/우)를 먼저 맞추고 그다음 s(상/하). 도착이면 0
     # 방향 번호: 1 상(s-1), 2 하(s+1), 3 좌(p-1), 4 우(p+1)
-    return np.where(dstP > curP, 4,
-           np.where(dstP < curP, 3,
-           np.where(dstS > curS, 2,
-           np.where(dstS < curS, 1, 0))))
+    # G를 주면 원형 연결을 반영해 짧은 쪽으로 감 (실제 위성군)
+    if G is None:
+        dp, ds = np.asarray(dstP) - np.asarray(curP), np.asarray(dstS) - np.asarray(curS)
+    else:
+        dp, ds = displacement(G, curP, curS, dstP, dstS)
+    return np.where(dp > 0, 4,
+           np.where(dp < 0, 3,
+           np.where(ds > 0, 2,
+           np.where(ds < 0, 1, 0))))
 
 
 def xy_path_links(G, src, dst):
     p, s = int(src[0]), int(src[1])
     links = []
     while (p, s) != (int(dst[0]), int(dst[1])):
-        d = int(xy_next_dir(np.array([p]), np.array([s]), np.array([dst[0]]), np.array([dst[1]]))[0])
+        d = int(xy_next_dir(np.array([p]), np.array([s]), np.array([dst[0]]), np.array([dst[1]]), G)[0])
+        if not G.hasLink[p, s, d - 1]:   # 실제 위성군: 극지방 등에서 그 방향 링크가 꺼져 있음
+            raise ValueError(f'XY 경로 중간 ({p},{s})에서 방향 {d} 링크가 없음')
         links.append(int(G.linkId[p, s, d - 1]))
-        p += int(G.stepP[d - 1])
-        s += int(G.stepS[d - 1])
+        p, s = int(G.nbrP[p, s, d - 1]), int(G.nbrS[p, s, d - 1])
     return links
 
 
@@ -68,8 +76,8 @@ def sample_hotspots(P, G, seed, maxTry=500):
     rng = np.random.RandomState(seed)
     src = (int(P.srcSat[0]), int(P.srcSat[1]))
     dst = (int(P.dstSat[0]), int(P.dstSat[1]))
-    pLo, pHi = sorted((src[0], dst[0]))
-    sLo, sHi = sorted((src[1], dst[1]))
+    hops = lambda a, b: sum(abs(int(x)) for x in displacement(G, a[0], a[1], b[0], b[1]))   # 칸 거리 (원형이면 짧은 쪽)
+    srcDst = hops(src, dst)
     # 후보: 격자의 모든 (위성, 방향). 도착 위성의 큐는 제외
     cand, weight = [], []
     for p in range(P.numPlanes):
@@ -77,10 +85,10 @@ def sample_hotspots(P, G, seed, maxTry=500):
             if (p, s) == dst:
                 continue
             for d in G.validDirs[p][s]:
-                np_, ns_ = p + int(G.stepP[d - 1]), s + int(G.stepS[d - 1])
-                # 목적지에 가까워지는 방향이고 출발-도착 사각형 안이면 '주 흐름과 관련 있는' 큐
-                closer = abs(dst[0] - np_) + abs(dst[1] - ns_) < abs(dst[0] - p) + abs(dst[1] - s)
-                inBox = pLo <= p <= pHi and sLo <= s <= sHi
+                np_, ns_ = int(G.nbrP[p, s, d - 1]), int(G.nbrS[p, s, d - 1])
+                # 목적지에 가까워지는 방향이고 출발-도착 사각형 안(최단 경로 위)이면 '주 흐름과 관련 있는' 큐
+                closer = hops((np_, ns_), dst) < hops((p, s), dst)
+                inBox = hops(src, (p, s)) + hops((p, s), dst) == srcDst
                 rel = closer and inBox
                 cand.append((p, s, d, np_, ns_, rel))
                 weight.append(P.bgRelWeight if rel else 1.0)
@@ -111,7 +119,7 @@ def path_exists(P, G, src, dst, blocked):
         for d in G.validDirs[p][s]:
             if (p, s, d) in blocked:
                 continue
-            q = (p + int(G.stepP[d - 1]), s + int(G.stepS[d - 1]))
+            q = (int(G.nbrP[p, s, d - 1]), int(G.nbrS[p, s, d - 1]))
             if q not in seen:
                 seen.add(q)
                 stack.append(q)

@@ -7,6 +7,7 @@
 from types import SimpleNamespace
 
 from rl.rl_state import obs_from_sim
+from sim.build_grid import displacement
 
 STATE = SimpleNamespace(agent=None, RL=None, explore=False, last=None, collector=None, infeasibleMasks=0)
 
@@ -37,8 +38,7 @@ def route_C(curP, curS, queueLen, G, P, t=0, remDeadline=None, ttl=None, hops=No
     STATE.last = (observed.values, observed.mask, action)
 
     # 주 경로 = 목적지 쪽 좌/우, 대체 경로 = 목적지 쪽 상/하 (B와 같은 기준)
-    remainP = G.dstSat[0] - curP
-    remainS = G.dstSat[1] - curS
+    remainP, remainS = displacement(G, curP, curS, G.dstSat[0], G.dstSat[1])
     primaryDir = (3 + (remainP > 0)) if remainP != 0 else (1 + (remainS > 0))
     altDir = (1 + (remainS > 0)) if (remainP != 0 and remainS != 0) else 0
     choiceType = 1 if nextDir == primaryDir else 2 if nextDir == altDir else 3

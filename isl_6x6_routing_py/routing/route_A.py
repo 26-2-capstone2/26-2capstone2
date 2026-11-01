@@ -17,8 +17,7 @@ def route_A(curP, curS, queueLen, G, P, **packet):   # packet: B가 쓰는 패�
     L = [-1.0] * 4
     N = [-1.0] * 4
     for d in G.validDirs[curP][curS]:   # route_B와 같은 계산 (기록용)
-        nextP = curP + G.stepP[d - 1]
-        nextS = curS + G.stepS[d - 1]
+        nextP, nextS = G.nbrP[curP, curS, d - 1], G.nbrS[curP, curS, d - 1]   # 이웃 위성 (원형 연결 반영)
         N[d - 1] = float(np.mean(queueLen[G.outLinks[nextP][nextS]]))
         V = queueLen[G.linkId[curP, curS, d - 1]]
         L[d - 1] = (P.k * V + (1 - P.k) * N[d - 1]) / P.queueMax
@@ -28,7 +27,7 @@ def route_A(curP, curS, queueLen, G, P, **packet):   # packet: B가 쓰는 패�
     for d in TIE_ORDER:
         if d not in G.validDirs[curP][curS]:
             continue
-        cost = G.linkDelay[G.linkId[curP, curS, d - 1]] + dist[curP + G.stepP[d - 1], curS + G.stepS[d - 1]]
+        cost = G.linkDelay[G.linkId[curP, curS, d - 1]] + dist[G.nbrP[curP, curS, d - 1], G.nbrS[curP, curS, d - 1]]
         if cost < best:   # 같으면 TIE_ORDER 앞쪽 유지
             nextDir, best = d, cost
     return nextDir, 1, L, N
@@ -41,17 +40,24 @@ def dist_to_dst(G):
     numP, numS = G.hasLink.shape[:2]
     dist = np.full((numP, numS), np.inf)
     dist[G.dstSat[0], G.dstSat[1]] = 0
+    link_src = {}
+    incoming = {(p, s): [] for p in range(numP) for s in range(numS)}
+    for q in range(numP):
+        for r in range(numS):
+            for d in G.validDirs[q][r]:
+                l = int(G.linkId[q, r, d - 1])
+                link_src[l] = (q, r)
+                incoming[(int(G.nextP[l]), int(G.nextS[l]))].append(l)
     heap = [(0, int(G.dstSat[0]), int(G.dstSat[1]))]
     while heap:   # 목적지에서 거꾸로 퍼져 나가는 Dijkstra (링크 a->b 비용으로 a의 거리 갱신)
         dd, p, s = heapq.heappop(heap)
         if dd > dist[p, s]:
             continue
-        for d in range(1, 5):   # (p,s)로 들어오는 링크: 이웃 (q,r)에서 방향 d로 (p,s)에 도착
-            q, r = p - G.stepP[d - 1], s - G.stepS[d - 1]
-            if 0 <= q < numP and 0 <= r < numS and G.hasLink[q, r, d - 1]:
-                nd = dd + G.linkDelay[G.linkId[q, r, d - 1]]
-                if nd < dist[q, r]:
-                    dist[q, r] = nd
-                    heapq.heappush(heap, (nd, int(q), int(r)))
+        for l in incoming[(p, s)]:   # (p,s)로 들어오는 링크 l: 이웃 (q,r)에서 출발 (원형 연결 포함)
+            q, r = link_src[l]
+            nd = dd + G.linkDelay[l]
+            if nd < dist[q, r]:
+                dist[q, r] = nd
+                heapq.heappush(heap, (nd, int(q), int(r)))
     G.distToDst = dist
     return dist

@@ -1,4 +1,4 @@
-# 강화학습 학습 스크립트 - route_C가 시뮬레이터 안에서 직접 라우팅하며 배움 (온라인 DQN)
+# 강화학습 학습 스크립트 : route_C가 시뮬레이터 안에서 직접 라우팅하며 배움 (온라인 DQN)
 #
 # 실행 (isl_6x6_routing_py 폴더에서):
 #   python rl/train_rl.py                  -> config_rl의 trainEpisodes만큼 학습
@@ -30,9 +30,11 @@ from sim.build_grid import build_grid
 from sim.run_isl_sim import run_isl_sim
 
 
-def make_save_dir(RL):
+def make_save_dir(RL, topology='grid'):
     root = os.environ.get('RL_SAVE_ROOT', os.path.join(os.path.expanduser('~'), RL.modelDir))   # 환경 변수로 저장 위치 바꿀 수 있음
     base = f'routeC_{datetime.now():%Y-%m-%d}'
+    if topology != 'grid':   # 실제 위성군이나 크기를 바꾼 격자는 구조 이름도 붙임 (예: routeC_iridium_2026-11-01)
+        base = f"routeC_{topology.replace(':', '')}_{datetime.now():%Y-%m-%d}"
     i = 1
     while True:
         d = os.path.join(root, base if i == 1 else f'{base}_{i}')
@@ -54,11 +56,12 @@ def train(numEpisodes=None, simTime=None):
     agent = DQNAgent(RL)
     collector = Collector(agent, P, RL, learn=True)
     set_agent(agent, RL, explore=True, collector=collector)
-    saveDir = make_save_dir(RL)
+    saveDir = make_save_dir(RL, P.topology)
 
     with open(os.path.join(saveDir, 'run_info.txt'), 'w', encoding='utf-8') as f:
         f.write(f'route_C 온라인 DQN 학습 ({datetime.now():%Y-%m-%d %H:%M})\n')
         f.write(f'에피소드 {numEpisodes}개 x {P.simTime} step, 혼잡 단계 {RL.trainLevels} 돌아가며, 시드 {RL.trainSeedStart}부터\n')
+        f.write(f'망 구조 {P.topology} ({P.numPlanes} x {P.satsPerPlane}), 출발 {P.srcSat.tolist()} -> 도착 {P.dstSat.tolist()}\n')
         f.write(f'기한 {P.deadline}, TTL {P.ttlInit}, 큐 {P.queueMax}, 링크 용량 {P.linkCapacity}, 초당 {P.genRate}개\n')
         f.write('강화학습 설정: ' + ', '.join(f'{k}={v}' for k, v in vars(RL).items()) + '\n')
 

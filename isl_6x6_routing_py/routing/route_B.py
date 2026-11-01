@@ -22,23 +22,30 @@
 # 나중에 강화학습으로 바꿀 때는 이 함수만 교체하면 됨
 import numpy as np
 
+from routing.route_A import route_A
+from sim.build_grid import displacement
+
 
 def route_B(curP, curS, queueLen, G, P, **packet):   # packet: route_C가 쓰는 패킷 정보 (여기서는 안 씀)
     # decision_log 기록용 상태 (route_A와 같은 계산, 결정에는 안 씀)
     L = [-1.0] * 4
     N = [-1.0] * 4
     for d in G.validDirs[curP][curS]:
-        nextP = curP + G.stepP[d - 1]
-        nextS = curS + G.stepS[d - 1]
+        nextP, nextS = G.nbrP[curP, curS, d - 1], G.nbrS[curP, curS, d - 1]   # 이웃 위성 (원형 연결 반영)
         N[d - 1] = float(np.mean(queueLen[G.outLinks[nextP][nextS]]))   # 이웃 부하
         V = queueLen[G.linkId[curP, curS, d - 1]]                        # 링크 부하 (송신 큐 길이)
         L[d - 1] = (P.k * V + (1 - P.k) * N[d - 1]) / P.queueMax          # 링크 점유율
 
     # (1)(2) 방향 추정 + 주/보조 방향: 좌/우가 주, 상/하가 보조 (둘 다 목적지에 가까워지는 방향)
-    remainP = G.dstSat[0] - curP
-    remainS = G.dstSat[1] - curS
+    remainP, remainS = displacement(G, curP, curS, G.dstSat[0], G.dstSat[1])   # 원형이면 짧은 쪽 방향
     horiz = (4 if remainP > 0 else 3) if remainP != 0 else 0   # 4 우, 3 좌
     vert = (2 if remainS > 0 else 1) if remainS != 0 else 0    # 2 하, 1 상
+    # 실제 위성군에서는 그 방향 링크가 꺼져 있을 수 있음 (극지방 옆 궤도 링크, seam) -> 있는 링크만 후보
+    valid = G.validDirs[curP][curS]
+    horiz = horiz if horiz in valid else 0
+    vert = vert if vert in valid else 0
+    if not horiz and not vert:   # 목적지 쪽 링크가 모두 없으면 최단 경로 방향으로 돌아감 (6x6 격자에서는 생기지 않음)
+        return route_A(curP, curS, queueLen, G, P)[0], 1, L, N
     primaryDir, secondaryDir = (horiz, vert) if horiz else (vert, 0)
 
     # (3) 혼잡 회피: 자기 송신 큐만 봄

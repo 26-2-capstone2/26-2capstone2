@@ -22,6 +22,10 @@ torch는 강화학습(routeC)을 학습하거나 평가할 때만 필요함.
 
 ## 실행 (이 폴더에서)
 
+**가장 쉬운 방법: `python run.py`**
+질문에 번호로 답하면 됨 (할 일, grid 구조, 혼잡 단계, 라우팅, 시드, 에피소드 수). 엔터만 누르면 기본값을 씀.
+아래 명령을 직접 쓸 수도 있음.
+
 | 할 일 | 명령 |
 |---|---|
 | A, B 비교 실행 (config_isl.py 설정대로) | `python main_isl.py` |
@@ -32,6 +36,19 @@ torch는 강화학습(routeC)을 학습하거나 평가할 때만 필요함.
 | 여러 세트 한 번에 실행 | `python run_batch.py high routeB 1001 5` |
 | 테스트 | `python -m unittest discover -s tests` |
 | 웹 시뮬레이터 | `python web/server.py` 후 http://localhost:8000 |
+
+grid 구조 바꾸기: 환경 변수 `ISL_TOPOLOGY`로 고름 (기본은 6x6 가상 격자, `sim/topology.py`)
+
+| 값 | 구조 |
+|---|---|
+| `grid` (기본) | 6 x 6 가상 격자, 끝은 막힘, 지연 상하 7 / 좌우 2 ms |
+| `grid:8x8` 등 | 크기를 바꾼 가상 격자 |
+| `iridium` | 6 x 11, 같은 궤도 원형, seam(1번과 6번 궤도면 사이) 없음, 위도 60도 이상 옆 궤도 링크 꺼짐, 거리 기반 지연 |
+| `starlink` | 72 x 22, 같은 궤도와 옆 궤도 모두 원형, 거리 기반 지연 |
+| `starlink:12x12` 등 | Starlink 축소판 |
+
+예) PowerShell: `$env:ISL_TOPOLOGY="iridium"; python rl/train_rl.py`, bash: `ISL_TOPOLOGY=iridium python rl/train_rl.py`
+기한과 TTL은 구조에 맞게 자동으로 정해지고, 결과 폴더 이름에 구조 이름이 붙음 (예: `routeC_iridium_날짜`)
 
 결과 저장 위치 (프로젝트 밖, 홈 폴더)
 - 시뮬레이션 결과: `~/isl_saved_runs/라우팅_혼잡단계_날짜/`
