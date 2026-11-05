@@ -33,5 +33,5 @@ def burst_reward(k, P, RL):
 
 
 def burst_extra(k, P, RL):
-    # 연속 손실 패킷이 단발 손실 대신 받는 보상과의 차이 (기록을 도착/단발 보상과 연속 손실 몫으로 나누기 위함)
+    # 연속 손실 패킷이 단발 손실 대신 받는 보상과의 차이
     return burst_reward(k, P, RL) - RL.rewardSingleLoss

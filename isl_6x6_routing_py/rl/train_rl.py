@@ -84,7 +84,7 @@ def train(numEpisodes=None, simTime=None):
         maskFallbackStart = C_STATE.infeasibleMasks
 
         t0 = time.time()
-        R = run_isl_sim(P, P.genRate, 0, seed, False)   # 시뮬레이터 ε는 0 (탐험은 에이전트가 함)
+        R = run_isl_sim(P, P.genRate, 0, seed, False)   # 시뮬레이터 ε는 0 (탐험은 에이전트)
         unfinished = collector.finish()
         burst = burst_summary(R.status, P.burstMinLen)
         if RL.burstEnabled and collector.numBurstPenalties != burst.burstPackets:   # 연속 손실 패킷마다 한 번씩 받아야 함

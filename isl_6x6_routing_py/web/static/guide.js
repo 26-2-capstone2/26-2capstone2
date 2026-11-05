@@ -1,4 +1,4 @@
-// 사용 설명 1~9. 글과 순서도는 여기 한 파일에만 있어서, 문구를 바꿀 때 이 파일만 고치면 됨
+
 // 순서도는 Mermaid 글로 적음 (Figma "메인 화면 (Simulator)" 페이지의 사용 설명 4~8과 같은 내용)
 const rows = list => `<div class="rows">${list.map(([k, v]) => `<div><b>${k}</b><span>${v}</span></div>`).join('')}</div>`;
 const table = (head, data) => `<table><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr>${data.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;

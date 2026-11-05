@@ -61,8 +61,8 @@ def normalize(q, N, dq, sinceDrop, remDp, remDs, remDeadline, ttl, RL):
 
 
 def action_mask(q, P, G, curP, curS, remDeadline, mode='full'):
-    # mode 'link': 없는 방향만 막음 (링크가 없으면 보낼 수 없으므로 이것만은 항상 막음)
-    # mode 'full': 링크/큐 조건과 기한 내 도착의 낙관적인 최소 지연을 함께 확인한다.
+    # mode 'link': 없는 방향만 막음
+    # mode 'full': 링크/큐 조건과 기한 내 도착의 낙관적인 최소 지연을 함께 확인
     #   모든 큐가 꽉 차거나 기한상 가능한 방향이 없으면 빈 마스크 대신 기존 후보로 되돌린다.
     q = np.asarray(q, dtype=float)
     link = q >= 0

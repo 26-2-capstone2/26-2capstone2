@@ -64,8 +64,8 @@ def ask_size(title, default):
 def ask_topology():
     kind = ask_choice('grid 구조 선택', [
         ('6 x 6 가상 격자 (기본)', 'grid'),
-        ('크기를 직접 정하는 가상 격자 (예: 8x8)', 'grid-size'),
-        ('Iridium (6 x 11, 극궤도, seam 있음)', 'iridium'),
+        ('원하는 가상 grid (예: 8x8)', 'grid-size'),
+        ('Iridium (6 x 11 극궤도)', 'iridium'),
         ('Starlink 1차 셸 (72 x 22, 위성 1,584개)', 'starlink'),
         ('Starlink 축소판 (크기 지정, 예: 12x12)', 'starlink-size'),
     ])
@@ -128,14 +128,13 @@ def newest(pattern, since):
 def main():
     print('=' * 60)
     print(' ISL 라우팅 시뮬레이션 실행 Helper')
-    print(' 번호 입력 후 엔터. 엔터만 누르면 [괄호] 안 기본값 사용')
-    print(' 중간에 멈추기: Ctrl + C')
+    print(' 번호 입력 후 엔터. 엔터만 누르면 괄호 안 기본값 사용')
     print('=' * 60)
 
     task = ask_choice('할 일 선택', [
         ('시뮬레이션 실행 (결과 CSV, 그래프, 애니메이션 저장)', 'sim'),
-        ('강화학습 C 학습 (모델 저장)', 'train'),
-        ('A, B, C 비교 평가 (평가 시드로 같은 조건 비교)', 'eval'),
+        ('강화학습 C 학습 및 모델 저장', 'train'),
+        ('같은 조건으로 A, B, C 비교 평가', 'eval'),
         ('테스트 (코드 동작 확인, 약 10초)', 'test'),
     ])
     env = dict(os.environ, PYTHONIOENCODING='utf-8')
