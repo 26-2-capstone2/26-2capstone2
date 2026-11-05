@@ -94,12 +94,16 @@ if P.bgEnable:
     print(f'[배경 시나리오] 시작 시드 {P.bgScenarioSeed}, 에피소드 {numEp}개 x {P.simTime * P.stepTime:.0f}초')
     with open(os.path.join(outDir, 'bg_scenario.csv'), 'w', newline='') as f:   # 어떤 시나리오였는지 결과에 같이 저장
         w = csv.writer(f)
-        w.writerow(['episode', 'seed', 'p', 's', 'direction', 'load', 'relevant'])
+        isEvent = getattr(P, 'bgMode', 'hotspot') == 'event'   # 혼잡 사건 방식이면 사건별 시작, 끝 step도 저장
+        w.writerow(['episode', 'seed', 'p', 's', 'direction', 'load', 'hotspot' if isEvent else 'relevant'] + (['start', 'end'] if isEvent else []))
         for e, sd in enumerate(seeds):
             picked, rates = sample_hotspots(P, G, sd)
-            print(f'  에피소드 {e:2d} (시드 {sd}): 핫스팟 {len(picked)}개: {describe_hotspots(picked, rates, P)}')
-            for c, r in zip(picked, rates):
-                w.writerow([e, sd, c[0], c[1], c[2], round(r / P.linkCapacity, 3), int(c[5])])
+            if isEvent:
+                print(f'  에피소드 {e:2d} (시드 {sd}): 지역 핫스팟 링크 {sum(c[5] for c in picked)}개')
+            else:
+                print(f'  에피소드 {e:2d} (시드 {sd}): 핫스팟 {len(picked)}개: {describe_hotspots(picked, rates, P)}')
+            for i, (c, r) in enumerate(zip(picked, rates)):
+                w.writerow([e, sd, c[0], c[1], c[2], round(r / P.linkCapacity, 3), int(c[5])] + (list(P.bgEvents[i]) if isEvent else []))
 
 logColumns = ['step', 'packet_id', 'hop', 'cur_p', 'cur_s',
               'q_up', 'q_down', 'q_left', 'q_right',
@@ -180,7 +184,9 @@ with open(os.path.join(outDir, 'run_info.txt'), 'w', encoding='utf-8') as f:
             f'라우팅: {", ".join(f"{r} (ε = {eps:.1f})" for r, eps, _ in runPlan)}' + (f' (모델: {modelPath})' if modelPath else ''),
             f'혼잡 단계: {P.bgLevel}',
             f'배경 시드: {seeds[0]} ~ {seeds[-1]} (에피소드 {numEp}개 x {P.simTime * P.stepTime:.0f}초)',
-            f'핫스팟 개수: {P.bgNumMin} ~ {P.bgNumMax}, 세기: {P.bgLoadMin} ~ {P.bgLoadMax}배, ON/OFF 평균: {P.bgOnMean} / {P.bgOffMean} step',
+            (f'배경 트래픽: 기본 부하 {P.bgBaseMin} ~ {P.bgBaseMax}배 + 지역 핫스팟 (발생 간격 평균 {P.evIntervalMean} step, 지속 평균 {P.evDurationMean} step, 추가 세기 {P.evLoadMin} ~ {P.evLoadMax}배)'
+             if getattr(P, 'bgMode', 'hotspot') == 'event' else
+             f'핫스팟 개수: {P.bgNumMin} ~ {P.bgNumMax}, 세기: {P.bgLoadMin} ~ {P.bgLoadMax}배, ON/OFF 평균: {P.bgOnMean} / {P.bgOffMean} step'),
             f'기한: {P.deadline} step, TTL: {P.ttlInit}, 큐: {P.queueMax}, 링크 용량: {P.linkCapacity}, 연속 손실 기준: {P.burstMinLen}개',
             f'생성률: {P.genRate}개/초, ε 시드: {P.randomSeed} ~ {P.randomSeed + numEp - 1}']
     f.write('\n'.join(info) + '\n')

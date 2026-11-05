@@ -1,4 +1,4 @@
-# 링크별 최근 기록 - route_C의 관측(State)에 쓰는 과거 값
+# 링크별 최근 기록 : route_C의 관측(State)에 쓰는 과거 값
 #   큐 길이 기록: 최근 HISTORY_STEPS step의 링크별 큐 길이 (큐 증가 속도, 링크 지연만큼 늦게 받는 이웃 부하에 사용)
 #   마지막 넘침 시각: 링크 큐에서 패킷(주 흐름, 배경 모두)이 버려진 마지막 step
 # 시뮬레이터(sim/run_isl_sim.py)가 매 step 끝에 record(), 큐가 넘칠 때 drop()을 부름

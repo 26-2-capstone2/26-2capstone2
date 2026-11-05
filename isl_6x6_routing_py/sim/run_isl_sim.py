@@ -66,6 +66,10 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     bgStat = dict(generated=0, delivered=0, overflow=0, ttlExpired=0, srcDrop=0)
     if bgOn:
         bgCount = make_bg_schedule(P)
+        bgFlowSP = np.array([f[0][0] for f in P.bgFlows], dtype=np.int64)   # 흐름별 출발, 도착 위성 (배열로 한꺼번에 생성)
+        bgFlowSS = np.array([f[0][1] for f in P.bgFlows], dtype=np.int64)
+        bgFlowDP = np.array([f[1][0] for f in P.bgFlows], dtype=np.int64)
+        bgFlowDS = np.array([f[1][1] for f in P.bgFlows], dtype=np.int64)
     linkSent = np.zeros(numLinks, dtype=np.int64)
     hist = LinkHistory(numLinks)   # 링크별 최근 큐 길이, 마지막 넘침 시각 (route_C 관측용)
 
@@ -170,23 +174,26 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             curS[newIds] = G.srcSat[1]
 
                 # 4-B. 배경 패킷 생성
+        #   흐름 순서대로 빈 id를 받음 (빈 id가 모자라면 뒤쪽 흐름부터 못 만듦 = srcDrop)
         bgNew = []
         if bgOn and t <= P.simTime:
-            for f in np.flatnonzero(bgCount[:, t]):
-                n = int(bgCount[f, t])
-                k = min(n, len(bgFree))
-                bgStat['generated'] += n
-                bgStat['srcDrop'] += n - k
+            flows = np.flatnonzero(bgCount[:, t])
+            if len(flows):
+                perPkt = np.repeat(flows, bgCount[flows, t])   # 패킷마다 어느 흐름인지
+                k = min(len(perPkt), len(bgFree))
+                bgStat['generated'] += len(perPkt)
+                bgStat['srcDrop'] += len(perPkt) - k
                 if k > 0:
-                    ids = np.array([bgFree.pop() for _ in range(k)], dtype=np.int64)
-                    (sp, ss), (dp, ds) = P.bgFlows[f]
+                    ids = np.array(bgFree[:-k - 1:-1], dtype=np.int64)   # list.pop()을 k번 한 것과 같은 순서
+                    del bgFree[-k:]
+                    f = perPkt[:k]
                     genTime[ids] = t
                     ttl[ids] = P.bgTtl
                     hops[ids] = 0
-                    curP[ids] = sp
-                    curS[ids] = ss
-                    dstP[ids] = dp
-                    dstS[ids] = ds
+                    curP[ids] = bgFlowSP[f]
+                    curS[ids] = bgFlowSS[f]
+                    dstP[ids] = bgFlowDP[f]
+                    dstS[ids] = bgFlowDS[f]
                     onLink[ids] = -1
                     bgNew.append(ids)
 
@@ -200,20 +207,23 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             order = np.argsort(bl, kind='stable')
             bgIds = bgIds[order]
             bl = bl[order]
-            for link in np.unique(bl):
-                ids = bgIds[bl == link]
-                k = int(min(len(ids), queueMax - queueLen[link]))
-                if k > 0:
-                    pos = (queueHead[link] + queueLen[link] + np.arange(k)) % queueMax
-                    queueBuf[link, pos] = ids[:k]
-                    queueLen[link] += k
-                if k < len(ids):
-                    lost = ids[k:]
-                    bgStat['overflow'] += len(lost)
-                    hist.drop(link, t)
-                    if nlog is not None:
-                        nlog.add(1, np.full(len(lost), nlog.linkNode[link]))
-                    bgFree.extend(lost.tolist())
+            #   링크별로 큐 빈자리만큼 앞에서부터 넣고 나머지는 오버플로 (링크마다 반복하지 않고 한꺼번에)
+            first = np.r_[0, np.flatnonzero(np.diff(bl)) + 1]                 # 링크 묶음의 시작 위치
+            rank = np.arange(len(bl)) - np.repeat(first, np.diff(np.r_[first, len(bl)]))   # 묶음 안 순번
+            ok = rank < (queueMax - queueLen[bl])
+            if ok.any():
+                okL = bl[ok]
+                queueBuf[okL, (queueHead[okL] + queueLen[okL] + rank[ok]) % queueMax] = bgIds[ok]
+                queueLen += np.bincount(okL, minlength=numLinks)
+            if not ok.all():
+                lost = bgIds[~ok]
+                lostL = bl[~ok]
+                bgStat['overflow'] += len(lost)
+                for link in np.unique(lostL):
+                    hist.drop(int(link), t)
+                if nlog is not None:
+                    nlog.add(1, nlog.linkNode[lostL])
+                bgFree.extend(lost.tolist())
 
         # 5. 라우팅 결정 (도착 패킷 -> 생성 패킷 순)
         toRoute = np.concatenate([inTransit, newIds])
@@ -261,26 +271,24 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             nlog.peak(queueLen)   # 라우팅 후 전송 전 (큐가 가장 찬 순간)
 
         # 6. 전송: 링크마다 큐 앞쪽 최대 linkCapacity개
-        sentLinks, sentN, sentPktLink, sentIds = [], [], [], []   # 노드 기록용
-        for link in np.flatnonzero(queueLen > 0):
-            n = min(queueLen[link], P.linkCapacity)
-            pos = (queueHead[link] + np.arange(n)) % queueMax
-            ids = queueBuf[link, pos]
-            queueHead[link] = (queueHead[link] + n) % queueMax
-            queueLen[link] -= n
-            linkSent[link] += n
-            curP[ids] = G.nextP[link]
-            curS[ids] = G.nextS[link]
-            arriveSlot = (t + G.linkDelay[link] + P.processingDelay) % numSlots
-            arrivalSlot[arriveSlot].extend(ids.tolist())
-            onLink[ids] = link
+        #   링크마다 반복하지 않고 한꺼번에 처리 (패킷 순서는 링크 번호순, 링크 안에서는 큐 앞쪽부터)
+        sendL = np.flatnonzero(queueLen > 0)
+        if len(sendL):
+            sendN = np.minimum(queueLen[sendL], P.linkCapacity)
+            pktL = np.repeat(sendL, sendN)                                      # 패킷마다 보내는 링크
+            rank = np.arange(len(pktL)) - np.repeat(np.cumsum(sendN) - sendN, sendN)
+            ids = queueBuf[pktL, (queueHead[pktL] + rank) % queueMax]
+            queueHead[sendL] = (queueHead[sendL] + sendN) % queueMax
+            queueLen[sendL] -= sendN
+            linkSent[sendL] += sendN
+            curP[ids] = G.nextP[pktL]
+            curS[ids] = G.nextS[pktL]
+            onLink[ids] = pktL
+            slotOf = (t + G.linkDelay[pktL] + P.processingDelay) % numSlots
+            for sl in np.unique(slotOf):
+                arrivalSlot[sl].extend(ids[slotOf == sl].tolist())
             if nlog is not None:
-                sentLinks.append(link)
-                sentN.append(n)
-                sentPktLink.append(np.full(n, link))
-                sentIds.append(ids)
-        if nlog is not None and sentLinks:
-            nlog.sent(np.array(sentLinks), np.array(sentN), np.concatenate(sentPktLink), np.concatenate(sentIds))
+                nlog.sent(sendL, sendN, pktL, ids)
 
         timeline[t - 1, :] = [numPackets, *statusCount]
         if nlog is not None:

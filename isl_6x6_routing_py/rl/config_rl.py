@@ -37,16 +37,16 @@ def config_rl(P):
 
     # ---- 신경망 (rl_agent.py) ----
     RL.hidden = [64, 64]                   # 중간층 크기: 입력 24 -> 64 -> 64 -> 출력 4 (방향별 Q값)
-    RL.lr = 1e-3                           # 학습률 (Adam)                                   [시작값]
+    RL.lr = 1e-4                           # 학습률 (Adam), SB3 DQN 기본값 (기존 1e-3)        [학습 안정화 계획]
     RL.gamma = 0.95                        # 할인율 γ [시작값]
     RL.doubleDQN = True                    # Double DQN
 
     # ---- 리플레이 버퍼, 학습 ----
-    RL.bufferSize = 200000                 # 리플레이 버퍼 크기 (경험 수)                       [시작값]
+    RL.bufferSize = 1000000                # 리플레이 버퍼 크기 (경험 수), SB3 기본값 (기존 20만)  [학습 안정화 계획]
     RL.batchSize = 64                      # 한 번 학습에 꺼내는 경험 수                         [시작값]
-    RL.learnStart = 5000                   # 버퍼에 이만큼 쌓인 뒤부터 학습 시작                   [시작값]
+    RL.learnStart = 50000                  # 버퍼에 이만큼 쌓인 뒤부터 학습 시작, SB3 기본값 (기존 5천)  [학습 안정화 계획]
     RL.trainEvery = 4                      # 결정 몇 번마다 한 번 학습                            [시작값]
-    RL.targetUpdate = 2000                 # 학습 몇 번마다 타깃 신경망을 복사                     [시작값]
+    RL.targetUpdate = 2500                 # 학습 몇 번마다 타깃 신경망을 복사 (= 결정 1만 번마다, DQN, SB3 기본값)  [학습 안정화 계획]
     RL.gradClip = 10.0                     # 기울기 최대 크기
 
     # ---- 탐험 (ε-greedy, 온라인 학습) ----
@@ -57,12 +57,17 @@ def config_rl(P):
     # ---- 학습 실행 (train_rl.py) ----
     RL.trainLevels = ['base', 'high', 'severe']   # 혼잡 세 단계를 섞어서 학습 (에피소드마다 돌아가며)
     RL.trainSeedStart = 1001               # 학습용 시드 시작 (평가용 시드 1~20은 학습에 절대 안 씀)
-    RL.trainEpisodes = 60                  # 학습 에피소드 수 (30초짜리, 단계마다 20개)           [시작값]
+    RL.trainEpisodes = 270                 # 학습 에피소드 수 (10초짜리, 총 결정 약 200만 번)     [학습 안정화 계획]
     RL.evalSeeds = list(range(1, 21))      # 평가용 시드 1~20 (A, B와 같은 조건)
     RL.torchSeed = 0                       # 신경망 초기값, 버퍼 샘플링 난수 시드
 
     # ---- 저장 ----
     RL.modelDir = 'rl_models'              # 학습된 신경망 저장 폴더
     RL.saveEvery = 10                      # 에피소드 몇 개마다 체크포인트 저장
+
+    # ---- 학습 중 검증 평가 (학습 곡선용, train_rl.py) ----
+    RL.evalEvery = 10                      # 에피소드 몇 개마다 학습을 멈추고 검증 평가 (학습 시작 전에도 1번)
+    RL.valSeeds = list(range(501, 506))    # 검증용 시드 501~505 (학습 1001~, 최종 평가 1~20과 겹치지 않게)
+    RL.valLevels = ['base', 'high', 'severe']   # 검증할 혼잡 단계 (ε 0, 학습 없음)
 
     return RL

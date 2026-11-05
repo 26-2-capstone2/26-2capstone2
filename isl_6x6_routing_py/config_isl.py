@@ -17,12 +17,25 @@ BG_LEVELS = {
 }
 
 
+# 혼잡 사건 방식(P.bgMode = 'event', sim/bg_event.py)의 단계별 값 (step): 지역 핫스팟 발생 간격 평균, 지속 시간 평균
+# 지속 평균 2.5초: 실제 망의 혼잡은 짧은 버스트(Back-Pressure 논문 평균 1초)보다 길게 이어지는 경우가 많아 늘림
+# 발생 간격: 30초 에피소드에서 동시에 걸린 지역이 '항상 한 곳(약 1개) / 여러 곳(약 2개) / 최악(약 4개)'이 되게 정한 값
+# (처음 정한 base 5000은 빼고 한 단계씩 올림: 이전 high -> base, 이전 severe -> high, severe는 최악 상황으로 새로 추가)
+EVENT_LEVELS = {
+    'base':   dict(evIntervalMean=2500, evDurationMean=2500),   # 30초에 핫스팟 약 12번, 동시 약 1개 지역
+    'high':   dict(evIntervalMean=1250, evDurationMean=2500),   # 약 24번, 동시 약 2개
+    'severe': dict(evIntervalMean=625, evDurationMean=2500),    # 약 48번, 동시 약 4개 (최악 상황)
+}
+
+
 def apply_bg_level(P, level):
     # 혼잡 단계 이름으로 위 표의 값을 P에 덮어씀 (config_isl 끝과 main_isl 실행 인자에서 사용)
     if level not in BG_LEVELS:
         raise ValueError(f'혼잡 단계는 {list(BG_LEVELS)} 중 하나: {level}')
     P.bgLevel = level
     for k, v in BG_LEVELS[level].items():
+        setattr(P, k, v)
+    for k, v in EVENT_LEVELS[level].items():
         setattr(P, k, v)
     return P
 
@@ -67,8 +80,9 @@ def config_isl():
     # ---- 실험 ----
     P.genRate = 60                         # 1초마다 생성하는 패킷 수 (일정 간격)
     P.epsilonList = [0, 0.1]               # 무작위 선택 확률 (0: 성능 측정용, 0.1: 데이터 수집용)
-    P.simTime = 30000                      # 에피소드 1개의 길이 (step = 30초). 에피소드마다 큐가 비어 있는 상태로 시작
-    P.numEpisodes = 20                     # 에피소드 개수 (총 시뮬레이션 = simTime x numEpisodes = 10분)
+    P.simTime = 10000                      # 에피소드 1개의 길이 (step = 10초). 에피소드마다 큐가 비어 있는 상태로 시작
+                                           #   학습 안정화 계획: 에피소드당 결정 약 7천~8천 번으로 줄여 학습 곡선을 촘촘하게 봄
+    P.numEpisodes = 20                     # 에피소드 개수 = 최종 평가 시드 1~20 (총 시뮬레이션 = simTime x numEpisodes)
     P.maxDrainTime = 500                   # 생성 종료 후 남은 패킷 처리 최대 step [설정]
     P.randomSeed = 1                       # 난수 시드                             [설정]
     P.stepTime = 1e-3                      # 1 step = 1 ms (초 단위)
@@ -86,6 +100,13 @@ def config_isl():
     # 핫스팟의 위치/개수/세기는 에피소드마다 시드로 무작위 선택 (bg_traffic.sample_hotspots). 같은 시드면 같은 시나리오
     # 에피소드 안에서는 핫스팟 위치가 고정이고, ON/OFF 시점만 계속 바뀜
     P.bgEnable = True                      # False면 배경 트래픽 없음 (기존 결과와 완전히 같음)
+    P.bgMode = 'event'                     # 'event': 기본 부하 + 지역 핫스팟이 무작위로 생겼다 사라짐 (sim/bg_event.py, 위 EVENT_LEVELS)
+                                           # 'hotspot': 기존 방식, 핫스팟 위치 고정 + 켜짐/꺼짐 (bg_traffic.py, 위 BG_LEVELS)
+    P.bgBaseMin, P.bgBaseMax = 0.1, 0.4    # 'event' 기본 부하: 모든 링크에 링크 용량의 0.1~0.4배 (링크마다 에피소드 시작에 정함)
+    P.evLoadMin, P.evLoadMax = 0.5, 1.5    # 'event' 지역 핫스팟: 중심 위성의 송신 링크마다 기본 부하에 더하는 세기 (용량의 배수)
+    P.evNbrRatio = 0.5                     # 'event' 이웃 위성의 송신 링크에는 위 세기의 이 비율만큼 더함 (지역 혼잡)
+    P.evCorridor = 1.0                     # 'event' 출발 -> 도착 직선에서 이 칸 수 이내 위성이 '주 흐름이 지나는 지역' (bgRelWeight배 더 자주)
+    P.evSafeLoad = 1.0                     # 'event' 안전장치: 부하 합이 용량의 이 배수 이상인 링크를 모두 빼고도 출발 -> 도착 길이 있어야 핫스팟을 만듦
     P.bgScenarioSeed = 1                   # 첫 에피소드의 시나리오 시드. 에피소드 e는 시드+e를 씀 (None이면 실행마다 무작위 시작 시드)
                                            # 실행할 때 python main_isl.py 7 처럼 시작 시드를 직접 줄 수도 있음
     P.bgNumMin, P.bgNumMax = 2, 5          # 핫스팟(과부하 송신 큐) 개수 범위

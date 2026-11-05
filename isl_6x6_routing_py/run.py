@@ -105,8 +105,10 @@ def save_info(task, summary, topoTag):
     if task == 'train':
         folder = os.path.join(HOME, 'rl_models', f'routeC{t}_{today}')
         return (folder,
-                ['model_final.pt (최종 모델), model_ep10.pt 등 (10 에피소드마다)',
-                 'train_log.csv (에피소드별 학습 기록), run_info.txt (학습 조건)',
+                ['폴더 이름 끝에 학습 시드가 붙음 (예: _s0)',
+                 'model_final.pt (최종 모델), model_ep10.pt 등 (10 에피소드마다)',
+                 'train_log.csv (학습 중 기록), eval_log.csv (10 에피소드마다 검증 평가, ε 0), run_info.txt (학습 조건)',
+                 '학습 곡선 목표 판정: python analysis/learning_targets.py 학습폴더',
                  '같은 날 또 학습하면 이름 뒤에 _2, _3 붙음'],
                 folder + '*')
     if task == 'eval':
@@ -166,9 +168,11 @@ def main():
                 summary.append(('C 모델', model))
 
         elif task == 'train':
-            episodes = ask_int('학습 에피소드 수 입력 (30초씩, 혼잡 3단계 번갈아 학습)', 60)
-            cmd = [sys.executable, os.path.join('rl', 'train_rl.py'), str(episodes)]
-            summary += [('학습 에피소드', f'{episodes}개 (예상 시간 약 {episodes}~{episodes * 2}분)')]
+            episodes = ask_int('학습 에피소드 수 입력 (10초씩, 혼잡 3단계 번갈아 학습)', 270)
+            trainSeed = ask_int('학습 시드 입력 (신경망 초기값, 여러 개 돌릴 때 0, 1, 2)', 0, 0, 1000)
+            cmd = [sys.executable, os.path.join('rl', 'train_rl.py'), str(episodes), '0', str(trainSeed)]
+            summary += [('학습 에피소드', f'{episodes}개 (검증 평가 포함 예상 시간 약 {max(1, episodes // 3)}~{max(1, episodes // 2)}분)'),
+                        ('학습 시드', trainSeed)]
 
         else:   # eval
             level = ask_choice('혼잡 단계 선택', [('전부 (base, high, severe)', 'all')] + [(lv, lv) for lv in LEVELS])

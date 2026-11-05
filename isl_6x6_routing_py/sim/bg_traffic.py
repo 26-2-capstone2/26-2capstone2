@@ -8,6 +8,9 @@ from sim.build_grid import displacement
 def make_bg_schedule(P):
     # bgCount[f, t] = 흐름 f가 step t에 만드는 패킷 수 (t = 1 ~ simTime, 0열은 안 씀)
     # 배경 전용 난수(bgSeed)를 써서 라우터 동작과 무관하게 항상 같은 시나리오가 나옴
+    if getattr(P, 'bgMode', 'hotspot') == 'event':   # 혼잡 사건 방식은 sim/bg_event.py
+        from sim.bg_event import make_event_schedule
+        return make_event_schedule(P)
     if len(P.bgFlows) == 0:
         raise RuntimeError('배경 흐름이 비어 있음: 실행 전에 sample_hotspots(P, build_grid(P), 시드)를 호출해야 함')
     rng = np.random.RandomState(P.bgSeed)
@@ -73,6 +76,9 @@ def sample_hotspots(P, G, seed, maxTry=500):
     # 송신 큐 핫스팟(위성, 방향)을 무작위로 뽑아 P.bgFlows / P.bgOnRate / P.bgSeed를 채움
     #   같은 시드면 항상 같은 시나리오. 한 번 실행(에피소드)을 시작하기 전에 한 번만 호출
     #   반환: 뽑힌 핫스팟 목록 [(p, s, 방향, 다음 p, 다음 s, 주 흐름과 관련 있는 큐인지)], 세기 목록(packets/step)
+    if getattr(P, 'bgMode', 'hotspot') == 'event':   # 혼잡 사건 방식은 sim/bg_event.py
+        from sim.bg_event import sample_events
+        return sample_events(P, G, seed, maxTry)
     rng = np.random.RandomState(seed)
     src = (int(P.srcSat[0]), int(P.srcSat[1]))
     dst = (int(P.dstSat[0]), int(P.dstSat[1]))
