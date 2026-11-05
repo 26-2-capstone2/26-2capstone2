@@ -1,6 +1,6 @@
 # 재생기용 기록 만들기 - 같은 상황(혼잡 단계, 평가 시드)에서 C와 B를 돌려 웹 재생기(viz/replay/replay.html)가 읽을 파일로 저장
 #
-# 실행 (isl_6x6_routing_py 폴더에서):
+# 실행 (isl_routing 폴더에서):
 #   python viz/export_replay.py 모델경로 [혼잡단계] [저장폴더]
 #   예) python viz/export_replay.py C:/Users/eun/rl_models/routeC_2026-10-30/model_final.pt severe
 # 저장: 저장폴더/replay_data.js + replay.html (기본: 홈 폴더 isl_saved_runs/replay_날짜) -> replay.html을 브라우저로 열면 됨
@@ -15,7 +15,7 @@ import shutil
 import sys
 from datetime import datetime
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # isl_6x6_routing_py를 import 경로에 추가
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # isl_routing를 import 경로에 추가
 
 import numpy as np
 

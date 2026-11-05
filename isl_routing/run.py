@@ -1,6 +1,6 @@
 # 실행  터미널 실행 헬퍼..
 #
-# 실행 (isl_6x6_routing_py 폴더에서):  python run.py
+# 실행 (isl_routing 폴더에서):  python run.py
 #   1. 할 일:      시뮬레이션 (main_isl.py) / C 학습 (rl/train_rl.py) / A, B, C 평가 (eval_routes.py) / 테스트
 #   2. grid 구조:    6x6 격자 / 크기 지정 격자 / Iridium / Starlink / Starlink 축소판
 #   3. 혼잡 단계:  base / high / severe

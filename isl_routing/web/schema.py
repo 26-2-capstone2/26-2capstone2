@@ -7,7 +7,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # isl_6x6_routing_py
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # isl_routing
 
 from config_isl import BG_LEVELS, apply_bg_level, config_isl
 from rl.config_rl import config_rl

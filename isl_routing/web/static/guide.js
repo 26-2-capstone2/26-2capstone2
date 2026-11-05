@@ -32,7 +32,7 @@ const PAGES = [
 <h2>주의</h2><p>바꾼 값은 web/user_settings.json에만 저장되고 config_isl.py, config_rl.py 원본은 바뀌지 않습니다. 비교 실험을 할 때는 한 번에 하나의 값만 바꾸는 것이 좋습니다.</p>` },
   { g: '처음 쓰는 법', t: '3. 실행과 결과 보기', lead: '학습을 시작하고, 진행되는 모습과 결과 숫자를 읽는 방법입니다.', body: `
 <h2>실행 순서</h2>${rows([
-  ['1  서버 켜기', 'isl_6x6_routing_py 폴더에서 <span class="code">python web/server.py</span>를 실행하고 브라우저에서 http://localhost:8000 을 엽니다.'],
+  ['1  서버 켜기', 'isl_routing 폴더에서 <span class="code">python web/server.py</span>를 실행하고 브라우저에서 http://localhost:8000 을 엽니다.'],
   ['2  재생', '시뮬레이터 화면의 둥근 재생 버튼을 누르면 학습이 시작됩니다.'],
   ['3  지켜보기', '위성망에서 패킷이 핫스팟을 피해 가는지, 숫자와 타임라인이 어떻게 바뀌는지 봅니다. 속도를 "느리게"로 두면 패킷 움직임이 잘 보입니다.'],
   ['4  멈춤, 한 단계', '재생 버튼을 다시 누르면 멈춥니다. 오른쪽 버튼은 10 ms씩 넘겨 봅니다.'],

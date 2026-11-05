@@ -1,6 +1,6 @@
 # 강화학습 결과 그림 - 학습 곡선 (C가 배우긴 했나?), 라우팅 비교 막대 (C가 다른 방법보다 잘하나?)
 #
-# 실행 (isl_6x6_routing_py 폴더에서):
+# 실행 (isl_routing 폴더에서):
 #   python viz/plot_rl.py 학습폴더 평가summary.csv [평가summary.csv ...]
 #   예) python viz/plot_rl.py C:/Users/eun/rl_models/routeC_2026-11-01
 #              C:/Users/eun/isl_saved_runs/eval_2026-11-01/summary.csv
@@ -11,7 +11,7 @@ import csv
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # isl_6x6_routing_py를 import 경로에 추가
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # isl_routing를 import 경로에 추가
 
 import matplotlib
 matplotlib.use('Agg')

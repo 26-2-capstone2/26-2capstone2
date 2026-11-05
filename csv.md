@@ -1,140 +1,170 @@
-# 시뮬레이션 결과 CSV 설명
+# 결과 CSV 설명
 
-시뮬레이션(`main_isl`)을 실행하면 `results/` 폴더에 CSV 5종류가 생성됨.
-**요약 → 패킷 단위 → 결정 단위 → 노드 단위 → 배경 시나리오** 순서.
-30초 에피소드 20개(총 10분)를 이어 붙인 결과라서, 시각(`step`)과 패킷 번호는 에피소드를 지나며 계속 이어짐.
+결과 파일은 실행 종류에 따라 세 곳에 생김. 모든 지표는 **주 흐름 패킷**만으로 계산하고, 배경 트래픽 패킷은 개수만 따로 기록.
 
-| 파일 | 1줄 = | 용도 |
+| 실행 | 저장 위치 | 파일 |
 | --- | --- | --- |
-| `metrics_summary.csv` | 실행 1번 | 최종 성능 지표 (보고서, 비교용) |
-| `packet_log_*.csv` | 패킷 1개 | 패킷별 생성, 종료 시각과 결과 |
-| `decision_log_*.csv` | 라우팅 결정 1번 | 강화학습 학습 데이터 |
-| `node_log_*.csv` | 기록 시각 1번 x 노드 1개 | 노드 기준 상태 (큐, 보낸 수, 손실) |
-| `bg_scenario.csv` | 핫스팟 1개 | 에피소드별 배경 트래픽 핫스팟 (위치, 방향, 세기) |
+| ① A, B 시뮬레이션 (`main_isl.py`) | `isl_routing/results/` + `~/isl_saved_runs/라우팅_혼잡단계_날짜/` | `metrics_summary.csv`, `packet_log_*.csv`, `burst_log_*.csv`, `decision_log_*.csv`, `node_log_*.csv`, `bg_scenario.csv` |
+| ② C 학습 (`rl/train_rl.py`) | `~/rl_models/routeC_날짜_s학습시드/` | `train_log.csv`, `eval_log.csv` |
+| ③ 최종 평가 (`eval_routes.py`, `analysis/compare_runs.py`) | `~/isl_saved_runs/eval_날짜/` | `summary.csv`, `per_seed.csv`, `targets_report.csv` |
 
-모든 지표는 **주 흐름 패킷**만으로 계산함. 배경 트래픽 패킷은 개수만 따로 기록.
+- ①의 파일 이름 `*` = `라우팅_rate60pps_eps값` (예: `packet_log_routeB_rate60pps_eps0.0.csv`)
+- ①은 에피소드 여러 개를 이어 붙인 결과라서, 시각(`step`)과 패킷 번호가 에피소드를 지나며 계속 이어짐 (에피소드 e의 시각은 e x 에피소드 길이를 더한 값)
+- 결과 번호 `result`: 1 기한 내 도착, 2 목적지 기한 초과, 3 중간 기한 초과, 4 큐 오버플로, 5 TTL 만료
+- 방향 번호: 1 상, 2 하, 3 좌, 4 우. 없는 방향(격자 끝)은 `-1`
 
 ---
 
-## 1. `metrics_summary.csv` : 최종 성능 지표
+## ① A, B 시뮬레이션
 
-- **용도**: 실행마다 성능 지표를 한 줄로 요약. 보고서/발표용 숫자이자, 나중에 강화학습과 비교할 기준
-- **1줄 =** 실행 1번 (`main_isl`은 ε = 0, ε = 0.1 두 줄)
+### `metrics_summary.csv` : 최종 성능 지표
+- **1줄 =** 실행 1번 (기본: A ε 0, B ε 0, B ε 0.1 세 줄)
 
 | 열 | 뜻 |
 | --- | --- |
-| `routeName` | 라우팅 알고리즘 (`A_Dijkstra` 최단 경로, `B_LinkLoad` 부하 고려) |
-| `genRate`, `epsilon` | 실행 조건 (1초마다 생성 패킷 수, 무작위 선택 확률) |
-| `generated` | 생성한 패킷 수 |
-| `onTime` | 기한 내 도착한 패킷 수 |
-| `lateAtDst`, `lateMid`, `overflow`, `ttlExpired` | 손실 원인별 개수 (목적지 기한 초과, 중간 기한 초과, 큐 오버플로, TTL 만료) |
-| `avgLatency_ms` | Average Latency (ms) |
-| `lossRate` | Packet Loss Rate |
-| `throughput_Mbps` | Throughput (Mbps) |
-| `onTimeRate` | On-time Delivery Rate |
-| `maxConsecLoss` | Consecutive Packet Loss Length |
-| `routeChanges` | Route Change Count |
-| `avgHops` | Average Hop Count |
-| `bgGenerated`, `bgDelivered`, `bgOverflow`, `bgTtlExpired`, `bgSrcDrop` | 배경 트래픽 개수 (생성, 도착, 큐 오버플로, TTL 만료, 동시 배경 패킷 수 한도(20000) 때문에 만들지 못함) |
+| `routeName`, `genRate`, `epsilon` | 라우팅, 초당 생성 패킷 수, 무작위 선택 확률 |
+| `generated`, `onTime` | 생성 수, 기한 내 도착 수 |
+| `lateAtDst`, `lateMid`, `overflow`, `ttlExpired` | 손실 원인별 개수 |
+| `avgLatency_ms` | 평균 지연 (목적지에 도착한 패킷, 기한 초과 도착 포함) |
+| `lossRate`, `onTimeRate` | 손실률, 기한 내 도착률 |
+| `throughput_Mbps` | 처리량 |
+| `maxConsecLoss` | 최대 연속 손실 (에피소드 경계에서 끊음) |
+| `burstMinLen`, `burstCount` | 연속 손실 기준 (3개), 연속 손실 횟수 |
+| `burstLossPackets`, `burstLossRate`, `burstShareOfLoss` | 연속 손실에 속한 패킷 수, 생성 대비 비율, 전체 손실 중 비중 |
+| `avgBurstLen`, `burstPerMin` | 연속 손실 평균 길이, 1분당 연속 손실 횟수 |
+| `routeChanges`, `avgHops` | 경로 변경 수, 평균 홉 수 |
+| `bgGenerated`, `bgDelivered`, `bgOverflow`, `bgTtlExpired`, `bgSrcDrop` | 배경 패킷 개수 (생성, 도착, 오버플로, TTL 만료, 동시 배경 패킷 한도 때문에 못 만듦) |
 
----
-
-## 2. `packet_log_*.csv` : 패킷별 결과
-
-- **용도**: 패킷 하나하나가 언제 생겨서 어떻게 끝났는지 기록. 성능 지표 7개를 모두 이 파일로 계산할 수 있고, 지연 분포, 시간대별 변화 분석에 사용
-- **1줄 =** 패킷 1개 (10분 실행이면 36,000줄)
-- 파일 이름: `packet_log_B_LinkLoad_base_eps0.0.csv` (성능 측정용), `packet_log_B_LinkLoad_base_eps0.1.csv` (데이터 수집용)
+### `packet_log_*.csv` : 패킷별 결과
+- **1줄 =** 패킷 1개
 
 | 열 | 뜻 |
 | --- | --- |
 | `packet_id` | 패킷 번호 (0부터) |
-| `gen_step` | 생성된 시각 (step = ms) |
-| `end_step` | 도착했거나 버려진 시각 (step = ms) |
-| `result` | 1 기한 내 도착, 2 목적지 기한 초과, 3 중간 기한 초과, 4 큐 오버플로, 5 TTL 만료 |
+| `gen_step`, `end_step` | 생성 시각, 끝난 시각 (step = ms) |
+| `result` | 결과 번호 (위 참고) |
 | `hops` | 거쳐 간 위성 수 |
-| `episode` | 몇 번째 에피소드의 패킷인지 (0 ~ 19) |
+| `episode` | 에피소드 번호 |
+| `loss_run_len` | 이 패킷이 속한 손실 구간 길이 (손실 아니면 0) |
+| `burst_id` | 연속 손실 번호 (`burst_log`와 연결, 연속 손실이 아니면 −1) |
 
-예) `0,1,46,1,10,0` → 0번 패킷이 1 ms에 생성되어 46 ms에 기한 내 도착, 10홉 거침, 0번 에피소드
+### `burst_log_*.csv` : 연속 손실 기록
+- **1줄 =** 연속 손실 1번
 
-※ 에피소드 e의 시각은 e x 30000을 더한 값. 최대 연속 손실과 경로 변경 수는 `episode`가 바뀌는 곳에서 끊어서 셈
+| 열 | 뜻 |
+| --- | --- |
+| `burst_id`, `episode` | 연속 손실 번호, 에피소드 |
+| `first_packet_id`, `last_packet_id`, `length` | 처음과 마지막 패킷 번호, 길이 |
+| `first_gen_step`, `last_gen_step`, `span_ms` | 처음과 마지막 패킷 생성 시각, 끊긴 시간 |
+| `n_late_dst`, `n_late_mid`, `n_overflow`, `n_ttl` | 손실 원인별 개수 |
+| `main_cause` | 가장 많은 원인 |
 
----
-
-## 3. `decision_log_*.csv` : 라우팅 결정 기록 (강화학습 데이터)
-
-- **용도**: 위성이 "어느 방향으로 보낼지" 정할 때마다 그때의 상황과 선택을 기록. 나중에 강화학습을 학습시키는 데이터
-- **1줄 =** 라우팅 결정 1번 (약 40만 줄)
-- 데이터 수집용(ε = 0.1) 실행에서만 저장: `decision_log_B_LinkLoad_base_eps0.1.csv`
-- 패킷 기준 기록: 패킷이 위성을 지날 때만 남음. `packet_id`로 모으면 그 패킷의 경로가 됨
+### `decision_log_*.csv` : 라우팅 결정 기록
+- **1줄 =** 라우팅 결정 1번 (ε 0.1 실행에서만 저장)
 
 | 구분 | 열 | 뜻 |
 | --- | --- | --- |
-| 식별 | `step` | 결정한 시각 (ms) |
-| 식별 | `packet_id` | 패킷 번호 |
-| 식별 | `hop` | 몇 번째 결정인지 (지금까지 거친 홉 수) |
-| 상태 | `cur_p`, `cur_s` | 지금 있는 위성 좌표 |
-| 상태 | `q_up`, `q_down`, `q_left`, `q_right` | 상/하/좌/우 링크 큐 길이 (배경 패킷 포함) |
-| 상태 | `L_up`, `L_down`, `L_left`, `L_right` | 상/하/좌/우 링크 점유율 L = (k x 큐 + (1 − k) x N) / 200 |
-| 상태 | `N_up`, `N_down`, `N_left`, `N_right` | 상/하/좌/우 이웃 위성 부하 N (다음 위성 링크 큐 평균) |
-| 상태 | `rem_dp`, `rem_ds` | 목적지까지 남은 거리 (도착 p − 현재 p, 도착 s − 현재 s) |
-| 상태 | `rem_deadline` | 남은 기한 = 70 − (현재 step − 생성 step) |
-| 상태 | `ttl` | 남은 TTL |
-| 행동 | `action` | 고른 방향 (1 상, 2 하, 3 좌, 4 우) |
-| 행동 | `choice_type` | 1 주 경로, 2 대체 경로, 3 그 외 방향(우회), 4 무작위 (갈 수 있는 방향 중 하나, 라우팅이 고른 방향일 수도 있음), 5 손실 회피 규칙 때문에 방향이 바뀜 (B_LinkLoad만) |
-| 결과 | `enqueued` | 1 큐에 들어감, 0 오버플로로 버려짐 |
+| 식별 | `step`, `packet_id`, `hop` | 결정 시각, 패킷 번호, 몇 번째 결정인지 |
+| 상태 | `cur_p`, `cur_s` | 지금 있는 위성 |
+| 상태 | `q_up` ~ `q_right` | 4방향 링크 큐 길이 (배경 포함) |
+| 상태 | `L_up` ~ `L_right` | 링크 점유율 L = (k x 큐 + (1 − k) x N) / 200 (기록용) |
+| 상태 | `N_up` ~ `N_right` | 이웃 위성 부하 (다음 위성 링크 큐 평균) |
+| 상태 | `rem_dp`, `rem_ds`, `rem_deadline`, `ttl` | 남은 거리, 남은 기한, 남은 TTL |
+| 행동 | `action`, `choice_type` | 고른 방향, 선택 유형 (1 주, 2 보조, 3 그 외, 4 무작위) |
+| 결과 | `enqueued` | 1 큐에 들어감, 0 오버플로 |
 
-※ Grid 끝이라 없는 방향은 `-1`
-※ route_A는 L, N을 결정에 쓰지 않음 (기록용). `choice_type`은 1 또는 4만 나옴
+※ C의 학습은 이 파일을 쓰지 않고 시뮬레이터 안에서 바로 경험을 모음 (`rl/rl_collector.py`)
 
----
-
-## 4. `node_log_*.csv` : 노드 기준 기록
-
-- **용도**: 노드(위성)마다 큐가 얼마나 찼는지, 무엇을 보내고 어디서 손실이 났는지를 시간에 따라 기록. 혼잡한 노드 찾기, 노드별 분석
-- **1줄 =** 기록 시각 1번 x 노드 1개 (`P.nodeLogInterval` = 100 step마다 36줄, 10분이면 약 21만 줄. 시각은 에피소드를 지나며 이어짐)
-- 보기: `show_results.py` (요약 지도 + 손실이 가장 많은 노드), `show_node.py p s` (원하는 노드)
+### `node_log_*.csv` : 노드 기준 기록
+- **1줄 =** 기록 시각 1번 x 노드 1개 (`P.nodeLogInterval` = 100 step마다)
 
 | 열 | 뜻 |
 | --- | --- |
 | `step`, `p`, `s` | 기록 시각, 노드 좌표 |
-| `q_up` ~ `q_right` | 기록 시각의 링크별 큐 길이 (그 step 전송 후 남은 것) |
-| `qmax_up` ~ `qmax_right` | 직전 기록 이후 링크별 최대 큐 길이 (전송 직전 기준) |
-| `main_queued`, `bg_queued` | 기록 시각에 이 노드 큐에 있는 주 흐름 / 배경 패킷 수 |
-| `min_rem_deadline` | 이 노드 큐 안 주 흐름 패킷의 남은 기한 최솟값 (−1: 주 흐름 패킷 없음) |
-| `main_sent`, `bg_sent` | 직전 기록 이후 이 노드가 보낸 패킷 수 |
-| `main_overflow`, `bg_overflow` | 직전 기록 이후 이 노드에서 큐 오버플로로 버려진 수 |
-| `main_late_mid`, `main_ttl_expired` | 직전 기록 이후 이 노드에서 중간 기한 초과 / TTL 만료된 주 흐름 수 |
-| `main_on_time`, `main_late_dst` | 직전 기록 이후 이 노드(목적지)에 기한 내 / 기한 초과로 도착한 수 |
+| `q_up` ~ `q_right`, `qmax_up` ~ `qmax_right` | 링크별 큐 길이, 직전 기록 이후 최대 큐 길이 |
+| `main_queued`, `bg_queued` | 큐 안 주 흐름, 배경 패킷 수 |
+| `min_rem_deadline` | 큐 안 주 흐름 패킷의 남은 기한 최솟값 (−1: 없음) |
+| `main_sent`, `bg_sent`, `main_overflow`, `bg_overflow` | 직전 기록 이후 보낸 수, 오버플로 수 |
+| `main_late_mid`, `main_ttl_expired`, `main_on_time`, `main_late_dst` | 직전 기록 이후 이 노드에서 끝난 주 흐름 수 |
 
-※ 없는 방향(Grid 끝)은 `-1`
-
----
-
-## 5. `bg_scenario.csv` : 에피소드별 배경 핫스팟
-
-- **용도**: 각 에피소드가 어떤 혼잡 지도였는지 기록. 결과가 나쁜 에피소드를 찾아 원인 핫스팟 확인
-- **1줄 =** 핫스팟 1개 (에피소드마다 2 ~ 5줄)
-- 같은 시작 시드(`P.bgScenarioSeed`, 또는 `python main_isl.py 7`)면 같은 표가 다시 나옴
+### `bg_scenario.csv` : 에피소드별 배경 트래픽
+- **1줄 =** 배경 흐름 1개 (새 방식은 기본 부하 링크와 핫스팟 링크 모두)
 
 | 열 | 뜻 |
 | --- | --- |
-| `episode` | 에피소드 번호 (0 ~ 19) |
-| `seed` | 그 에피소드의 시나리오 시드 (시작 시드 + episode) |
-| `p`, `s` | 핫스팟 위성 좌표 |
-| `direction` | 과부하된 송신 큐 방향 (1 상, 2 하, 3 좌, 4 우) |
-| `load` | 세기 (링크 용량의 몇 배, 0.7 ~ 2.0. 1.8 이상은 막힌 큐로 봄) |
-| `relevant` | 1 주 흐름과 관련 있는 큐 (출발과 도착 사이 사각형 안, 목적지 쪽 방향), 0 아님 |
-
-예) `3,4,2,0,4,1.85,1` → 3번 에피소드(시드 4)에서 위성 (2,0)의 우 방향 큐에 링크 용량 1.85배 배경 흐름, 주 흐름과 관련 있음
+| `episode`, `seed` | 에피소드, 그 에피소드의 시드 |
+| `p`, `s`, `direction` | 배경 흐름의 출발 위성과 방향 |
+| `load` | 세기 (링크 용량의 몇 배) |
+| `hotspot` (새 방식) / `relevant` (기존 방식) | 1 지역 핫스팟 링크, 0 기본 부하 / 1 주 흐름 관련 큐 |
+| `start`, `end` (새 방식만) | 켜져 있는 구간 (step) |
 
 ---
 
-## packet_log + decision_log 함께 쓰기 (강화학습 보상 계산)
+## ② C 학습
 
-결정 기록에는 "이 선택이 결국 좋았는지"가 없으므로, 강화학습 단계에서 `packet_id`로 두 파일을 연결.
+### `train_log.csv` : 학습 중 기록 (ε 포함)
+- **1줄 =** 학습 에피소드 1개
 
-1. `decision_log`에서 이 상황(상태)에서 이 방향(행동)을 골랐는지를 가져옴
-2. `packet_log`에서 그 패킷이 **결국 기한 안에 도착했는지(`result`), 언제 끝났는지(`end_step`)**를 가져옴
-3. 둘을 합쳐 보상(Reward) 계산
+| 열 | 뜻 |
+| --- | --- |
+| `episode`, `level`, `seed` | 에피소드 번호, 혼잡 단계, 시드 |
+| `onTimeRate`, `lossRate` | 기한 내 도착률, 손실률 (%, 무작위 탐험 포함) |
+| `burstCount`, `burstPackets`, `burstPacketRate`, `maxConsecLoss` | 연속 손실 횟수, 속한 패킷 수와 비율, 최대 연속 손실 |
+| `epsilon`, `decisions` | ε, 누적 결정 수 |
+| `burstPenalties` | 연속 손실 보상을 받은 패킷 수 |
+| `rewardHopSum`, `rewardOutcomeSum`, `rewardBurstSum` | 보상 성분별 합 (홉, 도착과 단발 손실, 연속 손실) |
+| `infeasibleMasks` | 마스크 예외 횟수 (`maskMode = 'full'`일 때만 의미 있음) |
+| `meanLoss` | 학습 손실 평균 (Huber) |
+| `transitions`, `unfinished`, `bufferSize` | 만든 경험 수, 끝나지 않은 패킷 수, 버퍼 크기 |
+| `seconds` | 걸린 시간 |
 
-보상을 기록에 미리 넣지 않은 이유: 보상 식을 바꿔도 시뮬레이션을 다시 돌릴 필요 없이 두 파일만 다시 연결하면 됨
+### `eval_log.csv` : 검증 평가 (학습 곡선용, ε 0)
+- **1줄 =** 검증 1번 x 혼잡 단계 1개 (학습 전 1번, 그 뒤 10 에피소드마다)
+- 검증 시드 501~505 에피소드를 합친 값. 학습 곡선과 목표 판정(`analysis/learning_targets.py`)은 이 파일을 씀
+
+| 열 | 뜻 |
+| --- | --- |
+| `evalIndex`, `episode` | 검증 번호 (0 = 학습 전), 그때까지 학습한 에피소드 수 |
+| `decisions`, `epsilon` | 누적 결정 수 (곡선의 가로축), 그때의 ε |
+| `level` | 혼잡 단계 |
+| `onTimeRate` | 기한 내 도착률 (%) |
+| `burstCount`, `burstPerMin` | 연속 손실 횟수, 1분당 연속 손실 횟수 |
+| `burstLenP95`, `maxConsecLoss` | 연속 손실 길이 95번째 백분위, 최대 연속 손실 |
+| `avgLatency_ms` | 평균 지연 |
+| `meanLoss` | 직전 검증 이후 에피소드들의 학습 손실 평균 |
+| `seconds` | 검증에 걸린 시간 |
+
+---
+
+## ③ 최종 평가와 목표 판정
+
+### `summary.csv` : 단계 x 라우팅(x C 모델)별 합계
+- **1줄 =** 혼잡 단계 1개 x 라우팅 1개 (C는 모델마다 한 줄, `cRun` = 모델 순번)
+- `metrics_summary.csv`의 주요 지표에 아래가 더해짐
+
+| 열 | 뜻 |
+| --- | --- |
+| `level`, `route`, `cRun` | 혼잡 단계, 라우팅, C 모델 순번 (A, B는 빈칸) |
+| `lossRuns`, `runs_ge5`, `runs_ge10` | 손실 구간 수, 5개 이상, 10개 이상 이어진 손실 횟수 |
+| `worstEpisodeOnTime` | 가장 나쁜 평가 에피소드의 도착률 |
+| `burstPerMin`, `burstLenP95` | 1분당 연속 손실 횟수, 연속 손실 길이 95번째 백분위 |
+
+### `per_seed.csv` : 평가 시드별 결과
+- **1줄 =** 혼잡 단계 x 라우팅(x C 모델) x 평가 시드 1개
+- 짝지은 승률(같은 시드에서 C가 B보다 연속 손실이 적은 비율)과 최악 에피소드 비교에 씀
+
+| 열 | 뜻 |
+| --- | --- |
+| `level`, `route`, `cRun`, `seed` | 혼잡 단계, 라우팅, C 모델 순번, 평가 시드 |
+| `onTimeRate`, `burstCount`, `burstPerMin`, `burstLenP95`, `maxConsecLoss`, `avgLatency_ms` | 그 에피소드의 지표 |
+
+### `targets_report.csv` : C 모델별 목표 판정 값 (`analysis/compare_runs.py`)
+- **1줄 =** 혼잡 단계 x C 모델 1개. 판정표는 같은 폴더의 `targets_report.md`
+
+| 열 | 뜻 |
+| --- | --- |
+| `burstCut`, `p95Cut` | B 대비 1분당 연속 손실 감소율, 95번째 백분위 길이 감소율 (%) |
+| `onTimeDiff`, `latencyDiff` | B 대비 도착률 차이 (%p), 지연 차이 (ms) |
+| `winRate`, `ties`, `n` | 짝지은 승률 (%), 같은 수, 평가 시드 수 |
+| `worstOk`, `worstC`, `worstB` | 최악 에피소드 도착률 비교 결과와 값 |
+| `cLoss`, `cOnTime` | C의 손실률, 도착률 |

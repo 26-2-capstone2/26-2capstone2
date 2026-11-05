@@ -1,6 +1,6 @@
 # 최종 성능 목표 판정 - 학습 안정화 계획 9번 (B 대비 개선, 비열등성, 신뢰성, 이상 신호)
 #
-# 실행 (isl_6x6_routing_py 폴더에서):
+# 실행 (isl_routing 폴더에서):
 #   python analysis/compare_runs.py 평가폴더
 #   평가폴더 = eval_routes.py를 A, B, C(학습 시드별 모델 여러 개)로 돌린 결과 (summary.csv, per_seed.csv)
 #   예) python eval_routes.py 모델0,모델1,모델2  ->  python analysis/compare_runs.py ~/isl_saved_runs/eval_날짜

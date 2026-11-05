@@ -1,8 +1,8 @@
-# 시뮬레이션 코드 흐름
+# 코드 흐름
 
-ISL 6x6 Grid 라우팅 시뮬레이션이 **어떤 순서로, 어떤 파일을 거쳐** 돌아가는지 정리한 문서.
-라우팅은 A_Dijkstra (최단 경로) / B_LinkLoad (부하 고려) 중 하나를 골라 씀.
-10분을 30초짜리 에피소드 20개로 나눠 돌리고, 에피소드마다 배경 트래픽 핫스팟(혼잡 지도)이 바뀜.
+ISL 라우팅 시뮬레이터(`isl_routing/`)가 **어떤 순서로, 어떤 파일을 거쳐** 돌아가는지 정리한 문서.
+실행은 세 가지로 나뉨: ① A, B 시뮬레이션, ② C(강화학습) 학습, ③ A, B, C 최종 평가와 목표 판정.
+모두 같은 시뮬레이터(`sim/run_isl_sim.py`)와 같은 배경 트래픽 규칙을 쓰고, 시드만 다름.
 
 ---
 
@@ -10,223 +10,174 @@ ISL 6x6 Grid 라우팅 시뮬레이션이 **어떤 순서로, 어떤 파일을 �
 
 ```mermaid
 flowchart TD
-    A["main_isl<br/>(실행 시작)"] --> B["config_isl<br/>설정값 P"]
-    B --> S["sample_hotspots<br/>에피소드 20개의 핫스팟 목록<br/>bg_scenario.csv"]
-    S --> C{"ε = 0, 0.1<br/>두 번 반복"}
-    C --> E1["에피소드 e = 0 ~ 19<br/>sample_hotspots(시드 + e)<br/>run_isl_sim (30초)"]
-    E1 --> MG["merge_episodes<br/>20개 결과를 하나로"]
-    MG --> D["compute_metrics<br/>지표 7개 계산"]
-    D --> N["packet_log, node_log CSV<br/>+ plot_nodes (노드 그림 PNG)"]
-    N --> F{"ε 값?"}
-    F -- "ε = 0 (성능 측정용)" --> G["animate_run<br/>(첫 에피소드 GIF)"]
-    F -- "ε = 0.1 (데이터 수집용)" --> H["decision_log CSV"]
-    G --> C
-    H --> C
-    C -- "반복 끝" --> I["metrics_summary.csv"]
-    I --> J["plot_metrics<br/>지표 비교 PNG"]
-    J --> K["plot_analysis<br/>실행 분석 PNG"]
-    K --> L["save_results<br/>홈 폴더 isl_saved_runs/라우팅_혼잡단계_날짜 으로 복사"]
-    L --> M["show_results / show_node<br/>(따로 실행) 결과 창 띄우기"]
+    R["run.py<br/>(번호로 골라 실행)"] --> M["① main_isl.py<br/>A, B 시뮬레이션"]
+    R --> T["② rl/train_rl.py<br/>C 학습 + 검증 평가"]
+    R --> E["③ eval_routes.py<br/>A, B, C 최종 평가"]
+    M --> SIM["sim/run_isl_sim.py<br/>에피소드 1개 실행 (1 ms마다 반복)"]
+    T --> SIM
+    E --> SIM
+    SIM --> RT["routing/<br/>route_A, route_B, route_C"]
+    RT -.-> RL["rl/<br/>State, 보상, DQN (C만)"]
+    T --> LT["analysis/learning_targets.py<br/>학습 곡선 목표 판정"]
+    E --> CR["analysis/compare_runs.py<br/>최종 성능 목표 판정"]
 ```
 
-| 순서 | 파일 | 하는 일 |
+| 실행 | 시드 | 결과 |
 | --- | --- | --- |
-| 1 | `main_isl` | 전체 실행. 아래 파일들을 차례로 부름 |
-| 2 | `config_isl` | 모든 설정값을 `P`에 담아 돌려줌 |
-| 3 | `bg_traffic` | `sample_hotspots`: 에피소드마다 핫스팟(과부하 송신 큐) 위치, 개수, 세기를 시드로 뽑음 |
-| 4 | `run_isl_sim` | 에피소드 1개(30초) 실행 → 결과 `R` |
-| 5 | `episodes` | `merge_episodes`: 에피소드 20개 결과를 하나로 합침 |
-| 6 | `compute_metrics` | 합친 결과로 지표 7개 계산 → `M` |
-| 7 | `plot_nodes` | `node_log`로 노드 요약 지도, 손실 많은 노드 시간 변화 PNG |
-| 8 | `animate_run` | (ε = 0일 때) 첫 에피소드의 처음 0.2초 애니메이션 GIF |
-| 9 | `plot_metrics` | 지표 비교 그래프 `metrics_summary.png` |
-| 10 | `plot_analysis` | 실행 분석 그래프 `run_analysis.png` |
-| 11 | `save_results` | 코드 + 결과를 홈 폴더의 `isl_saved_runs\라우팅_혼잡단계_날짜`으로 복사 |
-| 12 | `show_results`, `show_node` | (사용자가 따로 실행) 저장된 결과를 창에 띄움 |
+| ① `main_isl.py` | 시작 시드부터 에피소드 수만큼 (기본 1~20) | `~/isl_saved_runs/라우팅_혼잡단계_날짜/` |
+| ② `rl/train_rl.py` | 학습 1001부터, 검증 501~505 | `~/rl_models/routeC_날짜_s학습시드/` |
+| ③ `eval_routes.py` | 평가 1~20 | `~/isl_saved_runs/eval_날짜/` |
 
 ---
 
-## 2. 함수 호출 관계
-
-```
-main_isl
-├─ config_isl                  → P (설정값)
-├─ sample_hotspots(P, G, 시드)  → 에피소드마다 P.bgFlows, P.bgOnRate, P.bgSeed를 채움 (bg_traffic.py)
-├─ run_isl_sim(P, ...)         → R (에피소드 1개 결과)
-│   ├─ build_grid(P)           → G (6x6 Grid, 링크 구조)
-│   ├─ make_bg_schedule(P)     → 배경 흐름별 step마다 생성 개수 (ON/OFF + Poisson)
-│   ├─ A_Dijkstra / B_LinkLoad       → 다음 방향 (P.routeName으로 선택, 패킷이 위성에 올 때마다 호출)
-│   └─ NodeLog                 → 노드 기준 기록 (node_log.py)
-├─ merge_episodes(Rs, P)       → 에피소드 20개를 합친 R (episodes.py)
-├─ compute_metrics(R, Pt)      → M (지표)
-├─ save_node_plots(...)        → node_map, node_time PNG (plot_nodes.py)
-├─ animate_run(R, P, ...)          ─┐
-├─ plot_metrics(T, Pt, ...)         ├─ viz_colors (그래프 색)
-├─ plot_analysis(runs, Pt, ...)    ─┘
-└─ save_results(...)
-```
-
-주요 데이터 묶음
-
-| 이름 | 만드는 곳 | 내용 |
-| --- | --- | --- |
-| `P` | `config_isl` | 설정값 (Grid, 큐 200, 링크 용량 5, 지연, 기한 70, 생성률, 라우팅 이름, k, X, Y, 에피소드, 배경 `P.bg...`) |
-| `Pt` | `episodes.total_params` | 후처리용 `P` 복사본 (simTime = 에피소드 길이 x 개수 = 10분) |
-| `G` | `build_grid` | Grid 구조 (링크 번호, 링크별 다음 위성과 지연, 위성별 갈 수 있는 방향) |
-| `R` | `run_isl_sim` / `merge_episodes` | 실행 결과 (패킷별 생성, 종료 시각, 상태, 홉 수, 에피소드 번호, 결정 기록, 노드 기록, 배경 개수) |
-| `M` | `compute_metrics` | 지표 7개 + 손실 원인별 개수 + 배경 개수 |
-| `T` | `main_isl` | 실행별 `M`을 모은 표 → `metrics_summary.csv` |
-
----
-
-## 3. `build_grid`: Grid 만들기
-
-- 위성 좌표 `(p, s)`: p = 궤도면(좌/우), s = 궤도면 안 위성 번호(상/하)
-- 위성마다 나가는 링크 최대 4개: **1 상(s−1), 2 하(s+1), 3 좌(p−1), 4 우(p+1)**
-- Grid 끝은 반대편과 연결하지 않음 → 모서리 위성은 링크 2개, 가장자리는 3개
-- 링크마다 저장: 다음 위성(`nextP`, `nextS`), 지연(`linkDelay`: 상/하 7, 좌/우 2 step)
-
----
-
-## 4. `run_isl_sim`: 에피소드 1개 실행 (핵심)
-
-1 step = 1 ms. 에피소드는 큐가 빈 상태에서 시작해 30,000 step 동안 아래 단계를 반복.
+## 2. ① A, B 시뮬레이션 (`main_isl.py`)
 
 ```mermaid
 flowchart TD
-    S1["1. 도착 처리<br/>이번 step에 도착한 패킷: 홉 +1, TTL −1<br/>(배경 패킷은 목적지 도착 / TTL 만료만 확인)"] --> S2
-    S2{"2. 목적지인가?"} -- "예" --> S2a{"생성 후 ≤ 70 step?"}
-    S2a -- "예" --> OK["기한 내 도착 (result 1)"]
-    S2a -- "아니오" --> L2["목적지 기한 초과 (result 2)"]
-    S2 -- "아니오" --> S3{"3. 중간 위성 확인"}
-    S3 -- "70 step 초과" --> L3["중간 기한 초과 (result 3)"]
-    S3 -- "TTL = 0" --> L5["TTL 만료 (result 5)"]
-    S3 -- "통과" --> S5
-    S4["4. 패킷 생성<br/>출발 위성 (0,0)에서 1초당 60개 일정 간격"] --> S41
-    S41["4-1. 배경 패킷 생성 (미리 만든 스케줄대로)<br/>+ XY 고정 경로로 큐에 넣기 (꽉 차면 배경 오버플로)"] --> S5
-    S5["5. 라우팅 결정<br/>A_Dijkstra / route_B로 방향 선택 → 결정 기록 1줄"] --> Q{"그 링크 큐가<br/>200개로 꽉 찼나?"}
-    Q -- "예" --> L4["큐 오버플로 (result 4)"]
-    Q -- "아니오" --> S6["큐 맨 뒤에 넣기"]
-    S6 --> S7["6. 전송<br/>링크마다 큐 앞에서 최대 5개 꺼내 보냄<br/>도착 예정 = 지금 + 링크 지연"]
-    S7 --> S8["7. 노드 기록<br/>100 step마다 노드 36개 상태 1줄씩"]
-    S8 --> NEXT["다음 step"]
+    A["main_isl<br/>(실행 시작)"] --> B["config_isl<br/>설정값 P"]
+    B --> S["sample_hotspots<br/>에피소드마다 배경 트래픽 뽑기<br/>bg_scenario.csv"]
+    S --> C{"라우팅 x ε<br/>(A ε 0, B ε 0, B ε 0.1)"}
+    C --> E1["에피소드 e = 0 ~ N-1<br/>run_isl_sim (10초)"]
+    E1 --> MG["merge_episodes<br/>에피소드 결과를 하나로"]
+    MG --> D["compute_metrics<br/>지표 계산"]
+    D --> F["packet_log, burst_log, node_log CSV<br/>decision_log (ε 0.1만), 애니메이션 (ε 0만)"]
+    F --> C
+    C -- "반복 끝" --> I["metrics_summary.csv + 그래프"]
+    I --> L["save_results<br/>홈 폴더 isl_saved_runs로 복사"]
 ```
 
-| 단계 | 내용 | 관련 변수 |
-| --- | --- | --- |
-| 1. 도착 처리 | 도착 예정 칸(`arrivalSlot`)에서 이번 step 도착 패킷을 꺼냄 | `hops`, `ttl` |
-| 2. 목적지 확인 | 목적지면 기한 안/밖 판정 후 종료 | `status` = 1 or 2, `endTime` |
-| 3. 중간 위성 확인 | 기한 초과 → TTL 만료 순으로 확인, 해당되면 종료 | `status` = 3 or 5 |
-| 4. 패킷 생성 | 출발 위성에서 새 패킷 생성 (t = 1, 18, 35 ... ms) | `genTime`, `packet_id` |
-| 4-1. 배경 패킷 | 스케줄(`bgSchedule[흐름, t]`)만큼 만들고 XY 경로 링크 큐에 넣음 | `bgStat`, `bg_enqueue` |
-| 5. 라우팅 결정 | 1, 4번 주 흐름 패킷마다 라우팅 호출 → 큐에 넣기, 결정 기록 저장 | `queueLen`, `decisionLog` |
-| 6. 전송 | 링크마다 최대 `linkCapacity`(5)개 전송 (주 흐름과 배경이 같은 큐, 먼저 온 순서) | `queueBuf`, `arrivalSlot`, `linkSent` |
-| 7. 노드 기록 | `nodeLogInterval`(100) step마다 노드별 큐, 보낸 수, 손실 기록 | `nodeLog` |
-
-- **배경을 주 흐름보다 먼저 큐에 넣음**: 주 흐름 라우팅이 이번 step의 부하까지 보고 판단하게
-- **ε 무작위 선택**: 5단계에서 확률 ε로, 갈 수 있는 방향 중 하나를 무작위로 고름 (라우팅이 고른 방향이 다시 나올 수도 있음) (`choiceType` = 4)
-- **종료 조건**: 생성 기간(30초)이 끝나고 진행 중인 주 흐름 패킷이 하나도 없으면 종료
-- **링크별 큐**: 링크마다 원형 버퍼(`queueBuf`, `queueHead`, `queueLen`) → 먼저 들어온 패킷이 먼저 나감(FIFO)
+- 같은 에피소드는 라우팅이 달라도 같은 배경 트래픽 → 공정한 비교
+- 실행 인자: `python main_isl.py 시작시드 혼잡단계 라우팅 [모델경로]` (모두 생략 가능)
 
 ---
 
-## 5. 배경 트래픽 (`bg_traffic`): 송신 큐 핫스팟
+## 3. 에피소드 1개 실행 (`sim/run_isl_sim.py`, 핵심)
 
-주 흐름이 아닌, 일부러 혼잡을 만드는 패킷. 라우팅(A, B, 강화학습)이 제어하지 않는 고정 경로로 보내고, 지표 계산에서는 제외.
+1 step = 1 ms. 큐가 빈 상태에서 시작해 `P.simTime`(10,000 step) 동안 아래를 반복하고, 남은 주 흐름 패킷이 모두 끝나면 종료.
 
-**핫스팟** = 위성 하나의 한 방향 송신 큐가 과부하된 것. 그 위성에서 그 방향 이웃으로 가는 1홉 배경 흐름으로 만듦.
+```mermaid
+flowchart TD
+    S1["1. 도착 처리<br/>링크를 건너온 패킷: 홉 +1, TTL −1"] --> S2{"2. 목적지인가?"}
+    S2 -- "예, 기한 안" --> OK["기한 내 도착 (result 1)"]
+    S2 -- "예, 기한 밖" --> L2["목적지 기한 초과 (result 2)"]
+    S2 -- "아니오" --> S3{"3. 중간 확인"}
+    S3 -- "기한 초과" --> L3["중간 기한 초과 (result 3)"]
+    S3 -- "TTL 0" --> L5["TTL 만료 (result 5)"]
+    S3 -- "통과" --> S5
+    S4["4. 생성<br/>주 흐름 (출발 위성, 초당 60개)<br/>배경 패킷 (스케줄대로, XY 고정 경로로 큐에 넣음)"] --> S5
+    S5["5. 라우팅 결정<br/>route_A / B / C가 방향 선택"] --> Q{"그 링크 큐가<br/>꽉 찼나? (200개)"}
+    Q -- "예" --> L4["큐 오버플로 (result 4)"]
+    Q -- "아니오" --> S6["큐 맨 뒤에 넣기"]
+    S6 --> S7["6. 전송<br/>링크마다 큐 앞에서 최대 5개"]
+    S7 --> S8["7. 기록<br/>링크 기록 (C의 State용), 노드 기록"]
+```
+
+| 단계 | 내용 |
+| --- | --- |
+| 1~3 | 도착한 패킷의 결과를 판정. C 학습 중이면 끝난 패킷의 보상을 경험 연결 장치(`rl_collector`)에 알림 |
+| 4 | 배경 패킷을 주 흐름보다 먼저 큐에 넣음 (주 흐름 라우팅이 이번 step 부하까지 보고 판단) |
+| 5 | 주 흐름 패킷마다 라우팅 호출, 결정 기록 1줄. C 학습 중이면 결정을 경험으로 연결 |
+| 6 | 주 흐름과 배경이 같은 큐를 먼저 온 순서로 씀 (FIFO). 배경 패킷 생성, 큐 진입, 전송은 배열 연산으로 한꺼번에 처리 |
+| 7 | `link_history`: 링크별 최근 큐 길이와 마지막 넘침 시각 (C의 큐 증가 속도, 최근 넘침, 이웃 부하 관측용) |
+
+---
+
+## 4. 배경 트래픽 (`sim/bg_event.py`, `P.bgMode = 'event'`)
+
+주 흐름이 아닌, 일부러 혼잡을 만드는 패킷. XY 고정 경로로 보내고 지표 계산에서는 제외.
 
 | 항목 | 값 |
 | --- | --- |
-| 핫스팟 개수 | 에피소드마다 2~5개 (무작위) |
-| 위치 | 격자 전체 (도착 위성 제외). 주 흐름과 관련 있는 큐(출발과 도착 사이 사각형 안, 목적지 쪽 방향)를 3배 더 잘 뽑음 |
-| 세기 | 링크 용량의 0.7~2.0배 (3.5~10개/step). 1.0배를 넘으면 그 큐가 넘치기 시작 |
-| 안전장치 | 관련 있는 큐 1개 이상 포함, 막힌 큐(1.8배 이상)를 빼도 도착할 길이 있는 시나리오만 사용 |
-| ON / OFF | 평균 150 / 750 step (지수분포), ON일 때 매 step Poisson 분포로 생성 |
-| 시드 | 에피소드 e는 시작 시드(`P.bgScenarioSeed`, 기본 1) + e. 같은 시작 시드면 20개 지도가 그대로 재현 |
-| 경로 | XY 경로 (목적지 쪽 좌/우 먼저, 같은 열이면 상/하) |
+| 기본 부하 | 모든 링크에 에피소드 내내 링크 용량의 0.1~0.4배 |
+| 지역 핫스팟 발생 | 포아송 과정 (단계별 평균 간격) |
+| 위치 | 핫스팟마다 중심 위성을 새로 뽑음. 출발 → 도착 대각선 1칸 이내 위성을 3배 더 자주 |
+| 범위와 세기 | 중심 위성의 송신 링크에 +0.5~1.5배, 이웃 위성의 송신 링크에 그 절반 |
+| 지속 시간 | 평균 2.5초 (지수분포), 끝나면 큐에 남은 패킷은 그대로 비워짐 |
+| 안전장치 | 용량을 넘는(1.0배 이상) 링크를 모두 빼고도 출발 → 도착 길이 있어야 핫스팟을 만듦. 없으면 그 핫스팟은 건너뜀 |
+| 혼잡 단계 | 발생 간격 평균 base 2.5초, high 1.25초, severe 0.625초 (동시에 걸린 지역 약 1, 2, 4개) |
+| 시드 | 같은 시드면 같은 배경 트래픽이 다시 나옴 |
 
-에피소드마다 혼잡 지도가 달라서, 라우팅이 "특정 길만 피하면 된다"를 외우지 못하고 지금 막힌 곳을 보고 판단해야 함.
+- 위치, 세기, 시점, 지속 시간이 모두 무작위라 강화학습이 특정 혼잡 패턴을 외울 수 없음
+- 기존 방식(`P.bgMode = 'hotspot'`, `sim/bg_traffic.py`): 에피소드 시작에 핫스팟 2~7개를 뽑아 끝까지 고정, 켜짐과 꺼짐만 반복
 
 ---
 
-## 6. 라우팅: 다음 방향 고르기
+## 5. 라우팅: 다음 방향 고르기 (`routing/`)
 
-패킷이 위성에 도착할 때마다 호출. 입력과 출력이 같아서 `config_isl.py`의 `P.routeName`만 바꾸면 교체됨 (나중에 강화학습 route_C도 같은 자리).
+패킷이 위성에 도착할 때마다 호출. 입력(현재 위성, 큐 상태 등)과 출력(방향 1 상, 2 하, 3 좌, 4 우)이 같아서 `P.routeName`으로 바꿔 끼움.
 
-### `A_Dijkstra`: 최단 경로 (기준선)
+| 라우팅 | 판단 방법 |
+| --- | --- |
+| `route_A` | 링크 지연 합이 최소인 경로 (Dijkstra). 큐는 보지 않음. 동점이면 좌/우 먼저 |
+| `route_B` | DRA: 주 방향(목적지 쪽 좌/우) 송신 큐가 용량의 50% 미만이면 주 방향, 넘으면 보조 방향(목적지 쪽 상/하)이 여유 있을 때 보조로 |
+| `route_C` | State 24개를 신경망에 넣어 Q값이 가장 큰 방향 (링크 없는 방향만 마스크로 막음). 학습 중에는 ε 확률로 무작위 |
 
-- 링크 지연을 가중치로 목적지까지 최소 지연 합을 미리 계산 (Dijkstra, `G.distToDst`)
-- 매번 "다음 위성까지 지연 + 거기서 목적지까지 최소 지연"이 가장 작은 방향을 고름. **큐(부하)는 보지 않음**
-- 최단 경로가 여러 개면 우 > 좌 > 하 > 상 (좌/우 먼저) → 항상 ㄱ자 경로
-- `choiceType`은 항상 1, L과 N은 기록용
+---
 
-### `B_LinkLoad`: 연속 손실 회피 + 링크 부하
-
-연이은 패킷이 같은 막힌 큐를 연달아 밟지 않게 하는 것을 먼저 보고, 남은 방향 중 링크 점유율로 고름.
-각 단계에서 후보가 하나도 안 남으면 그 단계는 건너뜀.
+## 6. ② C 학습 (`rl/train_rl.py`)
 
 ```mermaid
 flowchart TD
-    A["0. 없는 방향, 큐가 꽉 찬 방향 제외"] --> B["1. 손실 직후 회피<br/>최근 holdTime(300) 안에 오버플로 난 링크 제외"]
-    B --> C["2. 넘칠 위험 회피<br/>큐가 riskRatio(0.8) 이상 찬 링크 제외"]
-    C --> D["3. 기한 여유 확인<br/>링크 지연 + 큐 대기 + 남은 최소 지연 > 남은 기한이면 제외"]
-    D --> E["4. L 등급이 가장 좋은 후보<br/>Idle > Relatively Busy > Busy<br/>L = (k × V + (1 − k) × N) / 200"]
-    E --> F["5. 목적지 쪽 방향 중<br/>이 위성이 직전에 고른 방향과 다른 쪽<br/>(연이은 패킷 나누기)"]
-    F --> G["6. 남은 최소 지연이 짧은 쪽<br/>주 경로(좌/우) > 대체 경로(상/하)"]
+    A["config_isl + config_rl"] --> V0["검증 0<br/>학습 전 성능 (ε 0, 검증 시드 501~505, 3단계)"]
+    V0 --> EP["에피소드 1개 학습<br/>혼잡 단계 번갈아, 시드 1001 + e"]
+    EP --> X["결정마다: 관측 → 행동 (ε-greedy)<br/>→ 경험 저장 → 결정 4번마다 학습"]
+    X --> EP2{"10 에피소드마다?"}
+    EP2 -- "예" --> V["검증 평가<br/>eval_log.csv에 기록"]
+    EP2 -- "아니오" --> EP
+    V --> EP
+    EP -- "270 에피소드 끝" --> F["model_final.pt"]
+    F --> LT["analysis/learning_targets.py<br/>T50, T90, 수렴, 안정성 판정"]
 ```
 
-- 현재 설정: k = 0.5, X = 0.5, Y = 0.8, holdTime = 300 step, riskRatio = 0.8
-- 출력: `nextDir`(1 상, 2 하, 3 좌, 4 우), `choiceType`(1 주, 2 대체, 3 그 외 방향, 5 손실 회피 규칙 때문에 바뀜), 4방향 `L`, `N`
-- 시뮬레이터가 링크별 마지막 오버플로 시각(`lastDrop`), 위성별 직전 선택 방향(`lastDir`), 패킷의 남은 기한을 함께 넘겨 줌
+- 자세한 State, Action, Reward와 설정값은 [`isl_routing/rl/README.md`](isl_routing/rl/README.md)
+- 학습 시드(신경망 초기값)를 바꿔 여러 번 돌림: `python rl/train_rl.py 270 0 0`, `... 0 1`, `... 0 2`
 
 ---
 
-## 7. `compute_metrics`: 지표 계산
+## 7. ③ 최종 평가와 목표 판정
 
-에피소드 20개를 합친 `R`의 주 흐름 패킷별 결과로 지표 7개를 계산.
+```mermaid
+flowchart LR
+    M["학습된 모델<br/>(학습 시드별)"] --> E["eval_routes.py<br/>평가 시드 1~20, ε 0<br/>A, B는 한 번, C는 모델마다"]
+    E --> S["summary.csv<br/>per_seed.csv"]
+    S --> C["analysis/compare_runs.py<br/>B 대비 개선, 신뢰구간, 승률"]
+    C --> R["targets_report.md"]
+```
+
+| 판정 스크립트 | 판정 내용 |
+| --- | --- |
+| `learning_targets.py` | 학습 진행, T50 (전체의 20% 이후), T90 (40~70%), 평가 점 25개 이상, 급상승 15%p 이하, 수렴 (75% 이전), 수렴 뒤 하락 5%p 이하, 발산, 학습 시드 간 차이 3%p 이하 |
+| `compare_runs.py` | B 대비 1분당 연속 손실 감소 (base 10%, high 20%, severe 20% 이상), 95번째 백분위 길이, 도착률 (B보다 1%p 넘게 낮지 않음, severe는 5%p 이상 높음), 지연 +5 ms 이내, 짝지은 승률 70% 이상, 95% 신뢰구간, 최악 에피소드, 이상 신호 |
+
+---
+
+## 8. 지표 계산 (`analysis/compute_metrics.py`, `burst_summary.py`)
+
+모두 **주 흐름 패킷**만으로 계산.
 
 | 지표 | 계산 |
 | --- | --- |
-| Average Latency | 도착 패킷의 (종료 − 생성) 평균 |
-| Packet Loss Rate | (생성 수 − 기한 내 도착 수) / 생성 수 |
-| Throughput | 기한 내 도착 수 × 160 Byte × 8 / 총 시간(10분) |
-| On-time Delivery Rate | 기한 내 도착 수 / 생성 수 |
-| Consecutive Packet Loss Length | 패킷 id 순서로 연속 손실 최대 길이 (에피소드 경계에서 끊음) |
-| Route Change Count | 도착 패킷끼리 직전 패킷과 경로가 다른 횟수 (에피소드 경계에서 끊음) |
-| Average Hop Count | 도착 패킷 홉 수 평균 |
-
----
-
-## 8. 결과 저장과 확인
-
-| 단계 | 파일 | 결과물 |
-| --- | --- | --- |
-| 시작 | `main_isl` | `bg_scenario.csv` (에피소드별 핫스팟) |
-| 실행마다 | `main_isl` | `packet_log_*.csv`, `node_log_*.csv`, `node_map_*.png`, `node_time_*.png`, `decision_log_*.csv` (ε = 0.1), `anim_*.gif` (ε = 0) |
-| 반복 끝 | `main_isl` | `metrics_summary.csv` |
-| 반복 끝 | `plot_metrics` | `metrics_summary.png` |
-| 반복 끝 | `plot_analysis` | `run_analysis.png` |
-| 마지막 | `save_results` | 홈 폴더 `isl_saved_runs\라우팅_혼잡단계_날짜\code\`, `results\` 로 복사 (환경변수 `ISL_SAVE_ROOT`로 변경 가능) |
-| 따로 실행 | `show_results` | 표 + 그래프 + 노드 그림 + 애니메이션 창 |
-| 따로 실행 | `show_node p s` | 노드 1개 시간 변화 + 노드 요약 지도 |
-| 따로 실행 | `check_bg` | 배경 트래픽 검증 (회귀, 보존 법칙, 링크 용량, 재현성) |
-
-CSV 각 열의 의미는 [`csv.md`](csv.md) 참고.
+| 기한 내 도착률 | 기한 내 도착 수 / 생성 수 |
+| 손실률 | 1 − 기한 내 도착률 |
+| 평균 지연 | 목적지에 도착한 패킷(기한 초과 도착 포함)의 (종료 − 생성) 평균 |
+| 처리량 | 기한 내 도착 수 × 160 Byte × 8 / 총 시간 |
+| 최대 연속 손실 | 패킷 번호 순서로 연달아 잃은 최대 개수 (에피소드 경계에서 끊음) |
+| 연속 손실 횟수 | 3개 이상 이어진 손실 구간 수 |
+| 1분당 연속 손실 횟수 | 연속 손실 횟수 / 시뮬레이션 분 |
+| 연속 손실 길이 95번째 백분위 | 연속 손실 구간 길이의 상위 5% 지점 |
+| 경로 변경 수, 평균 홉 수 | 도착 패킷 기준 |
 
 ---
 
 ## 9. 값 변경
 
-모두 `config_isl`에서 수정.
-
-| 바꿀 것 | 변수 |
+| 바꿀 것 | 위치 |
 | --- | --- |
-| 생성률, 패킷 크기, 기한, 큐 용량, 링크 용량 | `P.genRate`, `P.packetSize`, `P.deadline`, `P.queueMax`, `P.linkCapacity` |
-| 라우팅 방식 (A / B, 나중에 강화학습) | `P.routeName` |
-| B의 가중치와 임계값 | `P.k`, `P.X`, `P.Y` |
-| 에피소드 길이와 개수 | `P.simTime`, `P.numEpisodes` |
-| 배경 트래픽 (개수, 세기, ON/OFF, 시작 시드) | `P.bgNumMin`, `P.bgNumMax`, `P.bgLoadMin`, `P.bgLoadMax`, `P.bgOnMean`, `P.bgOffMean`, `P.bgScenarioSeed` |
-| 노드 기록 간격, 애니메이션 길이 | `P.nodeLogInterval`, `P.animDuration` |
-| 결과 저장 경로 | 환경변수 `ISL_SAVE_ROOT` (기본: 홈 폴더 `isl_saved_runs`) |
-| 그래프 색 | `viz_colors` |
+| 망, 큐, 링크, 기한, 생성률 | `config_isl.py` (`P.queueMax`, `P.linkCapacity`, `P.deadline`, `P.genRate` 등) |
+| 에피소드 길이, 평가 에피소드 수 | `config_isl.py` (`P.simTime`, `P.numEpisodes`) |
+| 배경 트래픽 방식, 혼잡 단계 | `config_isl.py` (`P.bgMode`, `EVENT_LEVELS`, `P.bgBaseMin`, `P.evLoadMin` 등) |
+| 망 구조 | 환경 변수 `ISL_TOPOLOGY` (`grid`, `grid:8x8`, `iridium`, `starlink`) |
+| 강화학습 (학습률, ε, 버퍼, 검증 주기) | `rl/config_rl.py` |
+| 결과 저장 경로 | 환경 변수 `ISL_SAVE_ROOT`, `RL_SAVE_ROOT` |
+
+CSV 각 열의 의미는 [`csv.md`](csv.md) 참고.

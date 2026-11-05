@@ -1,6 +1,6 @@
 # 라우팅 비교 평가 - 평가 시드(1~20)로 A, B, C를 같은 조건에서 돌려 표로 비교
 #
-# 실행 (isl_6x6_routing_py 폴더에서):
+# 실행 (isl_routing 폴더에서):
 #   python eval_routes.py 모델경로                     -> 혼잡 3단계 x A, B, C, 에피소드 20개
 #   python eval_routes.py 모델경로 severe              -> severe만
 #   python eval_routes.py 모델경로 all routeA,routeC  -> 고른 라우팅만
@@ -69,6 +69,7 @@ def evaluate(level, route, modelPath=None, numEpisodes=None, cRun=''):
     for e, r in enumerate(Rs):
         er = loss_run_lengths(r.status)
         ok = r.status == 1
+        arr = (r.status == 1) | (r.status == 2)          # 평균 지연은 compute_metrics와 같게 목적지 도착 패킷 전체
         eRate = burst_rate_stats(er, P.burstMinLen, P.simTime * P.stepTime / 60)
         perSeed.append(dict(level=level, route=route, cRun=cRun, seed=P.randomSeed + e,
                             onTimeRate=round(float(ok.mean()) * 100, 2),
@@ -76,8 +77,8 @@ def evaluate(level, route, modelPath=None, numEpisodes=None, cRun=''):
                             burstPerMin=round(eRate.burstPerMin, 3),
                             burstLenP95=round(eRate.burstLenP95, 1),
                             maxConsecLoss=int(er.max()) if len(er) else 0,
-                            avgLatency_ms=round(float((r.endTime[ok] - r.genTime[ok]).mean()) * P.stepTime * 1000, 2)
-                            if ok.any() else ''))
+                            avgLatency_ms=round(float((r.endTime[arr] - r.genTime[arr]).mean()) * P.stepTime * 1000, 2)
+                            if arr.any() else ''))
     return dict(level=level, route=route, cRun=cRun,
                 onTimeRate=round(M.onTimeRate * 100, 2), lossRate=round(M.lossRate * 100, 2),
                  burstMinLen=M.burstMinLen, burstCount=M.burstCount,

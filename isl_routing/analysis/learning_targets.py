@@ -1,6 +1,6 @@
 # 학습 곡선 목표 판정 - 학습 안정화 계획 5~8번 (학습 속도, 학습 곡선, 수렴, 안정성)
 #
-# 실행 (isl_6x6_routing_py 폴더에서):
+# 실행 (isl_routing 폴더에서):
 #   python analysis/learning_targets.py 학습폴더                    -> 학습 1회 판정
 #   python analysis/learning_targets.py 학습폴더1 학습폴더2 학습폴더3   -> 학습 시드 여러 개 (시드 간 차이까지 판정)
 #
@@ -11,7 +11,7 @@ import csv
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # isl_6x6_routing_py를 import 경로에 추가
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # isl_routing를 import 경로에 추가
 
 import numpy as np
 

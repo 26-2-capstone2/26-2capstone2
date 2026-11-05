@@ -1,6 +1,6 @@
 # 강화학습 학습 스크립트 : route_C가 시뮬레이터 안에서 직접 라우팅하며 배움 (온라인 DQN)
 #
-# 실행 (isl_6x6_routing_py 폴더에서):
+# 실행 (isl_routing 폴더에서):
 #   python rl/train_rl.py                  -> config_rl의 trainEpisodes만큼 학습 (학습 시드 = RL.torchSeed)
 #   python rl/train_rl.py 6 3000           -> 에피소드 6개, 에피소드 길이 3000 step (짧게 시험할 때)
 #   python rl/train_rl.py 270 0 1          -> 학습 시드 1 (신경망 초기값), 에피소드 길이는 config 그대로 (0 = 기본값)
@@ -20,7 +20,7 @@ import sys
 import time
 from datetime import datetime
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # isl_6x6_routing_py를 import 경로에 추가
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # isl_routing를 import 경로에 추가
 
 import numpy as np
 
@@ -65,8 +65,8 @@ def validate(agent, RL, P, collector):
             R = run_isl_sim(P, P.genRate, 0, seed, False)
             status.append(R.status)
             runs.append(loss_run_lengths(R.status))                     # 에피소드마다 끊어서 셈
-            ok = R.status == 1
-            latency.append(R.endTime[ok] - R.genTime[ok])
+            arr = (R.status == 1) | (R.status == 2)       # 평균 지연은 compute_metrics와 같게 목적지 도착 패킷 전체
+            latency.append(R.endTime[arr] - R.genTime[arr])
         status, runs, latency = np.concatenate(status), np.concatenate(runs), np.concatenate(latency)
         minutes = len(RL.valSeeds) * P.simTime * P.stepTime / 60
         rate = burst_rate_stats(runs, P.burstMinLen, minutes)

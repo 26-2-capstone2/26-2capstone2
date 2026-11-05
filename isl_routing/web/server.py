@@ -1,6 +1,6 @@
 # 웹 시뮬레이터 서버 - 화면(static 폴더)과 파이썬 시뮬레이터를 이어 줌. 설치할 것 없음 (파이썬 기본 기능만 사용)
 #
-# 실행 (isl_6x6_routing_py 폴더에서):
+# 실행 (isl_routing 폴더에서):
 #   python web/server.py            -> 브라우저에서 http://localhost:8000
 #   python web/server.py 8080       -> 포트 바꾸기
 #
@@ -21,7 +21,7 @@ import sys
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(BASE))   # isl_6x6_routing_py
+sys.path.insert(0, os.path.dirname(BASE))   # isl_routing
 
 from web.live import LiveRunner
 from web.schema import build_config, describe

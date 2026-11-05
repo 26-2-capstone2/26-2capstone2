@@ -1,12 +1,12 @@
 {
     // 이 폴더(26-2capstone2)를 VS Code로 열었을 때만 적용되는 설정
-    // 새 터미널을 열면 ISL 실행 Helper(isl_6x6_routing_py/run.py)가 자동으로 뜸
+    // 새 터미널을 열면 ISL 실행 Helper(isl_routing/run.py)가 자동으로 뜸
     //   Helper를 끝내거나 Ctrl + C를 누르면 그 자리에서 평소처럼 명령을 입력할 수 있음
     //   Helper 없이 일반 터미널을 열려면: 터미널 + 옆 화살표(v) -> "PowerShell"
     "terminal.integrated.profiles.windows": {
         "ISL 실행 Helper": {
             "path": "powershell.exe",
-            "args": ["-NoExit", "-Command", "cd '${workspaceFolder}\\isl_6x6_routing_py'; python run.py"]
+            "args": ["-NoExit", "-Command", "cd '${workspaceFolder}\\isl_routing'; python run.py"]
         },
         "PowerShell": {
             "source": "PowerShell"
