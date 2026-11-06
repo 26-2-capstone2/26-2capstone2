@@ -37,6 +37,15 @@ def loss_runs(status, episode=None):
     return starts, np.flatnonzero(end) - starts + 1
 
 
+def segment_key(R):
+    # 연속 손실을 끊어서 세는 단위: 에피소드 x 주 흐름 (흐름이 여러 개면 흐름마다 따로 셈, 흐름 1개면 에피소드와 같음)
+    episode = getattr(R, 'packetEpisode', None)
+    if episode is None:
+        episode = np.zeros(R.numPackets, dtype=np.int64)
+    flow = getattr(R, 'packetFlow', None)
+    return episode if flow is None else episode * 1000 + flow
+
+
 def burst_info(R, P):
     # R: run_isl_sim 결과 또는 merge_episodes 결과, P: 설정
     # 반환 B
@@ -49,7 +58,7 @@ def burst_info(R, P):
     episode = getattr(R, 'packetEpisode', None)
     if episode is None:
         episode = np.zeros(R.numPackets, dtype=np.int64)
-    starts, lens = loss_runs(R.status, episode)
+    starts, lens = loss_runs(R.status, segment_key(R))
 
     B = SimpleNamespace(minLen=minLen, runStart=starts, runLen=lens)
     B.pktRunLen = np.zeros(R.numPackets, dtype=np.int64)

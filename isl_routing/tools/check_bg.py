@@ -1,7 +1,10 @@
 # 배경 트래픽 검증 스크립트
-#   python check_bg.py save   : (엔진 코드를 고치기 전/고친 뒤 기준 시점에 한 번) 배경 없는 결과를 baseline_nobg.npz로 저장
-#   python check_bg.py check  : 회귀 테스트(배경 끔) + 핫스팟 시나리오 보존 법칙/재현성/난이도 분포 점검
+#   python tools/check_bg.py save   : (엔진 코드를 고치기 전/고친 뒤 기준 시점에 한 번) 배경 없는 결과를 baseline_nobg.npz로 저장
+#   python tools/check_bg.py check  : 회귀 테스트(배경 끔) + 핫스팟 시나리오 보존 법칙/재현성/난이도 분포 점검
+import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # isl_routing을 import 경로에 추가 (tools 폴더에서 실행해도 됨)
 
 import numpy as np
 
@@ -38,7 +41,7 @@ def main_stats(R):
 
 
 if len(sys.argv) < 2 or sys.argv[1] not in ('save', 'check'):
-    sys.exit('사용법: python check_bg.py save | check')
+    sys.exit('사용법: python tools/check_bg.py save | check')
 
 if sys.argv[1] == 'save':
     out = {}
@@ -54,7 +57,7 @@ else:
         P, R, _, _ = run(eps, False)
         same = all(np.array_equal(base[f'{k}_{eps}'], getattr(R, k)) for k in KEYS)
         print(f'[1 회귀] eps={eps}, 배경 끔 -> 저장해 둔 결과와 동일: {same}')
-    print('    (설정값 linkCapacity/queueMax/deadline 등을 바꿨다면 False가 정상: python check_bg.py save 로 기준을 다시 저장)')
+    print('    (설정값 linkCapacity/queueMax/deadline 등을 바꿨다면 False가 정상: python tools/check_bg.py save 로 기준을 다시 저장)')
 
     P, R, picked, rates = run(0, True)
     print(f'[2 시나리오 시드 {P.bgScenarioSeed}] 핫스팟 {len(picked)}개: {describe_hotspots(picked, rates, P)}')

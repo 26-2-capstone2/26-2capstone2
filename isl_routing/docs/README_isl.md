@@ -17,7 +17,7 @@ pip install -r requirements.txt
 python run.py
 ```
 질문에 번호로 답하면 됨. 엔터만 누르면 [괄호] 안의 기본값.
-1. 할 일: 시뮬레이션 / C 학습 / A, B, C 비교 평가 / 테스트
+1. 할 일: 시뮬레이션 / C 학습 / B, C 비교 평가 / 테스트
 2. 망 구조: 6x6 격자 / 크기 지정 격자 / Iridium / Starlink / Starlink 축소판
 3. 할 일에 따라: 혼잡 단계, 라우팅, 시드, 에피소드 수, 학습 시드, C 모델
 4. 설정 확인 후 `Y`
@@ -26,13 +26,13 @@ python run.py
 
 | 할 일 | 명령 |
 | --- | --- |
-| A, B 시뮬레이션 | `python main_isl.py` (인자: 시작 시드, 혼잡 단계, 라우팅, 예: `python main_isl.py 1 severe routeB`) |
+| B 시뮬레이션 (A는 라우팅 인자로) | `python main_isl.py` (인자: 시작 시드, 혼잡 단계, 라우팅, 예: `python main_isl.py 1 severe routeB`) |
 | 학습된 C로 시뮬레이션 | `python main_isl.py 1 severe routeC 모델경로/model_final.pt` |
 | C 학습 | `python rl/train_rl.py 270 0 0` (에피소드 수, 에피소드 길이 0 = 기본값, 학습 시드) |
 | 학습 곡선 목표 판정 | `python analysis/learning_targets.py 학습폴더 [학습폴더 ...]` |
-| A, B, C 최종 평가 | `python eval_routes.py 모델0,모델1,모델2` (평가 시드 1~20 x 혼잡 3단계) |
+| B, C 최종 평가 (A는 routeA,routeB,routeC로 고를 때만) | `python eval_routes.py 모델0,모델1,모델2` (평가 시드 1~20 x 혼잡 3단계) |
 | 최종 성능 목표 판정 | `python analysis/compare_runs.py 평가폴더` |
-| 여러 세트 한 번에 | `python run_batch.py high routeB 1001 5` |
+| 여러 세트 한 번에 | `python tools/run_batch.py high routeB 1001 5` |
 | 테스트 | `python -m unittest discover -s tests` |
 | 웹 시뮬레이터 | `python web/server.py` 후 http://localhost:8000 |
 
@@ -43,8 +43,8 @@ python run.py
 ## 2. 결과 확인
 
 ### 창으로 보기
-- `python show_results.py`: 지표 표, 지표 그래프, 실행 분석, 노드 그림, 애니메이션
-- `python show_node.py 5 2`: 노드 (5,2)의 시간 변화 (인자 없으면 손실이 가장 많은 노드)
+- `python tools/show_results.py`: 지표 표, 지표 그래프, 실행 분석, 노드 그림, 애니메이션
+- `python tools/show_node.py 5 2`: 노드 (5,2)의 시간 변화 (인자 없으면 손실이 가장 많은 노드)
 
 ### 파일로 보기
 | 파일 | 내용 |
@@ -97,13 +97,13 @@ python run.py
 | --- | --- |
 | `run.py` | 터미널 실행 도우미 |
 | `main_isl.py` | A, B 시뮬레이션 + 결과 저장 |
-| `eval_routes.py` | A, B, C 최종 평가 |
+| `eval_routes.py` | B, C 최종 평가 (A는 routeA,routeB,routeC로 고를 때만) |
 | `rl/train_rl.py` | C 학습 + 검증 평가 |
 | `analysis/learning_targets.py` | 학습 곡선 목표 판정 |
 | `analysis/compare_runs.py` | 최종 성능 목표 판정 |
-| `show_results.py`, `show_node.py` | 결과, 노드 보기 |
-| `check_bg.py` | 배경 트래픽 점검 |
-| `run_batch.py` | 여러 세트 실행 |
+| `tools/show_results.py`, `tools/show_node.py` | 결과, 노드 보기 |
+| `tools/check_bg.py` | 배경 트래픽 점검 |
+| `tools/run_batch.py` | 여러 세트 실행 |
 
 ### 자동으로 불리는 파일
 | 폴더 | 파일 |

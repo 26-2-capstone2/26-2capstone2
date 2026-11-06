@@ -37,7 +37,7 @@
 | --- | --- | --- |
 | `main_isl.py` | A ε 0, B ε 0, B ε 0.1을 같은 배경 트래픽으로 실행 | `metrics_summary`, `packet_log`, `burst_log`, `decision_log` (ε 0.1), `node_log`, `bg_scenario`, 그래프, 애니메이션 (ε 0) |
 | `rl/train_rl.py` | C를 270 에피소드 학습, 10 에피소드마다 검증 평가 | `train_log`, `eval_log`, 모델 파일 |
-| `eval_routes.py` | 평가 시드 1~20에서 A, B, C(학습 시드별) 비교 | `summary`, `per_seed` |
+| `eval_routes.py` | 평가 시드 1~20에서 B, C(학습 시드별) 비교 (A는 고를 때만) | `summary`, `per_seed` |
 | `analysis/learning_targets.py` | 학습 곡선이 목표에 맞는지 판정 | `learning_targets.md`, `learning_curve_eval.png` |
 | `analysis/compare_runs.py` | 최종 성능이 목표에 맞는지 판정 | `targets_report.md`, `.csv` |
 
@@ -52,6 +52,6 @@
 
 ## 5. 시각화
 
-- `python show_results.py`: 표, 그래프, 노드 그림, 애니메이션 창
-- `python show_node.py p s`: 노드 (p,s)의 시간 변화
+- `python tools/show_results.py`: 표, 그래프, 노드 그림, 애니메이션 창
+- `python tools/show_node.py p s`: 노드 (p,s)의 시간 변화
 - `python viz/plot_rl.py 학습폴더 [평가summary.csv]`: 학습 곡선, 라우팅 비교 그래프

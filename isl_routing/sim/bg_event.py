@@ -24,13 +24,52 @@ def _links(G, p, s):
     return [(p, s, d, int(G.nbrP[p, s, d - 1]), int(G.nbrS[p, s, d - 1])) for d in G.validDirs[p][s]]
 
 
+OPPOSITE = {1: 2, 2: 1, 3: 4, 4: 3}
+
+
+def sample_failures(P, G, mainFlows, seed, maxTry=200):
+    # 링크 장애 (DTAR 장애 시나리오): 포아송 과정으로 링크 하나(양방향)가 끊겼다가 지수분포 시간 뒤 복구
+    #   평균적으로 전체 링크의 P.failDownFrac만큼 끊겨 있게 발생 간격을 정함
+    #   안전장치: 끊는 순간 이미 끊긴 링크까지 빼고도 모든 주 흐름에 길이 남아야 함 (못 찾으면 그 장애는 건너뜀)
+    # 반환: [(시작 step, 끝 step, {(p, s, 방향), ...})]
+    if not getattr(P, 'failEnable', False):
+        return []
+    rng = np.random.RandomState(int(seed) + 400000)   # 장애 전용 난수열 (장애를 끄면 기존 결과와 같음)
+    pairs = [c for p in range(P.numPlanes) for s in range(P.satsPerPlane) for c in _links(G, p, s)
+             if (c[0], c[1]) < (c[3], c[4])]           # 양방향 링크 한 쌍당 하나
+    numDirected = 2 * len(pairs)
+    interval = 2 * P.failDurationMean / max(P.failDownFrac * numDirected, 1e-9)   # 평균 끊긴 링크 수 = 비율 x 링크 수
+    events, t = [], 0.0
+    while True:
+        t += rng.exponential(interval)
+        start = int(round(t))
+        if start > P.simTime:
+            break
+        end = min(P.simTime, start + max(1, int(round(rng.exponential(P.failDurationMean)))))
+        down = set()
+        for a, b, e in events:
+            if a <= start <= b:
+                down |= e
+        for _ in range(maxTry):
+            p, s, d, q, r = pairs[rng.randint(len(pairs))]
+            cut = {(p, s, d), (q, r, OPPOSITE[d])}
+            if cut <= down:
+                continue
+            if all(path_exists(P, G, a, b, down | cut) for a, b in mainFlows):
+                events.append((start, end, cut))
+                break
+    return events
+
+
 def sample_events(P, G, seed, maxTry=500):
     # 에피소드 하나의 기본 부하와 지역 핫스팟을 뽑아 P.bgFlows / P.bgOnRate / P.bgEvents / P.bgSeed를 채움
     # 반환: 흐름 목록 [(p, s, 방향, 다음 p, 다음 s, 핫스팟이면 1)], 세기 목록 (sample_hotspots와 같은 모양)
     rng = np.random.RandomState(seed)
     src = (int(P.srcSat[0]), int(P.srcSat[1]))
     dst = (int(P.dstSat[0]), int(P.dstSat[1]))
+    mainFlows = getattr(P, 'mainFlows', None) or [(src, dst)]   # 주 흐름이 여러 개면 모든 흐름에 대해 지역 가중치와 안전장치를 적용
     cap = P.linkCapacity
+    P.failEvents = sample_failures(P, G, mainFlows, seed)       # 링크 장애 (끄면 빈 목록)
     flows, rates, events = [], [], []
 
     # 1. 기본 부하
@@ -43,9 +82,15 @@ def sample_events(P, G, seed, maxTry=500):
                 flows.append(c + (0,)); rates.append(r); events.append((1, P.simTime))
 
     # 2. 지역 핫스팟
-    centers = [(p, s) for p in range(P.numPlanes) for s in range(P.satsPerPlane) if (p, s) != dst]
-    dP, dS = dst[0] - src[0], dst[1] - src[1]
-    lineDist = lambda p, s: abs(dS * (p - src[0]) - dP * (s - src[1])) / max(np.hypot(dP, dS), 1e-9)   # 출발 -> 도착 직선까지 거리 (칸)
+    dsts = {d for _, d in mainFlows}
+    centers = [(p, s) for p in range(P.numPlanes) for s in range(P.satsPerPlane) if (p, s) not in dsts]
+
+    def lineDist(p, s):   # 가장 가까운 주 흐름의 출발 -> 도착 직선까지 거리 (칸)
+        out = np.inf
+        for a, b in mainFlows:
+            dP, dS = b[0] - a[0], b[1] - a[1]
+            out = min(out, abs(dS * (p - a[0]) - dP * (s - a[1])) / max(np.hypot(dP, dS), 1e-9))
+        return out
     cw = np.array([P.bgRelWeight if lineDist(p, s) <= P.evCorridor else 1.0 for p, s in centers])
     cw /= cw.sum()
     hot = []   # (시작, 끝, 링크, 추가 세기)
@@ -71,7 +116,10 @@ def sample_events(P, G, seed, maxTry=500):
             for c, r in zip(links, add):
                 load[c[:3]] += r
             blocked = {k for k, v in load.items() if v >= P.evSafeLoad * cap}
-            if path_exists(P, G, src, dst, blocked):
+            for a, b, cut in P.failEvents:              # 그 순간 끊겨 있는 링크도 막힌 것으로 봄
+                if a <= start <= b:
+                    blocked |= cut
+            if all(path_exists(P, G, a, b, blocked) for a, b in mainFlows):   # 모든 주 흐름에 피할 길이 남아야 함
                 break
         else:
             continue                                   # 피할 길을 남기는 위치가 없으면 이 핫스팟은 건너뜀

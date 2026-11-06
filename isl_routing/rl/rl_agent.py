@@ -134,7 +134,12 @@ class DQNAgent:
         self.opt.step()
 
         self.numUpdates += 1
-        if self.numUpdates % RL.targetUpdate == 0:
+        tau = float(getattr(RL, 'tau', 0.0))
+        if tau > 0:   # soft update (Polyak 평균): 매 학습마다 타깃을 조금씩 따라가게 함 -> Q값이 계단식으로 바뀌지 않음
+            with torch.no_grad():
+                for pt, p in zip(self.qTarget.parameters(), self.q.parameters()):
+                    pt.mul_(1 - tau).add_(p, alpha=tau)
+        elif self.numUpdates % RL.targetUpdate == 0:   # hard update: targetUpdate번마다 통째로 복사 (기존)
             self.qTarget.load_state_dict(self.q.state_dict())
         return loss.item()
 
@@ -142,10 +147,14 @@ class DQNAgent:
     def save(self, path):
         os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
         torch.save({'q': self.q.state_dict(), 'qTarget': self.qTarget.state_dict(), 'opt': self.opt.state_dict(),
-                    'numDecisions': self.numDecisions, 'numUpdates': self.numUpdates}, path)
+                    'numDecisions': self.numDecisions, 'numUpdates': self.numUpdates,
+                    'stateMode': getattr(self.RL, 'stateMode', 'full')}, path)
 
     def load(self, path):
         ck = torch.load(path)
+        mode = ck.get('stateMode', 'full')
+        if mode != getattr(self.RL, 'stateMode', 'full'):
+            raise ValueError(f'모델은 State {mode}로 학습됨. 환경 변수 RL_STATE_MODE={mode}로 실행하세요')
         self.q.load_state_dict(ck['q'])
         self.qTarget.load_state_dict(ck['qTarget'])
         self.opt.load_state_dict(ck['opt'])

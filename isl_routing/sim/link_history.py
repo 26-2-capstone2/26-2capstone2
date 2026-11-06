@@ -4,7 +4,7 @@
 # 시뮬레이터(sim/run_isl_sim.py)가 매 step 끝에 record(), 큐가 넘칠 때 drop()을 부름
 import numpy as np
 
-HISTORY_STEPS = 32   # 큐 증가 속도 10 step, 이웃 부하 지연 최대 7 step보다 넉넉하게
+HISTORY_STEPS = 64   # 큐 증가 속도 10 step, 이웃 부하 지연 최대 7 step (coarse State는 30 step)보다 넉넉하게
 NEVER = -10 ** 9     # 한 번도 넘친 적 없음
 
 

@@ -15,6 +15,8 @@ LOSS_STATUS = (2, 3, 4, 5)
 
 def hop_reward(delay, queueLenAtLink, P, RL):
     # 방향 하나를 골랐을 때의 즉시 보상 (delay: 고른 링크의 지연 step, queueLenAtLink: 고른 링크의 큐 길이)
+    if not getattr(RL, 'rewardHopQueue', True):   # 큐 힌트 없는 홉 보상
+        return -delay / RL.rewardHopScale
     return -(delay + queueLenAtLink / P.linkCapacity) / RL.rewardHopScale
 
 

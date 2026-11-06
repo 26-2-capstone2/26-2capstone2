@@ -95,7 +95,7 @@ def save_info(task, summary, topoTag):
     today = time.strftime('%Y-%m-%d')
     t = f'_{topoTag}' if topoTag else ''
     if task == 'sim':
-        name = ('routeA-routeB' if d.get('라우팅') == 'A, B 비교' else d.get('라우팅')) + f"_{d.get('혼잡 단계')}{t}"
+        name = ('routeB' if d.get('라우팅') == 'config 기본 (B)' else d.get('라우팅')) + f"_{d.get('혼잡 단계')}{t}"
         folder = os.path.join(HOME, 'isl_saved_runs', f'{name}_{today}')
         return (folder,
                 ['결과 CSV, 그래프(PNG), 애니메이션(GIF), 실행 조건(run_info.txt), 실행한 코드 복사본',
@@ -153,11 +153,10 @@ def main():
         if task == 'sim':
             level = ask_choice('혼잡 단계 선택', [('base (평상시)', 'base'), ('high (붐빔)', 'high'), ('severe (매우 붐빔)', 'severe')])
             route = ask_choice('라우팅 방식 선택', [
-                ('A, B 함께 비교 (config 기본)', None), ('A 최단 경로 (Dijkstra)', 'routeA'),
-                ('B DRA', 'routeB'), ('C 강화학습 (학습된 모델 필요)', 'routeC')])
+                ('B DRA (config 기본)', None), ('A 최단 경로 (Dijkstra)', 'routeA'), ('C 강화학습 (학습된 모델 필요)', 'routeC')])
             seed = ask_int('시작 시드 입력 (같은 시드 = 같은 혼잡 상황, 평가 시드 1~20)', 1)
             cmd = [sys.executable, 'main_isl.py', str(seed), level]
-            summary += [('혼잡 단계', level), ('라우팅', route or 'A, B 비교'), ('시작 시드', seed)]
+            summary += [('혼잡 단계', level), ('라우팅', route or 'config 기본 (B)'), ('시작 시드', seed)]
             if route:
                 cmd.append(route)
             if route == 'routeC':
@@ -177,7 +176,7 @@ def main():
         else:   # eval
             level = ask_choice('혼잡 단계 선택', [('전부 (base, high, severe)', 'all')] + [(lv, lv) for lv in LEVELS])
             routes = ask_choice('비교할 라우팅 선택', [
-                ('A, B, C 모두', 'routeA,routeB,routeC'), ('A, B만 (모델 없이)', 'routeA,routeB'), ('C만', 'routeC')])
+                ('B, C (기본)', 'routeB,routeC'), ('A, B, C 모두', 'routeA,routeB,routeC'), ('B만 (모델 없이)', 'routeB'), ('C만', 'routeC')])
             model = 'none'
             if 'routeC' in routes:
                 model = pick_model(topology)

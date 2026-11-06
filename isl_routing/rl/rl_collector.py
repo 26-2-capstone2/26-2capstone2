@@ -95,9 +95,12 @@ class Collector:
     def _burst_position(self, packetId, final):
         # 손실 패킷이 연속 손실 구간의 몇 번째인지 (단발 손실이면 0, 아직 모르면 None)
         isLoss = lambda j: self.outcomes.get(j) in LOSS_STATUS
+        block = int(getattr(self.P, 'flowBlock', 1 << 62))   # 주 흐름마다 패킷 id 묶음 (흐름 경계를 넘어 이어 세지 않음)
+        flowStart = packetId // block * block
+        flowEnd = flowStart + block
         k = 1
         j = packetId - 1
-        while j >= 0:                      # 앞쪽으로 이어진 손실 세기
+        while j >= flowStart:              # 앞쪽으로 이어진 손실 세기 (같은 흐름 안에서만)
             if j not in self.outcomes:
                 if not final:
                     return None
@@ -109,6 +112,8 @@ class Collector:
         if k >= self.P.burstMinLen:
             return k
         for j in range(packetId + 1, packetId + 1 + self.P.burstMinLen - k):   # 뒤쪽 손실로 3개가 채워지는지
+            if j >= flowEnd:               # 흐름의 마지막 패킷 뒤는 없는 패킷 (손실 아님)
+                return 0
             if j not in self.outcomes:
                 if not final:
                     return None

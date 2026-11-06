@@ -1,7 +1,7 @@
 # 코드 흐름
 
 ISL 라우팅 시뮬레이터(`isl_routing/`)가 **어떤 순서로, 어떤 파일을 거쳐** 돌아가는지 정리한 문서.
-실행은 세 가지로 나뉨: ① A, B 시뮬레이션, ② C(강화학습) 학습, ③ A, B, C 최종 평가와 목표 판정.
+실행은 세 가지로 나뉨: ① A, B 시뮬레이션, ② C(강화학습) 학습, ③ B, C 최종 평가와 목표 판정.
 모두 같은 시뮬레이터(`sim/run_isl_sim.py`)와 같은 배경 트래픽 규칙을 쓰고, 시드만 다름.
 
 ---
@@ -12,7 +12,7 @@ ISL 라우팅 시뮬레이터(`isl_routing/`)가 **어떤 순서로, 어떤 파�
 flowchart TD
     R["run.py<br/>(번호로 골라 실행)"] --> M["① main_isl.py<br/>A, B 시뮬레이션"]
     R --> T["② rl/train_rl.py<br/>C 학습 + 검증 평가"]
-    R --> E["③ eval_routes.py<br/>A, B, C 최종 평가"]
+    R --> E["③ eval_routes.py<br/>B, C 최종 평가"]
     M --> SIM["sim/run_isl_sim.py<br/>에피소드 1개 실행 (1 ms마다 반복)"]
     T --> SIM
     E --> SIM

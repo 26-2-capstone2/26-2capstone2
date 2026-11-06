@@ -6,7 +6,8 @@
 #   python rl/train_rl.py 270 0 1          -> 학습 시드 1 (신경망 초기값), 에피소드 길이는 config 그대로 (0 = 기본값)
 #   학습 시드 3개를 동시에: 터미널 3개에서 마지막 숫자만 0, 1, 2로 바꿔 실행
 #
-# 에피소드 e: 혼잡 단계 = trainLevels를 돌아가며, 시드 = trainSeedStart + e (핫스팟 시나리오와 난수 둘 다)
+# 에피소드 e: 혼잡 단계 = trainLevelMode에 따라 (weighted: base 1 : high 1 : severe 2 비율로 무작위, cycle: 돌아가며),
+#            시드 = trainSeedStart + e (핫스팟 시나리오와 난수 둘 다). 단계 순서는 학습 시드가 달라도 같음 (공정한 비교)
 # 검증 평가: 학습 시작 전 1번, 그 뒤 evalEvery 에피소드마다 학습을 멈추고 검증 시드(valSeeds)로 ε 0 평가 -> 학습 곡선
 # 저장: 홈 폴더 rl_models/routeC_날짜_s학습시드 (같은 날 또 돌리면 _2, _3)
 #   model_epN.pt   saveEvery마다 체크포인트, model_final.pt 마지막
@@ -52,6 +53,15 @@ def make_save_dir(RL, topology='grid'):
         i += 1
 
 
+def train_level_sequence(RL, numEpisodes):
+    # 에피소드별 혼잡 단계 목록. weighted는 비율대로 무작위 (trainSeedStart로 고정해서 학습 시드가 달라도 같은 순서)
+    if getattr(RL, 'trainLevelMode', 'cycle') != 'weighted':
+        return [RL.trainLevels[ep % len(RL.trainLevels)] for ep in range(numEpisodes)]
+    w = np.array([RL.trainLevelWeights[lv] for lv in RL.trainLevels], dtype=float)
+    rng = np.random.RandomState(RL.trainSeedStart)
+    return [str(lv) for lv in rng.choice(RL.trainLevels, size=numEpisodes, p=w / w.sum())]
+
+
 def validate(agent, RL, P, collector):
     # 검증 평가: 단계마다 검증 시드 에피소드를 ε 0, 학습 없이 돌려 합친 지표 (학습은 잠시 멈춤)
     set_agent(agent, RL, explore=False, collector=None)
@@ -61,14 +71,15 @@ def validate(agent, RL, P, collector):
         G = build_grid(P)
         status, runs, latency = [], [], []
         for seed in RL.valSeeds:
+            P.flowZeroRandom = False   # 검증은 흐름 0을 (0,0) -> (5,5)로 고정
             sample_hotspots(P, G, seed)
             R = run_isl_sim(P, P.genRate, 0, seed, False)
             status.append(R.status)
-            runs.append(loss_run_lengths(R.status))                     # 에피소드마다 끊어서 셈
+            runs.append(loss_run_lengths(R.status, R.packetFlow))       # 에피소드, 주 흐름마다 끊어서 셈
             arr = (R.status == 1) | (R.status == 2)       # 평균 지연은 compute_metrics와 같게 목적지 도착 패킷 전체
             latency.append(R.endTime[arr] - R.genTime[arr])
         status, runs, latency = np.concatenate(status), np.concatenate(runs), np.concatenate(latency)
-        minutes = len(RL.valSeeds) * P.simTime * P.stepTime / 60
+        minutes = len(RL.valSeeds) * P.simTime * P.stepTime / 60 * P.numFlows   # 흐름 하나 기준 1분당
         rate = burst_rate_stats(runs, P.burstMinLen, minutes)
         bursts = runs[runs >= P.burstMinLen]
         rows.append(dict(level=level,
@@ -100,7 +111,7 @@ def train(numEpisodes=None, simTime=None, torchSeed=None):
 
     with open(os.path.join(saveDir, 'run_info.txt'), 'w', encoding='utf-8') as f:
         f.write(f'route_C 온라인 DQN 학습 ({datetime.now():%Y-%m-%d %H:%M})\n')
-        f.write(f'에피소드 {numEpisodes}개 x {P.simTime} step, 혼잡 단계 {RL.trainLevels} 돌아가며, 시드 {RL.trainSeedStart}부터, '
+        f.write(f'에피소드 {numEpisodes}개 x {P.simTime} step, 혼잡 단계 {RL.trainLevelMode} {RL.trainLevelWeights if RL.trainLevelMode == "weighted" else RL.trainLevels}, 시드 {RL.trainSeedStart}부터, '
                 f'학습 시드(신경망 초기값) {RL.torchSeed}\n')
         f.write(f'검증 평가: {RL.evalEvery} 에피소드마다, 검증 시드 {RL.valSeeds}, 단계 {RL.valLevels}, ε 0\n')
         f.write(f'망 구조 {P.topology} ({P.numPlanes} x {P.satsPerPlane}), 출발 {P.srcSat.tolist()} -> 도착 {P.dstSat.tolist()}\n')
@@ -136,13 +147,15 @@ def train(numEpisodes=None, simTime=None, torchSeed=None):
         print('  [검증 %d] 결정 %d번  ' % (evalIndex, agent.numDecisions) +
               '  '.join(f"{r['level']} {r['onTimeRate']:.2f}% 연속손실 {r['burstPerMin']:.2f}/분" for r in rows) + f'  ({sec}초)')
 
+    levelSeq = train_level_sequence(RL, numEpisodes)
     print(f'저장 폴더: {saveDir}')
     run_validation(0, 0)   # 학습 전 성능 (T50, T90 계산의 시작점)
     for ep in range(numEpisodes):
-        level = RL.trainLevels[ep % len(RL.trainLevels)]
+        level = levelSeq[ep]
         seed = RL.trainSeedStart + ep
         apply_bg_level(P, level)
         G = build_grid(P)
+        P.flowZeroRandom = bool(getattr(RL, 'flowZeroRandomTrain', False))   # 학습 때만 흐름 0도 무작위 (켜면)
         sample_hotspots(P, G, seed)
         collector.reset_stats()
         maskFallbackStart = C_STATE.infeasibleMasks
@@ -150,7 +163,7 @@ def train(numEpisodes=None, simTime=None, torchSeed=None):
         t0 = time.time()
         R = run_isl_sim(P, P.genRate, 0, seed, False)   # 시뮬레이터 ε는 0 (탐험은 에이전트)
         unfinished = collector.finish()
-        burst = burst_summary(R.status, P.burstMinLen)
+        burst = burst_summary(R.status, P.burstMinLen, R.packetFlow)
         if RL.burstEnabled and collector.numBurstPenalties != burst.burstPackets:   # 연속 손실 패킷마다 한 번씩 받아야 함
             raise RuntimeError(f'연속 손실 보상 누락: 실제 {collector.numBurstPenalties}, 예상 {burst.burstPackets}')
 

@@ -46,7 +46,16 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     def numNew(t):   # t step에 생성할 개수 (t=1에 첫 패킷)
         return (t - 1) * genRate // stepsPerSec - (t - 2) * genRate // stepsPerSec
 
-    maxPackets = (P.simTime - 1) * genRate // stepsPerSec + 1
+    # 주 흐름 (sim/flows.py): 흐름마다 초당 genRate개. 패킷 id는 흐름별로 이어진 묶음 (흐름 f = f x perFlow부터)
+    #   -> 같은 흐름 안에서는 패킷 id 순서 = 생성 순서라 연속 손실을 흐름마다 그대로 셀 수 있음
+    mainFlows = getattr(P, 'mainFlows', None) or [((int(P.srcSat[0]), int(P.srcSat[1])), (int(P.dstSat[0]), int(P.dstSat[1])))]
+    numFlows = len(mainFlows)
+    perFlow = (P.simTime - 1) * genRate // stepsPerSec + 1   # 흐름 하나가 만드는 패킷 수
+    P.flowBlock = perFlow                                    # 경험 연결 장치가 흐름 경계를 알 수 있게
+    flowSrc = np.array([f[0] for f in mainFlows], dtype=np.int64)
+    flowDst = np.array([f[1] for f in mainFlows], dtype=np.int64)
+    mainDst = G.dstSat.copy()
+    maxPackets = perFlow * numFlows
     bgOn = bool(getattr(P, 'bgEnable', False))
     bgBase = maxPackets                       # 배경 패킷 id는 maxPackets 이상
     bgPool = P.bgPoolSize if bgOn else 0
@@ -60,10 +69,10 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     endTime = np.zeros(total, dtype=np.int64)
     onLink = np.full(total, -1, dtype=np.int64)
     statusCount = np.zeros(5, dtype=np.int64)
-    dstP = np.zeros(total, dtype=np.int64)    # 배경 패킷의 목적지
+    dstP = np.zeros(total, dtype=np.int64)    # 패킷의 목적지 (주 흐름, 배경 모두)
     dstS = np.zeros(total, dtype=np.int64)
     bgFree = list(range(total - 1, bgBase - 1, -1))
-    bgStat = dict(generated=0, delivered=0, overflow=0, ttlExpired=0, srcDrop=0)
+    bgStat = dict(generated=0, delivered=0, overflow=0, ttlExpired=0, srcDrop=0, linkFail=0)
     if bgOn:
         bgCount = make_bg_schedule(P)
         bgFlowSP = np.array([f[0][0] for f in P.bgFlows], dtype=np.int64)   # 흐름별 출발, 도착 위성 (배열로 한꺼번에 생성)
@@ -93,6 +102,16 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     numDecisions = 0
 
     maxSteps = P.simTime + P.maxDrainTime
+
+    # 링크 장애 (sim/bg_event.py sample_failures, extreme 단계): step별 끊긴 링크
+    #   끊기는 순간 그 링크 큐의 패킷은 모두 손실 (UDP는 재전송 없음), 끊긴 동안은 큐에 넣을 수 없음
+    #   라우팅은 G.linkDown으로 자기 위성의 끊긴 링크만 앎 (A, B는 피하고, C는 행동 마스크로 막음)
+    failEvents = getattr(P, 'failEvents', None) or []
+    downAt = np.zeros((maxSteps + 2, numLinks), dtype=bool)
+    for a, b, cut in failEvents:
+        for (p_, s_, d_) in cut:
+            downAt[a:b + 1, G.linkId[p_, s_, d_ - 1]] = True
+    G.linkDown = downAt[0]
     timeline = np.zeros((maxSteps, 6), dtype=np.int64)   # 누적: 생성, 기한 내 도착, 목적지 기한 초과, 중간 기한 초과, 오버플로, TTL 만료
     if recordAnim:
         animSteps = min(P.animDuration, maxSteps)
@@ -108,6 +127,23 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             t = maxSteps
             break
 
+        # 0. 링크 장애: 이번 step에 새로 끊긴 링크의 큐 패킷은 모두 손실
+        G.linkDown = downAt[t]
+        if failEvents:
+            for link in np.flatnonzero(downAt[t] & ~downAt[t - 1]):
+                n = int(queueLen[link])
+                ids = queueBuf[link, (queueHead[link] + np.arange(n)) % queueMax]
+                mainIds = ids[ids < bgBase]
+                status[mainIds] = 4          # 큐 손실 (오버플로와 같은 번호, 링크 장애로 큐째 버려짐)
+                endTime[mainIds] = t
+                statusCount[3] += len(mainIds)
+                bgIds_ = ids[ids >= bgBase]
+                bgStat['linkFail'] += len(bgIds_)
+                bgFree.extend(bgIds_.tolist())
+                queueLen[link] = 0
+                if collector is not None and len(mainIds):
+                    collector.on_end(mainIds, status)
+
         # 1. 도착 처리: 홉 수 +1, TTL -1
         slot = t % numSlots
         arrived = np.array(sorted(arrivalSlot[slot]), dtype=np.int64)
@@ -119,7 +155,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
         arrived = arrived[arrived < bgBase]
 
         # 2. 목적지 확인
-        atDst = (curP[arrived] == G.dstSat[0]) & (curS[arrived] == G.dstSat[1])
+        atDst = (curP[arrived] == dstP[arrived]) & (curS[arrived] == dstS[arrived])
         age = t - genTime[arrived]
         onTimeIds = arrived[atDst & (age <= P.deadline)]
         status[onTimeIds] = 1
@@ -165,13 +201,18 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
         # 4. 패킷 생성
         newIds = np.zeros(0, dtype=np.int64)
         if t <= P.simTime and numNew(t) > 0:
-            newIds = np.arange(numPackets, numPackets + numNew(t))
-            numPackets += numNew(t)
+            k = numNew(t)
+            seq0 = numPackets // numFlows                     # 흐름마다 지금까지 만든 개수 (모든 흐름이 같음)
+            fOf = np.repeat(np.arange(numFlows), k)
+            newIds = fOf * perFlow + seq0 + np.tile(np.arange(k), numFlows)   # 흐름 순서대로, 흐름 안에서는 생성 순서
+            numPackets += k * numFlows
             genTime[newIds] = t
             ttl[newIds] = P.ttlInit
             hops[newIds] = 0
-            curP[newIds] = G.srcSat[0]
-            curS[newIds] = G.srcSat[1]
+            curP[newIds] = flowSrc[fOf, 0]
+            curS[newIds] = flowSrc[fOf, 1]
+            dstP[newIds] = flowDst[fOf, 0]
+            dstS[newIds] = flowDst[fOf, 1]
 
                 # 4-B. 배경 패킷 생성
         #   흐름 순서대로 빈 id를 받음 (빈 id가 모자라면 뒤쪽 흐름부터 못 만듦 = srcDrop)
@@ -210,7 +251,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             #   링크별로 큐 빈자리만큼 앞에서부터 넣고 나머지는 오버플로 (링크마다 반복하지 않고 한꺼번에)
             first = np.r_[0, np.flatnonzero(np.diff(bl)) + 1]                 # 링크 묶음의 시작 위치
             rank = np.arange(len(bl)) - np.repeat(first, np.diff(np.r_[first, len(bl)]))   # 묶음 안 순번
-            ok = rank < (queueMax - queueLen[bl])
+            ok = (rank < (queueMax - queueLen[bl])) & ~G.linkDown[bl]   # 끊긴 링크로는 못 보냄
             if ok.any():
                 okL = bl[ok]
                 queueBuf[okL, (queueHead[okL] + queueLen[okL] + rank[ok]) % queueMax] = bgIds[ok]
@@ -230,6 +271,8 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
         for packet_id in toRoute:
             p = int(curP[packet_id])
             s = int(curS[packet_id])
+            if numFlows > 1:   # 라우팅(A, B, C)과 결정 기록은 G.dstSat 기준 -> 이 패킷의 도착 위성으로 바꿔 둠
+                G.dstSat = np.array([dstP[packet_id], dstS[packet_id]])
             nextDir, choiceType, L, N = route(p, s, queueLen, G, P, t=t, remDeadline=P.deadline - (t - genTime[packet_id]),
                                               ttl=int(ttl[packet_id]), hops=int(hops[packet_id]), hist=hist)   # 패킷 정보와 링크 기록은 route_C만 씀
             if epsilon > 0 and rng.random_sample() < epsilon:
@@ -238,7 +281,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
                 choiceType = 4   # 무작위
 
             link = G.linkId[p, s, nextDir - 1]
-            enqueued = queueLen[link] < queueMax
+            enqueued = queueLen[link] < queueMax and not G.linkDown[link]   # 끊긴 링크면 손실
             qAtLink = int(queueLen[link])   # 넣기 전 큐 길이 (강화학습 홉 보상용)
 
             qNow = [-1] * 4
@@ -267,6 +310,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             if collector is not None and choiceType != 4:   # route_C 학습: 방금 결정을 경험으로 연결 (ε 무작위 결정은 제외)
                 collector.on_decision(int(packet_id), C_STATE.last, qAtLink, enqueued, int(G.linkDelay[link]))
 
+        G.dstSat = mainDst
         if nlog is not None:
             nlog.peak(queueLen)   # 라우팅 후 전송 전 (큐가 가장 찬 순간)
 
@@ -316,6 +360,10 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     R.endTime = endTime[:numPackets]
     R.hops = hops[:numPackets]
     R.status = status[:numPackets]
+    R.numFlows = numFlows
+    R.flows = mainFlows
+    R.packetFlow = np.arange(numPackets) // perFlow   # 패킷이 속한 흐름 번호 (0 = 기존 주 흐름)
+    R.flowSeq = np.arange(numPackets) % perFlow       # 흐름 안 순번 (GSL 원본 ID와 같은 역할)
     R.decisionLog = decisionLog[:numDecisions, :]
     R.timeline = timeline[:t, :]
     R.grid = G

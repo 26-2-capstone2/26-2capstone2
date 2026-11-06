@@ -19,7 +19,7 @@ def merge_episodes(Rs, P):
     M.grid = Rs[0].grid
     M.numEpisodes = len(Rs)
 
-    genT, endT, hops, status, ep, logs = [], [], [], [], [], []
+    genT, endT, hops, status, ep, logs, flow = [], [], [], [], [], [], []
     pktOffset = 0
     for e, R in enumerate(Rs):
         shift = e * P.simTime                       # 에피소드 길이만큼 시간 이동
@@ -28,6 +28,7 @@ def merge_episodes(Rs, P):
         hops.append(R.hops)
         status.append(R.status)
         ep.append(np.full(R.numPackets, e, dtype=np.int64))
+        flow.append(getattr(R, 'packetFlow', np.zeros(R.numPackets, dtype=np.int64)))
         D = R.decisionLog.copy()
         D[:, 0] += shift                            # t
         D[:, 1] += pktOffset                        # packet_id
@@ -39,6 +40,8 @@ def merge_episodes(Rs, P):
     M.hops = np.concatenate(hops)
     M.status = np.concatenate(status)
     M.packetEpisode = np.concatenate(ep)            # 패킷이 속한 에피소드 번호 (연속 손실 / 경로 변경 계산용)
+    M.packetFlow = np.concatenate(flow)             # 패킷이 속한 주 흐름 번호 (연속 손실은 흐름마다 끊어서 셈)
+    M.numFlows = getattr(Rs[0], 'numFlows', 1)
     M.decisionLog = np.vstack(logs)
     M.numPackets = pktOffset
     M.endStep = sum(R.endStep for R in Rs)

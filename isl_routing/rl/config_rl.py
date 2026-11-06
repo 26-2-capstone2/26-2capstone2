@@ -4,6 +4,7 @@
 # 정규화 기준값 (큐 크기, 기한, TTL)은 시뮬레이터 값에서 가져옴 
 # -> 시뮬레이터 설정값을 바꾸면 rl 설정값도 자동변경
 # [시작값] 표시는 처음 돌려 보고 학습 곡선을 보며 조정할 값
+import os
 from types import SimpleNamespace
 
 
@@ -13,7 +14,13 @@ def config_rl(P):
     RL = SimpleNamespace()
 
     # ---- 관측 벡터 (rl_state.py) ----
-    RL.obsDim = 24                         # 관측 24개: 큐 4 + 이웃 부하 4 + 큐 증가 속도 4 + 최근 큐 넘침 4 + 링크 유무 4 + 남은 거리 2 + 남은 기한 1 + 남은 TTL 1
+    RL.stateMode = os.environ.get('RL_STATE_MODE', 'full')   # 'full': 24개 전부, 'noTrend': 큐 증가 속도, 최근 큐 넘침 빼고 16개 (State 축소 실험)
+                                           # 'coarse': 힌트 줄인 15개 (큐 3단계 4 + 30 step 전 이웃 부하 4 + 링크 유무 4 + 남은 거리 2 + 남은 기한 1)
+    RL.obsDim = {'full': 24, 'noTrend': 16, 'coarse': 15}[RL.stateMode]
+    RL.qLevelLow = 0.5 * P.queueMax        # coarse 큐 3단계: 100개 미만 여유 0, 100~150개 보통 0.5, 150개 이상 혼잡 1
+    RL.qLevelHigh = 0.75 * P.queueMax
+    RL.nbrDelay = 30                       # coarse 이웃 부하: 30 step 전 값
+                                           # full 24개: 큐 4 + 이웃 부하 4 + 큐 증가 속도 4 + 최근 큐 넘침 4 + 링크 유무 4 + 남은 거리 2 + 남은 기한 1 + 남은 TTL 1
     RL.numActions = 4                      # 행동 4개 : 상, 하, 좌, 우
     RL.maskMode = 'link'                   # 'link': 없는 방향만 막음 (꽉 찬 큐, 기한 초과는 손실 보상으로 직접 배움)
                                            # 'full': 예전 방식, 꽉 찬 큐와 기한 안에 못 가는 방향도 막음 (비교용)
@@ -28,6 +35,7 @@ def config_rl(P):
 
     # ---- 보상 (rl_reward.py) ----
     RL.rewardHopScale = P.deadline         # 홉 보상 = -(링크 지연 + 큐 길이 ÷ 링크 용량) ÷ 70
+    RL.rewardHopQueue = os.environ.get('RL_HOP_QUEUE', '1') == '1'   # False면 홉 보상에서 큐 항목 뺌: -링크 지연 ÷ 70 (환경 변수 RL_HOP_QUEUE=0)
     RL.rewardOnTime = 0.5                  # 기한 내 도착 (끝)
     RL.rewardSingleLoss = -0.1            # 단발 손실 (1~2개): 오버플로, 기한 초과, TTL 만료 (끝)
     RL.burstEnabled = True                 # False면 연속 손실도 단발 손실과 같은 보상 (대조 실험)
@@ -48,6 +56,7 @@ def config_rl(P):
     RL.trainEvery = 4                      # 결정 몇 번마다 한 번 학습                            [시작값]
     RL.targetUpdate = 2500                 # 학습 몇 번마다 타깃 신경망을 복사 (= 결정 1만 번마다, DQN, SB3 기본값)  [학습 안정화 계획]
     RL.gradClip = 10.0                     # 기울기 최대 크기
+    RL.tau = 0.0                           # 0: 타깃 신경망을 targetUpdate번마다 통째로 복사 (기존), 0보다 크면 매 학습마다 τ만큼 섞음 (soft update, 예 0.005)
 
     # ---- 탐험 (ε-greedy, 온라인 학습) ----
     RL.epsStart = 1.0                      # 처음엔 전부 무작위
@@ -55,7 +64,10 @@ def config_rl(P):
     RL.epsDecaySteps = 300000              # 이 결정 수에 걸쳐 1.0 -> 0.05로 줄임 (직선)          [시작값]
 
     # ---- 학습 실행 (train_rl.py) ----
-    RL.trainLevels = ['base', 'high', 'severe']   # 혼잡 세 단계를 섞어서 학습 (에피소드마다 돌아가며)
+    RL.trainLevels = ['base', 'high', 'severe']   # 학습에 쓰는 혼잡 단계
+    RL.flowZeroRandomTrain = False         # True면 학습 에피소드마다 흐름 0의 출발, 도착도 무작위 (검증, 평가는 항상 (0,0) -> (5,5))
+    RL.trainLevelMode = 'weighted'         # 'weighted': 아래 비율로 에피소드마다 무작위로 고름, 'cycle': base, high, severe 차례로 돌아가며 (이전 방식)
+    RL.trainLevelWeights = {'base': 1, 'high': 1, 'severe': 2}   # severe 강조 혼합 (최악 상황 경험을 절반으로), 순서는 trainSeedStart로 고정
     RL.trainSeedStart = 1001               # 학습용 시드 시작 (평가용 시드 1~20은 학습에 절대 안 씀)
     RL.trainEpisodes = 270                 # 학습 에피소드 수 (10초짜리, 총 결정 약 200만 번)     [학습 안정화 계획]
     RL.evalSeeds = list(range(1, 21))      # 평가용 시드 1~20 (A, B와 같은 조건)

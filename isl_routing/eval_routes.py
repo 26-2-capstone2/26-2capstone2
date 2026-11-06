@@ -1,7 +1,7 @@
-# 라우팅 비교 평가 - 평가 시드(1~20)로 A, B, C를 같은 조건에서 돌려 표로 비교
+# 라우팅 비교 평가 - 평가 시드(1~20)로 B, C를 (A는 고를 때만) 같은 조건에서 돌려 표로 비교
 #
 # 실행 (isl_routing 폴더에서):
-#   python eval_routes.py 모델경로                     -> 혼잡 3단계 x A, B, C, 에피소드 20개
+#   python eval_routes.py 모델경로                     -> 혼잡 3단계 x B, C, 에피소드 20개 (기본은 A 제외)
 #   python eval_routes.py 모델경로 severe              -> severe만
 #   python eval_routes.py 모델경로 all routeA,routeC  -> 고른 라우팅만
 #   python eval_routes.py none all routeA,routeB  -> C 없이 (모델 없음)
@@ -31,11 +31,12 @@ from sim.episodes import merge_episodes, total_params
 from sim.run_isl_sim import run_isl_sim
 
 ALL_ROUTES = ['routeA', 'routeB', 'routeC']
+DEFAULT_ROUTES = ['routeB', 'routeC']   # 기본 비교 대상 (A는 routeA,routeB,routeC처럼 직접 고를 때만)
 
 
 def loss_runs(Rs):
     # 에피소드별 연속 손실 구간 길이 (에피소드 경계에서 끊음)
-    return np.concatenate([loss_run_lengths(r.status) for r in Rs])
+    return np.concatenate([loss_run_lengths(r.status, r.packetFlow) for r in Rs])   # 주 흐름마다 끊어서 셈
 
 
 def evaluate(level, route, modelPath=None, numEpisodes=None, cRun=''):
@@ -63,16 +64,19 @@ def evaluate(level, route, modelPath=None, numEpisodes=None, cRun=''):
         Rs.append(run_isl_sim(P, P.genRate, 0, P.randomSeed + e, False))
     M = compute_metrics(merge_episodes(Rs, P), total_params(P))
     runs = loss_runs(Rs)
-    minutes = P.numEpisodes * P.simTime * P.stepTime / 60
+    minutes = P.numEpisodes * P.simTime * P.stepTime / 60 * P.numFlows   # 흐름 하나 기준 1분당 (흐름 수로 나눔)
     rate = burst_rate_stats(runs, P.burstMinLen, minutes)
     perSeed = []
     for e, r in enumerate(Rs):
-        er = loss_run_lengths(r.status)
+        er = loss_run_lengths(r.status, r.packetFlow)
         ok = r.status == 1
+        main = r.packetFlow == 0                         # 흐름 0 (기존 주 흐름, GSL 연결 흐름)
         arr = (r.status == 1) | (r.status == 2)          # 평균 지연은 compute_metrics와 같게 목적지 도착 패킷 전체
-        eRate = burst_rate_stats(er, P.burstMinLen, P.simTime * P.stepTime / 60)
+        eRate = burst_rate_stats(er, P.burstMinLen, P.simTime * P.stepTime / 60 * P.numFlows)
         perSeed.append(dict(level=level, route=route, cRun=cRun, seed=P.randomSeed + e,
                             onTimeRate=round(float(ok.mean()) * 100, 2),
+                            mainOnTimeRate=round(float(ok[main].mean()) * 100, 2),
+                            mainMaxConsecLoss=int(loss_run_lengths(r.status[main]).max(initial=0)),
                             burstCount=int((er >= P.burstMinLen).sum()),
                             burstPerMin=round(eRate.burstPerMin, 3),
                             burstLenP95=round(eRate.burstLenP95, 1),
@@ -95,8 +99,8 @@ def evaluate(level, route, modelPath=None, numEpisodes=None, cRun=''):
 def main():
     args = sys.argv[1:]
     models = args[0].split(',') if args and args[0] != 'none' else []   # C 모델 여러 개 (학습 시드별)
-    levels = list(BG_LEVELS) if len(args) < 2 or args[1] == 'all' else [args[1]]
-    routes = args[2].split(',') if len(args) > 2 else ALL_ROUTES
+    levels = list(BG_LEVELS) if len(args) < 2 or args[1] == 'all' else args[1].split(',')   # 'high,severe'처럼 여러 단계 가능
+    routes = args[2].split(',') if len(args) > 2 else DEFAULT_ROUTES
     numEpisodes = int(args[3]) if len(args) > 3 else None   # 없으면 config의 numEpisodes (20)
     if 'routeC' in routes and not models:
         routes.remove('routeC')

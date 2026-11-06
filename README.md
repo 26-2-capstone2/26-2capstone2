@@ -38,13 +38,10 @@ LEO 위성 사이 링크(ISL)에서 출발 위성 (0,0) → 도착 위성 (5,5)�
 ```
 isl_routing/
   run.py             터미널 실행 도우미 (번호로 골라 실행, 가장 쉬운 방법)
-  main_isl.py        A, B 시뮬레이션 실행 + 결과 저장
-  eval_routes.py     A, B, C 최종 평가 (평가 시드별 결과 포함)
+  main_isl.py        B 시뮬레이션 (A 선택 가능) 실행 + 결과 저장
+  eval_routes.py     B, C 최종 평가 (A는 routeA,routeB,routeC로 고를 때만) (평가 시드별 결과 포함)
   config_isl.py      시뮬레이터 설정값 (망, 큐, 기한, 배경 트래픽, 혼잡 단계)
-  run_batch.py       여러 세트 한 번에 실행
-  show_results.py    결과 보기
-  show_node.py       노드 보기
-  check_bg.py        배경 트래픽 점검
+  tools/             보조 실행 파일 (run_batch 여러 세트 실행, show_results 결과 보기, show_node 노드 보기, check_bg 배경 트래픽 점검)
   sim/               시뮬레이터 본체, 망 구조, 배경 트래픽, 링크 기록
   routing/           라우팅 route_A, route_B, route_C (입력과 출력이 같아서 바꿔 끼움)
   rl/                강화학습 설정, State, 보상, DQN, 경험 연결, 학습
@@ -67,10 +64,10 @@ python run.py
 
 | 할 일 | 명령 (isl_routing 폴더에서) |
 | --- | --- |
-| A, B 시뮬레이션 | `python main_isl.py` |
+| B 시뮬레이션 (A는 라우팅 인자로) | `python main_isl.py` |
 | C 학습 (학습 시드 0) | `python rl/train_rl.py 270 0 0` |
 | 학습 곡선 목표 판정 | `python analysis/learning_targets.py 학습폴더 [학습폴더 ...]` |
-| A, B, C 최종 평가 | `python eval_routes.py 모델0,모델1,모델2` |
+| B, C 최종 평가 (A는 routeA,routeB,routeC로 고를 때만) | `python eval_routes.py 모델0,모델1,모델2` |
 | 최종 성능 목표 판정 | `python analysis/compare_runs.py 평가폴더` |
 | 테스트 | `python -m unittest discover -s tests` |
 

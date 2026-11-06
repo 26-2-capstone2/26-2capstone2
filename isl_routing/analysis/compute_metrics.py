@@ -55,7 +55,7 @@ def compute_metrics(R, P):
     M.burstLossRate = float(lens.sum() / R.numPackets)
     M.burstShareOfLoss = float(lens.sum() / numLost) if numLost else 0.0
     M.avgBurstLen = float(lens.mean()) if lens.size else 0.0
-    M.burstPerMin = float(len(lens) / (P.simTime * P.stepTime / 60))
+    M.burstPerMin = float(len(lens) / (P.simTime * P.stepTime / 60 * getattr(R, 'numFlows', 1)))   # 흐름 하나 기준 1분당
 
     # Route Change Count: 도착 패킷끼리 id 순서로 직전 패킷과 경로가 다른 횟수
     D = R.decisionLog[R.decisionLog[:, 23] == 1, :]

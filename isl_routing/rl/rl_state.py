@@ -13,6 +13,9 @@
 #   22    남은 기한 ÷ 70
 #   23    남은 TTL ÷ 20
 #
+# RL.stateMode = 'coarse'면 15개: 큐 3단계(0, 0.5, 1) 4 + 30 step 전 이웃 부하 4 + 링크 유무 4 + 남은 거리 2 + 남은 기한 1
+# RL.stateMode = 'noTrend'면 8~15번을 빼고 16개 (큐 길이, 이웃 부하, 링크 유무, 거리, 기한, TTL)
+#
 # 링크 점유율 L은 큐 길이와 이웃 부하로 계산되는 중복 정보라 관측에서 제외
 
 from dataclasses import dataclass
@@ -57,6 +60,12 @@ def normalize(q, N, dq, sinceDrop, remDp, remDs, remDeadline, ttl, RL):
         link,
         [remDp / RL.normDist, remDs / RL.normDist, remDeadline / RL.normDeadline, ttl / RL.normTtl],
     ])
+    mode = getattr(RL, 'stateMode', 'full')
+    if mode == 'noTrend':   # State 축소 실험: 큐 증가 속도(8~11), 최근 큐 넘침(12~15) 뺌
+        obs = np.concatenate([obs[:8], obs[16:]])
+    elif mode == 'coarse':  # 힌트 줄인 State: 큐 3단계, 이웃 부하(30 step 전), 링크 유무, 남은 거리, 남은 기한 (TTL 뺌)
+        qLv = np.where(q >= RL.qLevelHigh, 1.0, np.where(q >= RL.qLevelLow, 0.5, 0.0)) * link
+        obs = np.concatenate([qLv, obs[4:8], obs[16:23]])
     return obs.astype(np.float32)
 
 
@@ -93,10 +102,15 @@ def raw_from_sim(curP, curS, queueLen, G, P, RL, hist=None, t=0):
     #   q: 지금 큐 길이, N: 링크 지연만큼 늦게 받은 이웃 부하, dq: 큐 증가량, sinceDrop: 마지막 넘침 후 지난 step
     #   Lnow, Nnow: 지금 값으로 계산한 링크 점유율과 이웃 부하 (decision_log 기록용, A, B와 같은 계산식)
     # hist가 없으면 (테스트 등) 이웃 부하는 지금 값, 큐 증가량 0, 넘침 없음으로 둔다
-    if RL.deltaWindow >= HISTORY_STEPS or G.maxLinkDelay >= HISTORY_STEPS:
+    if RL.deltaWindow >= HISTORY_STEPS or G.maxLinkDelay >= HISTORY_STEPS or getattr(RL, 'nbrDelay', 0) >= HISTORY_STEPS:
         raise ValueError('링크 기록 길이(HISTORY_STEPS)가 관측에 필요한 과거보다 짧습니다')
     q, N, dq, sinceDrop, Lnow, Nnow = ([-1.0] * 4 for _ in range(6))
-    for d in G.validDirs[curP][curS]:
+    dirs = G.validDirs[curP][curS]
+    down = getattr(G, 'linkDown', None)
+    if down is not None:   # 자기 위성의 끊긴 링크는 없는 링크처럼 봄 (관측 링크 유무 0, 행동 마스크로 막힘)
+        up = [d for d in dirs if not down[G.linkId[curP, curS, d - 1]]]
+        dirs = up if up else dirs   # 모두 끊기면 그대로 둠 (빈 마스크 방지, 그 결정은 손실)
+    for d in dirs:
         nextP, nextS = G.nbrP[curP, curS, d - 1], G.nbrS[curP, curS, d - 1]   # 이웃 위성 (원형 연결 반영)
         link = G.linkId[curP, curS, d - 1]
         V = float(queueLen[link])
@@ -106,7 +120,8 @@ def raw_from_sim(curP, curS, queueLen, G, P, RL, hist=None, t=0):
         if hist is None:
             N[d - 1], dq[d - 1], sinceDrop[d - 1] = Nnow[d - 1], 0.0, float(RL.overflowWindow)
             continue
-        past = hist.queue_at(t - int(G.linkDelay[link]))   # 이웃이 보낸 부하 정보는 링크 지연만큼 늦게 도착
+        lag = RL.nbrDelay if getattr(RL, 'stateMode', 'full') == 'coarse' else int(G.linkDelay[link])
+        past = hist.queue_at(t - lag)   # 이웃이 보낸 부하 정보는 링크 지연만큼 늦게 도착 (coarse는 30 step 전)
         N[d - 1] = float(np.mean(past[G.outLinks[nextP][nextS]]))
         dq[d - 1] = V - float(hist.queue_at(t - RL.deltaWindow)[link]) if t > RL.deltaWindow else 0.0
         sinceDrop[d - 1] = float(t - hist.lastDrop[link])

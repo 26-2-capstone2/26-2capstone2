@@ -76,6 +76,8 @@ def sample_hotspots(P, G, seed, maxTry=500):
     # 송신 큐 핫스팟(위성, 방향)을 무작위로 뽑아 P.bgFlows / P.bgOnRate / P.bgSeed를 채움
     #   같은 시드면 항상 같은 시나리오. 한 번 실행(에피소드)을 시작하기 전에 한 번만 호출
     #   반환: 뽑힌 핫스팟 목록 [(p, s, 방향, 다음 p, 다음 s, 주 흐름과 관련 있는 큐인지)], 세기 목록(packets/step)
+    from sim.flows import make_flows
+    P.mainFlows = make_flows(P, G, seed)   # 이 에피소드의 주 흐름 목록 (흐름 1개면 기존 출발 -> 도착 하나)
     if getattr(P, 'bgMode', 'hotspot') == 'event':   # 혼잡 사건 방식은 sim/bg_event.py
         from sim.bg_event import sample_events
         return sample_events(P, G, seed, maxTry)

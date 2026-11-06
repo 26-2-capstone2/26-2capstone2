@@ -27,14 +27,14 @@ torch는 강화학습(routeC)을 학습하거나 평가할 때만 필요함.
 
 | 할 일 | 명령 |
 |---|---|
-| A, B 비교 실행 | `python main_isl.py` |
+| B 실행 (A는 라우팅 인자로) | `python main_isl.py` |
 | 시드, 혼잡 단계, 라우팅 지정 | `python main_isl.py 1 severe routeB` |
 | 학습된 C로 실행 | `python main_isl.py 1 severe routeC 모델경로/model_final.pt` |
 | C 학습 (에피소드 수, 길이 0 = 기본, 학습 시드) | `python rl/train_rl.py 270 0 0` (짧게 시험: `python rl/train_rl.py 3 2000 0`) |
 | 학습 곡선 목표 판정 | `python analysis/learning_targets.py 학습폴더 [학습폴더 ...]` |
-| A, B, C 최종 평가 (평가 시드 1~20 x 혼잡 3단계) | `python eval_routes.py 모델0,모델1,모델2` |
+| B, C 최종 평가 (평가 시드 1~20 x 혼잡 3단계) | `python eval_routes.py 모델0,모델1,모델2` |
 | 최종 성능 목표 판정 | `python analysis/compare_runs.py 평가폴더` |
-| 여러 세트 한 번에 실행 | `python run_batch.py high routeB 1001 5` |
+| 여러 세트 한 번에 실행 | `python tools/run_batch.py high routeB 1001 5` |
 | 테스트 | `python -m unittest discover -s tests` |
 | 웹 시뮬레이터 | `python web/server.py` 후 http://localhost:8000 |
 
@@ -64,9 +64,8 @@ torch는 강화학습(routeC)을 학습하거나 평가할 때만 필요함.
 run.py             터미널 실행 도우미
 main_isl.py        A, B 시뮬레이션 실행 (결과 CSV, 그래프, 애니메이션 저장)
 config_isl.py      시뮬레이터 설정값, 배경 트래픽, 혼잡 단계
-eval_routes.py     A, B, C를 같은 조건으로 평가 (평가 시드별 결과 포함)
-run_batch.py       시드를 바꿔 여러 세트 실행
-check_bg.py, show_node.py, show_results.py   배경 트래픽, 노드 기록, 결과 확인용
+eval_routes.py     B, C를 같은 조건으로 평가 (A 선택 가능) (평가 시드별 결과 포함)
+tools/             보조 실행 파일: run_batch (여러 세트 실행), show_results (결과 보기), show_node (노드 보기), check_bg (배경 트래픽 점검)
 
 routing/    라우팅 route_A, route_B, route_C (입력과 출력이 같아서 바꿔 끼움)
 sim/        시뮬레이터 본체, 망 구조, 배경 트래픽(bg_event 새 방식, bg_traffic 기존 방식), 에피소드 합치기, 노드 기록, 링크 기록

@@ -42,6 +42,9 @@ def route_B(curP, curS, queueLen, G, P, **packet):   # packet: route_C가 쓰는
     vert = (2 if remainS > 0 else 1) if remainS != 0 else 0    # 2 하, 1 상
     # 실제 위성군에서는 그 방향 링크가 꺼져 있을 수 있음 (극지방 옆 궤도 링크, seam) -> 있는 링크만 후보
     valid = G.validDirs[curP][curS]
+    down = getattr(G, 'linkDown', None)
+    if down is not None:   # 자기 위성의 끊긴 링크는 없는 링크처럼 봄 (장애 시나리오)
+        valid = [d for d in valid if not down[G.linkId[curP, curS, d - 1]]]
     horiz = horiz if horiz in valid else 0
     vert = vert if vert in valid else 0
     if not horiz and not vert:   # 목적지 쪽 링크가 모두 없으면 최단 경로 방향으로 돌아감 (6x6 격자에서는 생기지 않음)

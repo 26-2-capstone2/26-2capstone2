@@ -14,6 +14,7 @@ BG_LEVELS = {
     'base':   dict(bgNumMin=2, bgNumMax=5, bgOnMean=150, bgOffMean=750),   # 기본, 켜진 시간 약 1/6 (평상시)
     'high':   dict(bgNumMin=3, bgNumMax=6, bgOnMean=300, bgOffMean=600),   # 높음, 약 1/3 (붐비는 시간대)
     'severe': dict(bgNumMin=4, bgNumMax=7, bgOnMean=450, bgOffMean=450),   # 매우 높음, 약 1/2 (피크, 이벤트 상황)
+    'extreme': dict(bgNumMin=4, bgNumMax=7, bgOnMean=450, bgOffMean=450),  # 'event' 전용 최악 상황 (hotspot 방식에서는 severe와 같음)
 }
 
 
@@ -22,10 +23,13 @@ BG_LEVELS = {
 # 발생 간격: 30초 에피소드에서 동시에 걸린 지역이 '항상 한 곳(약 1개) / 여러 곳(약 2개) / 최악(약 4개)'이 되게 정한 값
 # (처음 정한 base 5000은 빼고 한 단계씩 올림: 이전 high -> base, 이전 severe -> high, severe는 최악 상황으로 새로 추가)
 EVENT_LEVELS = {
-    'base':   dict(evIntervalMean=2500, evDurationMean=2500),   # 30초에 핫스팟 약 12번, 동시 약 1개 지역
-    'high':   dict(evIntervalMean=1250, evDurationMean=2500),   # 약 24번, 동시 약 2개
-    'severe': dict(evIntervalMean=625, evDurationMean=2500),    # 약 48번, 동시 약 4개 (최악 상황)
+    'base':   dict(evIntervalMean=2500, evDurationMean=2500, evLoadMin=0.5, evLoadMax=1.5, evNbrRatio=0.5, failEnable=False),   # 30초에 핫스팟 약 12번, 동시 약 1개 지역
+    'high':   dict(evIntervalMean=1250, evDurationMean=2500, evLoadMin=0.5, evLoadMax=1.5, evNbrRatio=0.5, failEnable=False),   # 약 24번, 동시 약 2개
+    'severe': dict(evIntervalMean=625, evDurationMean=2500, evLoadMin=0.5, evLoadMax=1.5, evNbrRatio=0.5, failEnable=False),    # 약 48번, 동시 약 4개
+    # extreme (테스트 6): 혼잡 세기 강화 + 링크 장애 (DTAR 장애 시나리오). 동시 약 5개 지역, 세기 1.0~2.0배, 이웃 0.7배
+    'extreme': dict(evIntervalMean=500, evDurationMean=2500, evLoadMin=1.0, evLoadMax=2.0, evNbrRatio=0.7, failEnable=True),
 }
+EV_TIME_KEYS = ('evIntervalMean', 'evDurationMean')   # ISL_EV_TIME_SCALE을 곱하는 값 (시간 값만)
 
 
 def apply_bg_level(P, level):
@@ -35,8 +39,9 @@ def apply_bg_level(P, level):
     P.bgLevel = level
     for k, v in BG_LEVELS[level].items():
         setattr(P, k, v)
+    scale = float(os.environ.get('ISL_EV_TIME_SCALE', '1'))   # 핫스팟 지속, 간격을 같은 비율로 줄임 (0.4면 지속 1초, 동시 핫스팟 수는 그대로)
     for k, v in EVENT_LEVELS[level].items():
-        setattr(P, k, v)
+        setattr(P, k, max(1, round(v * scale)) if k in EV_TIME_KEYS else v)
     return P
 
 
@@ -74,11 +79,13 @@ def config_isl():
     # 'routeA': 정적 다익스트라 (링크 지연만, 부하 무시 - 기준선)
     # 'routeB': DRA (Ekici et al. 2001, 자기 송신 큐만 보고 주/보조 방향 선택)
     # 'routeC': 강화학습 (학습된 모델이 필요해서 eval_routes.py, rl/train_rl.py, main_isl.py 실행 인자로 돌림)
-    P.routeName = ['routeA', 'routeB']     # 비교할 라우팅 목록 (ε = 0으로 하나씩 실행). 하나만 돌리려면 'routeB'처럼 문자열
+    P.routeName = 'routeB'                 # 실행할 라우팅 (기본 B, A와 같이 보려면 ['routeA', 'routeB']). 비교할 라우팅 목록 (ε = 0으로 하나씩 실행). 하나만 돌리려면 'routeB'처럼 문자열
     P.collectRoute = 'routeB'              # ε > 0 (강화학습 데이터 수집) 실행에 쓰는 라우팅
 
     # ---- 실험 ----
     P.genRate = 60                         # 1초마다 생성하는 패킷 수 (일정 간격)
+    P.numFlows = int(os.environ.get('ISL_NUM_FLOWS', '1'))   # 주 흐름 수 (흐름마다 초당 genRate개). 1: 기존 (0,0) -> (5,5)만, 3: 기존 + 무작위 2개 (sim/flows.py)
+    P.flowDelayMin, P.flowDelayMax = 30, 45   # 무작위 흐름의 출발 -> 도착 최소 지연 범위 (step, 주 흐름은 45)
     P.epsilonList = [0, 0.1]               # 무작위 선택 확률 (0: 성능 측정용, 0.1: 데이터 수집용)
     P.simTime = 10000                      # 에피소드 1개의 길이 (step = 10초). 에피소드마다 큐가 비어 있는 상태로 시작
                                            #   학습 안정화 계획: 에피소드당 결정 약 7천~8천 번으로 줄여 학습 곡선을 촘촘하게 봄
@@ -106,6 +113,9 @@ def config_isl():
     P.evLoadMin, P.evLoadMax = 0.5, 1.5    # 'event' 지역 핫스팟: 중심 위성의 송신 링크마다 기본 부하에 더하는 세기 (용량의 배수)
     P.evNbrRatio = 0.5                     # 'event' 이웃 위성의 송신 링크에는 위 세기의 이 비율만큼 더함 (지역 혼잡)
     P.evCorridor = 1.0                     # 'event' 출발 -> 도착 직선에서 이 칸 수 이내 위성이 '주 흐름이 지나는 지역' (bgRelWeight배 더 자주)
+    P.failEnable = False                   # 링크 장애 (단계 표 EVENT_LEVELS의 failEnable로 켬, extreme만). 끊긴 링크는 양방향 모두 끊김
+    P.failDownFrac = 0.02                  # 평균적으로 끊겨 있는 링크 비율 (DTAR 장애 시나리오 2%)
+    P.failDurationMean = 2000              # 장애 지속 평균 (step, 지수분포)
     P.evSafeLoad = 1.0                     # 'event' 안전장치: 부하 합이 용량의 이 배수 이상인 링크를 모두 빼고도 출발 -> 도착 길이 있어야 핫스팟을 만듦
     P.bgScenarioSeed = 1                   # 첫 에피소드의 시나리오 시드. 에피소드 e는 시드+e를 씀 (None이면 실행마다 무작위 시작 시드)
                                            # 실행할 때 python main_isl.py 7 처럼 시작 시드를 직접 줄 수도 있음

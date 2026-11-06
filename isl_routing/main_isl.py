@@ -2,7 +2,7 @@
 
 # ISL 2D Grid 라우팅 시뮬레이션 실행
 # 실행 목록 (config_isl.py)
-#   ε = 0   : P.routeName의 라우팅마다 1번씩 (A, B 비교) -> 성능 지표, 애니메이션
+#   ε = 0   : P.routeName의 라우팅마다 1번씩 (기본 B) -> 성능 지표, 애니메이션
 #   ε > 0   : P.collectRoute 라우팅으로만 -> 강화학습용 결정 기록 (decision_log)
 #   기본값이면 A(ε=0), B(ε=0), B(ε=0.1) 3번. 같은 에피소드는 라우팅이 달라도 같은 핫스팟 시나리오
 #   결과 파일 이름: <종류>_<라우팅>_rate60pps_eps0.0.csv  (예: packet_log_routeA_rate60pps_eps0.0.csv)
@@ -112,7 +112,7 @@ logColumns = ['step', 'packet_id', 'hop', 'cur_p', 'cur_s',
               'rem_dp', 'rem_ds', 'rem_deadline', 'ttl',
               'action', 'choice_type', 'enqueued']
 # action: 1 상, 2 하, 3 좌, 4 우 / choice_type: 1 주, 2 대체, 3 우회, 4 무작위
-pktColumns = ['packet_id', 'gen_step', 'end_step', 'result', 'hops', 'episode', 'loss_run_len', 'burst_id']
+pktColumns = ['packet_id', 'gen_step', 'end_step', 'result', 'hops', 'episode', 'loss_run_len', 'burst_id', 'flow_id']   # flow_id: 주 흐름 번호 (0 = 기존 주 흐름)
 # result: 1 기한 내 도착, 2 목적지 기한 초과, 3 중간 기한 초과, 4 큐 오버플로, 5 TTL 만료
 # loss_run_len: 이 패킷이 속한 손실 구간 길이 (패킷 번호 순서로 연달아 잃은 개수, 손실 아니면 0)
 # burst_id: 연속 손실(loss_run_len >= P.burstMinLen) 번호 -> burst_log CSV의 burst_id, 연속 손실이 아니면 -1
@@ -142,7 +142,7 @@ for routeName, epsilon, genRate in runPlan:
 
     B = burst_info(R, Pt)   # 연속 손실 (burst_loss.py)
     writetable(np.column_stack([np.arange(R.numPackets), R.genTime, R.endTime, R.status, R.hops, R.packetEpisode,
-                                B.pktRunLen, B.pktBurstId]),
+                                B.pktRunLen, B.pktBurstId, R.packetFlow]),
                pktColumns, os.path.join(outDir, f'packet_log_{tag}.csv'), '%d')
     writetable(B.table, BURST_COLUMNS, os.path.join(outDir, f'burst_log_{tag}.csv'), '%d')
     if R.nodeLog is not None:

@@ -1,4 +1,5 @@
 # 결과 보기 - 저장된 지표 표, 그래프, 애니메이션을 창에 띄움 (2. main_isl 다음에 실행)
+#   python tools/show_results.py   (isl_routing 폴더에서)
 #
 # 저장된 결과를 창에 띄우기
 # 1) 지표 요약 표 (터미널), 2) 지표 그래프, 3) 애니메이션 재생 (반복)
@@ -10,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from PIL import Image, ImageSequence
 
-baseDir = os.path.dirname(os.path.abspath(__file__))
+baseDir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # isl_routing 폴더 (results 폴더 위치)
 outDir = os.path.join(baseDir, 'results')
 
 with open(os.path.join(outDir, 'metrics_summary.csv'), newline='') as f:

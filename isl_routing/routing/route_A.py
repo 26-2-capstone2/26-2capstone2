@@ -24,22 +24,34 @@ def route_A(curP, curS, queueLen, G, P, **packet):   # packet: B가 쓰는 패�
 
     # 다음 위성까지 링크 지연 + 다음 위성에서 목적지까지 최소 지연이 가장 작은 방향
     nextDir, best = 0, np.inf
+    down = getattr(G, 'linkDown', None)
     for d in TIE_ORDER:
         if d not in G.validDirs[curP][curS]:
+            continue
+        if down is not None and down[G.linkId[curP, curS, d - 1]]:   # 자기 위성의 끊긴 링크는 고르지 않음
             continue
         cost = G.linkDelay[G.linkId[curP, curS, d - 1]] + dist[G.nbrP[curP, curS, d - 1], G.nbrS[curP, curS, d - 1]]
         if cost < best:   # 같으면 TIE_ORDER 앞쪽 유지
             nextDir, best = d, cost
+    if nextDir == 0:   # 모든 링크가 끊김 (안전장치상 드묾): 아무 방향 (손실)
+        nextDir = G.validDirs[curP][curS][0]
     return nextDir, 1, L, N
 
 
 def dist_to_dst(G):
-    # 모든 위성 -> 목적지 최소 지연 합 (step). Grid가 바뀌지 않으니 처음 한 번만 계산해 G에 저장
-    if getattr(G, 'distToDst', None) is not None:
-        return G.distToDst
+    # 모든 위성 -> 지금 목적지(G.dstSat) 최소 지연 합 (step). 목적지별로 처음 한 번만 계산해 G에 저장
+    # 흐름이 여러 개면 시뮬레이터가 패킷마다 G.dstSat을 그 패킷의 도착 위성으로 바꿔 놓고 라우팅을 부름
+    key = (int(G.dstSat[0]), int(G.dstSat[1]))
+    cache = G.__dict__.setdefault('distCache', {})
+    if key not in cache:
+        cache[key] = _dist_to(G, key)
+    return cache[key]
+
+
+def _dist_to(G, dst):
     numP, numS = G.hasLink.shape[:2]
     dist = np.full((numP, numS), np.inf)
-    dist[G.dstSat[0], G.dstSat[1]] = 0
+    dist[dst[0], dst[1]] = 0
     link_src = {}
     incoming = {(p, s): [] for p in range(numP) for s in range(numS)}
     for q in range(numP):
@@ -48,7 +60,7 @@ def dist_to_dst(G):
                 l = int(G.linkId[q, r, d - 1])
                 link_src[l] = (q, r)
                 incoming[(int(G.nextP[l]), int(G.nextS[l]))].append(l)
-    heap = [(0, int(G.dstSat[0]), int(G.dstSat[1]))]
+    heap = [(0, dst[0], dst[1])]
     while heap:   # 목적지에서 거꾸로 퍼져 나가는 Dijkstra (링크 a->b 비용으로 a의 거리 갱신)
         dd, p, s = heapq.heappop(heap)
         if dd > dist[p, s]:
@@ -59,5 +71,4 @@ def dist_to_dst(G):
             if nd < dist[q, r]:
                 dist[q, r] = nd
                 heapq.heappush(heap, (nd, int(q), int(r)))
-    G.distToDst = dist
     return dist
