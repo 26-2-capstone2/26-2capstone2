@@ -158,7 +158,7 @@
 | 학습 시작, 학습 빈도 | `RL.learnStart`, `RL.trainEvery` | 경험 5만 개 이후, 결정 4번마다 |
 | 타깃 갱신 | `RL.targetUpdate` | 학습 2,500번마다 (= 결정 1만 번) |
 | ε | `RL.epsStart`, `RL.epsEnd`, `RL.epsDecaySteps` | 1.0 → 0.05, 결정 30만 번 |
-| 학습 에피소드, 시드 | `RL.trainEpisodes`, `RL.trainSeedStart` | 270, 1001부터 |
+| 학습 에피소드, 시드 | `RL.trainEpisodes`, `RL.trainSeedStart` | 80, 1001부터 |
 | 학습 시드 (신경망 초기값) | `RL.torchSeed` | 0 (실행 인자로 바꿈) |
 | 검증 평가 | `RL.evalEvery`, `RL.valSeeds`, `RL.valLevels` | 10 에피소드마다, 501~505, 세 단계 |
 | 저장 | `RL.modelDir`, `RL.saveEvery` | 홈 폴더 `rl_models`, 10 에피소드마다 |

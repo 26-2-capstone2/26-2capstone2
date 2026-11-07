@@ -8,7 +8,7 @@ https://app.notion.com/p/3db5148e6a86803f8f6ee95d6399f367?v=3db5148e6a868062880c
 
 ## ISL 라우팅 시뮬레이터 (`isl_routing/`)
 
-LEO 위성 사이 링크(ISL)에서 출발 위성 (0,0) → 도착 위성 (5,5)로 실시간 UDP 패킷(초당 60개, 160 Byte, 기한 70 ms)을 보내고, 라우팅이 혼잡을 피해 **연속 패킷 손실을 줄이고 기한 내 도착률을 높이는지** 비교하는 Python 시뮬레이션.
+LEO 위성 사이 링크(ISL)에서 실시간 UDP 흐름 4개(흐름 0은 (0,0) → (5,5), 나머지는 무작위, 흐름마다 초당 60개, 160 Byte, 기한 70 ms)를 보내고, 라우팅이 혼잡을 피해 **연속 패킷 손실을 줄이고 기한 내 도착률을 높이는지** 비교하는 Python 시뮬레이션.
 
 | 라우팅 | 방식 |
 | --- | --- |
@@ -65,7 +65,7 @@ python run.py
 | 할 일 | 명령 (isl_routing 폴더에서) |
 | --- | --- |
 | B 시뮬레이션 (A는 라우팅 인자로) | `python main_isl.py` |
-| C 학습 (학습 시드 0) | `python rl/train_rl.py 270 0 0` |
+| C 학습 (학습 시드 0) | `python rl/train_rl.py 80 0 0` (단계 비율 바꾸기: 끝에 `1:1:2`처럼 base:high:severe, 기본 0:1:2) |
 | 학습 곡선 목표 판정 | `python analysis/learning_targets.py 학습폴더 [학습폴더 ...]` |
 | B, C 최종 평가 (A는 routeA,routeB,routeC로 고를 때만) | `python eval_routes.py 모델0,모델1,모델2` |
 | 최종 성능 목표 판정 | `python analysis/compare_runs.py 평가폴더` |

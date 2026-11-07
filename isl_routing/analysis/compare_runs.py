@@ -18,7 +18,6 @@ TARGETS = {
     'base':   dict(burstCut=10.0, p95Cut=0.0, onTimeMin=-1.0),
     'high':   dict(burstCut=20.0, p95Cut=15.0, onTimeMin=-1.0),
     'severe': dict(burstCut=20.0, p95Cut=20.0, onTimeMin=5.0),
-    'extreme': dict(burstCut=20.0, p95Cut=20.0, onTimeMin=5.0),   # 테스트 6 최악 상황 (severe와 같은 기준)
 }
 LATENCY_MAX = 5.0       # 평균 지연 증가 B 대비 +5 ms 이내
 WIN_RATE_MIN = 70.0     # 평가 시드 중 C의 연속 손실이 B보다 적은 비율 70% 이상
@@ -59,7 +58,7 @@ def main():
     d = sys.argv[1]
     summ = read_csv(os.path.join(d, 'summary.csv'))
     seeds = read_csv(os.path.join(d, 'per_seed.csv'))
-    levels = [lv for lv in ['base', 'high', 'severe', 'extreme'] if any(r['level'] == lv for r in summ)]
+    levels = [lv for lv in ['base', 'high', 'severe'] if any(r['level'] == lv for r in summ)]
 
     lines = ['# 최종 성능 목표 판정 (B 대비)', '', f'평가 폴더: {d}', '',
              '감소율 = (B - C) / B. 학습 시드가 2개 이상이면 평균 [95% 신뢰구간]', '']

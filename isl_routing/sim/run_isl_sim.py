@@ -72,7 +72,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     dstP = np.zeros(total, dtype=np.int64)    # 패킷의 목적지 (주 흐름, 배경 모두)
     dstS = np.zeros(total, dtype=np.int64)
     bgFree = list(range(total - 1, bgBase - 1, -1))
-    bgStat = dict(generated=0, delivered=0, overflow=0, ttlExpired=0, srcDrop=0, linkFail=0)
+    bgStat = dict(generated=0, delivered=0, overflow=0, ttlExpired=0, srcDrop=0)
     if bgOn:
         bgCount = make_bg_schedule(P)
         bgFlowSP = np.array([f[0][0] for f in P.bgFlows], dtype=np.int64)   # 흐름별 출발, 도착 위성 (배열로 한꺼번에 생성)
@@ -102,16 +102,6 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     numDecisions = 0
 
     maxSteps = P.simTime + P.maxDrainTime
-
-    # 링크 장애 (sim/bg_event.py sample_failures, extreme 단계): step별 끊긴 링크
-    #   끊기는 순간 그 링크 큐의 패킷은 모두 손실 (UDP는 재전송 없음), 끊긴 동안은 큐에 넣을 수 없음
-    #   라우팅은 G.linkDown으로 자기 위성의 끊긴 링크만 앎 (A, B는 피하고, C는 행동 마스크로 막음)
-    failEvents = getattr(P, 'failEvents', None) or []
-    downAt = np.zeros((maxSteps + 2, numLinks), dtype=bool)
-    for a, b, cut in failEvents:
-        for (p_, s_, d_) in cut:
-            downAt[a:b + 1, G.linkId[p_, s_, d_ - 1]] = True
-    G.linkDown = downAt[0]
     timeline = np.zeros((maxSteps, 6), dtype=np.int64)   # 누적: 생성, 기한 내 도착, 목적지 기한 초과, 중간 기한 초과, 오버플로, TTL 만료
     if recordAnim:
         animSteps = min(P.animDuration, maxSteps)
@@ -126,23 +116,6 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             warnings.warn('maxDrainTime 안에 모든 패킷이 끝나지 않음')
             t = maxSteps
             break
-
-        # 0. 링크 장애: 이번 step에 새로 끊긴 링크의 큐 패킷은 모두 손실
-        G.linkDown = downAt[t]
-        if failEvents:
-            for link in np.flatnonzero(downAt[t] & ~downAt[t - 1]):
-                n = int(queueLen[link])
-                ids = queueBuf[link, (queueHead[link] + np.arange(n)) % queueMax]
-                mainIds = ids[ids < bgBase]
-                status[mainIds] = 4          # 큐 손실 (오버플로와 같은 번호, 링크 장애로 큐째 버려짐)
-                endTime[mainIds] = t
-                statusCount[3] += len(mainIds)
-                bgIds_ = ids[ids >= bgBase]
-                bgStat['linkFail'] += len(bgIds_)
-                bgFree.extend(bgIds_.tolist())
-                queueLen[link] = 0
-                if collector is not None and len(mainIds):
-                    collector.on_end(mainIds, status)
 
         # 1. 도착 처리: 홉 수 +1, TTL -1
         slot = t % numSlots
@@ -251,7 +224,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             #   링크별로 큐 빈자리만큼 앞에서부터 넣고 나머지는 오버플로 (링크마다 반복하지 않고 한꺼번에)
             first = np.r_[0, np.flatnonzero(np.diff(bl)) + 1]                 # 링크 묶음의 시작 위치
             rank = np.arange(len(bl)) - np.repeat(first, np.diff(np.r_[first, len(bl)]))   # 묶음 안 순번
-            ok = (rank < (queueMax - queueLen[bl])) & ~G.linkDown[bl]   # 끊긴 링크로는 못 보냄
+            ok = rank < (queueMax - queueLen[bl])
             if ok.any():
                 okL = bl[ok]
                 queueBuf[okL, (queueHead[okL] + queueLen[okL] + rank[ok]) % queueMax] = bgIds[ok]
@@ -281,7 +254,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
                 choiceType = 4   # 무작위
 
             link = G.linkId[p, s, nextDir - 1]
-            enqueued = queueLen[link] < queueMax and not G.linkDown[link]   # 끊긴 링크면 손실
+            enqueued = queueLen[link] < queueMax
             qAtLink = int(queueLen[link])   # 넣기 전 큐 길이 (강화학습 홉 보상용)
 
             qNow = [-1] * 4

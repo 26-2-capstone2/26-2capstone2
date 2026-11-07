@@ -30,7 +30,7 @@ torch는 강화학습(routeC)을 학습하거나 평가할 때만 필요함.
 | B 실행 (A는 라우팅 인자로) | `python main_isl.py` |
 | 시드, 혼잡 단계, 라우팅 지정 | `python main_isl.py 1 severe routeB` |
 | 학습된 C로 실행 | `python main_isl.py 1 severe routeC 모델경로/model_final.pt` |
-| C 학습 (에피소드 수, 길이 0 = 기본, 학습 시드) | `python rl/train_rl.py 270 0 0` (짧게 시험: `python rl/train_rl.py 3 2000 0`) |
+| C 학습 (에피소드 수, 길이 0 = 기본, 학습 시드) | `python rl/train_rl.py 80 0 0` (짧게 시험: `python rl/train_rl.py 3 2000 0`) |
 | 학습 곡선 목표 판정 | `python analysis/learning_targets.py 학습폴더 [학습폴더 ...]` |
 | B, C 최종 평가 (평가 시드 1~20 x 혼잡 3단계) | `python eval_routes.py 모델0,모델1,모델2` |
 | 최종 성능 목표 판정 | `python analysis/compare_runs.py 평가폴더` |
@@ -70,7 +70,7 @@ tools/             보조 실행 파일: run_batch (여러 세트 실행), show_
 routing/    라우팅 route_A, route_B, route_C (입력과 출력이 같아서 바꿔 끼움)
 sim/        시뮬레이터 본체, 망 구조, 배경 트래픽(bg_event 새 방식, bg_traffic 기존 방식), 에피소드 합치기, 노드 기록, 링크 기록
 analysis/   성능 지표, 연속 손실, 학습 곡선 목표 판정, 최종 성능 목표 판정, 결과 저장
-rl/         강화학습 설정, State 24개, 보상, DQN, 경험 연결, 학습, 학습 안정화 기록
+rl/         강화학습 설정, State 15개, 보상, DQN, 경험 연결, 학습, 학습 안정화 기록
 viz/        그래프, 애니메이션, 학습 곡선
 docs/       사용법, 시뮬레이션 설명, 변수 설명
 tests/      강화학습 계산 확인 테스트
@@ -82,7 +82,8 @@ web/        웹 시뮬레이터 대시보드
 - **손실:** 기한 내에 도착하지 못한 모든 패킷 (목적지 기한 초과, 중간 기한 초과, 큐 넘침, TTL 만료)
 - **연속 손실:** 패킷 번호 순서로 손실이 3개 이상 이어진 구간 (에피소드 경계에서 끊음, `analysis/burst_loss.py`)
 - **배경 트래픽:** 모든 링크에 기본 부하(용량의 0.1~0.4배) + 지역 핫스팟(중심 위성과 이웃 위성의 송신 링크, 평균 2.5초)이 무작위로 생겼다 사라짐 (`sim/bg_event.py`)
-- **혼잡 단계:** 핫스팟 발생 간격 평균 base 2.5초, high 1.25초, severe 0.625초 (동시에 걸린 지역 약 1, 2, 4개)
+- **혼잡 단계:** 핫스팟 발생 간격 평균 base 1초, high 0.5초, severe 0.25초, 지속 평균 1초 (동시에 걸린 지역 약 1, 2, 4개)
+- **주 흐름:** 4개 (흐름 0 (0,0) → (5,5) + 무작위 3개, 흐름마다 초당 60개). 학습 때는 흐름 0도 무작위, 검증과 평가는 (0,0) → (5,5)
 - **시드:** 최종 평가 1~20, 학습 중 검증 501~505, 학습 1001부터 (서로 겹치지 않음)
 
 자세한 내용: `docs/README_isl.md` (사용법), `docs/simulation_instructions.md` (시뮬레이션 설명), `docs/variables_isl.md` (변수), `rl/README.md` (강화학습)

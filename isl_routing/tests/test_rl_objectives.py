@@ -85,6 +85,7 @@ class ObjectiveTests(unittest.TestCase):
     def test_deadline_mask_and_24_observations(self):
         P = config_isl()
         RL = config_rl(P)
+        RL.stateMode, RL.obsDim = 'full', 24   # 이전 State 24개 계산 확인 (기본은 coarse 15개)
         G = build_grid(P)
         queue = np.zeros(G.numLinks, dtype=int)
         observed = obs_from_sim(1, 0, queue, G, P, RL, 43, 20)
@@ -101,6 +102,7 @@ class ObjectiveTests(unittest.TestCase):
     def test_history_observations(self):
         P = config_isl()
         RL = config_rl(P)
+        RL.stateMode, RL.obsDim = 'full', 24   # 이전 State 24개 계산 확인 (기본은 coarse 15개)
         G = build_grid(P)
         hist = LinkHistory(G.numLinks)
         right = G.linkId[1, 0, 3]                         # (1, 0)에서 우 방향 링크
@@ -132,6 +134,20 @@ class ObjectiveTests(unittest.TestCase):
         agent.remember(obs, 0, 0.0, obs, 0.0, empty)
         with self.assertRaisesRegex(ValueError, '다음 행동 마스크'):
             agent.learn()
+
+    def test_coarse_observation(self):
+        # 기본 State (coarse 15개): 큐 3단계, 링크 유무, 남은 거리, 남은 기한
+        P = config_isl()
+        RL = config_rl(P)
+        G = build_grid(P)
+        queue = np.zeros(G.numLinks, dtype=int)
+        queue[G.linkId[1, 0, 3]] = 160                    # (1, 0) 우 방향 큐 160개 -> 혼잡 1
+        queue[G.linkId[1, 0, 1]] = 120                    # 하 방향 큐 120개 -> 보통 0.5
+        o = obs_from_sim(1, 0, queue, G, P, RL, 43, 20).values
+        self.assertEqual(o.shape, (15,))
+        self.assertEqual(list(o[:4]), [0.0, 0.5, 0.0, 1.0])
+        self.assertEqual(list(o[8:12]), [0.0, 1.0, 1.0, 1.0])   # 상 방향은 격자 끝
+        self.assertAlmostEqual(o[14], 43 / 70, places=5)
 
 
 if __name__ == '__main__':

@@ -28,7 +28,7 @@ python run.py
 | --- | --- |
 | B 시뮬레이션 (A는 라우팅 인자로) | `python main_isl.py` (인자: 시작 시드, 혼잡 단계, 라우팅, 예: `python main_isl.py 1 severe routeB`) |
 | 학습된 C로 시뮬레이션 | `python main_isl.py 1 severe routeC 모델경로/model_final.pt` |
-| C 학습 | `python rl/train_rl.py 270 0 0` (에피소드 수, 에피소드 길이 0 = 기본값, 학습 시드) |
+| C 학습 | `python rl/train_rl.py 80 0 0` (에피소드 수, 에피소드 길이 0 = 기본값, 학습 시드) |
 | 학습 곡선 목표 판정 | `python analysis/learning_targets.py 학습폴더 [학습폴더 ...]` |
 | B, C 최종 평가 (A는 routeA,routeB,routeC로 고를 때만) | `python eval_routes.py 모델0,모델1,모델2` (평가 시드 1~20 x 혼잡 3단계) |
 | 최종 성능 목표 판정 | `python analysis/compare_runs.py 평가폴더` |
@@ -86,7 +86,7 @@ python run.py
 | `P.deadline`, `P.ttlInit`, `P.genRate` | 기한 70 ms, TTL 20, 초당 60개 |
 | `P.bgMode` | `'event'` 새 배경 트래픽 (기본), `'hotspot'` 기존 방식 |
 | `EVENT_LEVELS` | 혼잡 단계별 핫스팟 발생 간격, 지속 시간 |
-| `RL.trainEpisodes`, `RL.lr`, `RL.epsDecaySteps` | 학습 270 에피소드, 학습률 0.0001, ε 감소 결정 30만 번 |
+| `RL.trainEpisodes`, `RL.lr`, `RL.epsDecaySteps` | 학습 80 에피소드, 학습률 0.0001, ε 감소 결정 40만 번 (흐름 하나당 10만) |
 
 모든 변수 설명은 `docs/variables_isl.md` 참고.
 

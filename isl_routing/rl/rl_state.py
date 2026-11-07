@@ -105,12 +105,7 @@ def raw_from_sim(curP, curS, queueLen, G, P, RL, hist=None, t=0):
     if RL.deltaWindow >= HISTORY_STEPS or G.maxLinkDelay >= HISTORY_STEPS or getattr(RL, 'nbrDelay', 0) >= HISTORY_STEPS:
         raise ValueError('링크 기록 길이(HISTORY_STEPS)가 관측에 필요한 과거보다 짧습니다')
     q, N, dq, sinceDrop, Lnow, Nnow = ([-1.0] * 4 for _ in range(6))
-    dirs = G.validDirs[curP][curS]
-    down = getattr(G, 'linkDown', None)
-    if down is not None:   # 자기 위성의 끊긴 링크는 없는 링크처럼 봄 (관측 링크 유무 0, 행동 마스크로 막힘)
-        up = [d for d in dirs if not down[G.linkId[curP, curS, d - 1]]]
-        dirs = up if up else dirs   # 모두 끊기면 그대로 둠 (빈 마스크 방지, 그 결정은 손실)
-    for d in dirs:
+    for d in G.validDirs[curP][curS]:
         nextP, nextS = G.nbrP[curP, curS, d - 1], G.nbrS[curP, curS, d - 1]   # 이웃 위성 (원형 연결 반영)
         link = G.linkId[curP, curS, d - 1]
         V = float(queueLen[link])

@@ -13,7 +13,7 @@
 | 주 흐름 | 초당 60개, 160 Byte, 기한 70 ms, TTL 20홉 |
 | 링크 (6x6) | 상/하 지연 7 step, 좌/우 지연 2 step, 1 step에 5개 전송, 링크별 큐 200개 |
 | 배경 트래픽 | 모든 링크에 기본 부하 (용량의 0.1~0.4배) + 지역 핫스팟이 무작위로 생겼다 사라짐 (평균 2.5초) |
-| 혼잡 단계 | base, high, severe (핫스팟 발생 간격 평균 2.5초, 1.25초, 0.625초) |
+| 혼잡 단계 | base, high, severe (핫스팟 발생 간격 평균 1초, 0.5초, 0.25초, 지속 평균 1초). 주 흐름 4개 |
 | 망 구조 | 6x6 격자 (기본), 크기 지정 격자, Iridium, Starlink |
 
 - 최단 경로로 가면 45 ms (좌우 5홉 x 2 + 상하 5홉 x 7), 기한까지 여유 25 ms
@@ -36,7 +36,7 @@
 | 실행 | 하는 일 | 결과 |
 | --- | --- | --- |
 | `main_isl.py` | A ε 0, B ε 0, B ε 0.1을 같은 배경 트래픽으로 실행 | `metrics_summary`, `packet_log`, `burst_log`, `decision_log` (ε 0.1), `node_log`, `bg_scenario`, 그래프, 애니메이션 (ε 0) |
-| `rl/train_rl.py` | C를 270 에피소드 학습, 10 에피소드마다 검증 평가 | `train_log`, `eval_log`, 모델 파일 |
+| `rl/train_rl.py` | C를 80 에피소드 학습, 5 에피소드마다 검증 평가 | `train_log`, `eval_log`, 모델 파일 |
 | `eval_routes.py` | 평가 시드 1~20에서 B, C(학습 시드별) 비교 (A는 고를 때만) | `summary`, `per_seed` |
 | `analysis/learning_targets.py` | 학습 곡선이 목표에 맞는지 판정 | `learning_targets.md`, `learning_curve_eval.png` |
 | `analysis/compare_runs.py` | 최종 성능이 목표에 맞는지 판정 | `targets_report.md`, `.csv` |

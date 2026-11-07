@@ -54,27 +54,6 @@ class MultiFlowTest(unittest.TestCase):
         self.assertTrue(np.all(np.diff(R.packetFlow) >= 0))
         self.assertTrue(np.all(R.status > 0))
 
-    def test_link_failures(self):
-        # extreme: 장애가 생기고, 끊긴 순간에도 모든 흐름에 길이 남고, 시뮬레이션이 끝까지 돎
-        from sim.bg_traffic import path_exists
-        P = self.P
-        apply_bg_level(P, 'extreme')
-        P.simTime = 3000
-        P.routeName = 'routeB'
-        P.flowZeroRandom = True
-        sample_hotspots(P, self.G, 5)
-        self.assertTrue(len(P.failEvents) > 0)
-        self.assertNotEqual(P.mainFlows[0], ((0, 0), (5, 5)))
-        for a, b, cut in P.failEvents:
-            down = set().union(*[c for x, y, c in P.failEvents if x <= a <= y])
-            for src, dst in P.mainFlows:
-                self.assertTrue(path_exists(P, self.G, src, dst, down))
-        R = run_isl_sim(P, P.genRate, 0, 5, False)
-        self.assertTrue(np.all(R.status > 0))
-        apply_bg_level(P, 'severe')
-        self.assertFalse(P.failEnable)
-        self.assertEqual((P.evLoadMin, P.evLoadMax, P.evNbrRatio), (0.5, 1.5, 0.5))
-
 
 if __name__ == '__main__':
     unittest.main()

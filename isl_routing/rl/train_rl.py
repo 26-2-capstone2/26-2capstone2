@@ -3,10 +3,11 @@
 # 실행 (isl_routing 폴더에서):
 #   python rl/train_rl.py                  -> config_rl의 trainEpisodes만큼 학습 (학습 시드 = RL.torchSeed)
 #   python rl/train_rl.py 6 3000           -> 에피소드 6개, 에피소드 길이 3000 step (짧게 시험할 때)
-#   python rl/train_rl.py 270 0 1          -> 학습 시드 1 (신경망 초기값), 에피소드 길이는 config 그대로 (0 = 기본값)
+#   python rl/train_rl.py 80 0 1           -> 학습 시드 1 (신경망 초기값), 에피소드 길이는 config 그대로 (0 = 기본값)
+#   python rl/train_rl.py 80 0 0 1:1:2     -> 혼잡 단계 비율 base : high : severe (0이면 그 단계는 학습, 검증에서 뺌, 기본 0:1:2)
 #   학습 시드 3개를 동시에: 터미널 3개에서 마지막 숫자만 0, 1, 2로 바꿔 실행
 #
-# 에피소드 e: 혼잡 단계 = trainLevelMode에 따라 (weighted: base 1 : high 1 : severe 2 비율로 무작위, cycle: 돌아가며),
+# 에피소드 e: 혼잡 단계 = trainLevelMode에 따라 (weighted: trainLevelWeights 비율로 무작위, 기본 high 1 : severe 2, cycle: 돌아가며),
 #            시드 = trainSeedStart + e (핫스팟 시나리오와 난수 둘 다). 단계 순서는 학습 시드가 달라도 같음 (공정한 비교)
 # 검증 평가: 학습 시작 전 1번, 그 뒤 evalEvery 에피소드마다 학습을 멈추고 검증 시드(valSeeds)로 ε 0 평가 -> 학습 곡선
 # 저장: 홈 폴더 rl_models/routeC_날짜_s학습시드 (같은 날 또 돌리면 _2, _3)
@@ -93,7 +94,19 @@ def validate(agent, RL, P, collector):
     return rows
 
 
-def train(numEpisodes=None, simTime=None, torchSeed=None):
+def apply_level_ratio(RL, ratio):
+    # 'b:h:s' (예 '1:1:2') -> 학습 단계 비율. 0인 단계는 학습과 검증에서 뺌
+    w = [float(x) for x in ratio.split(':')]
+    if len(w) != 3 or min(w) < 0 or sum(w) <= 0:
+        raise ValueError(f'혼잡 단계 비율은 base:high:severe 형식 (예 0:1:2): {ratio}')
+    levels = [lv for lv, x in zip(['base', 'high', 'severe'], w) if x > 0]
+    RL.trainLevels = levels
+    RL.trainLevelWeights = {lv: x for lv, x in zip(['base', 'high', 'severe'], w) if x > 0}
+    RL.valLevels = list(levels)
+    return RL
+
+
+def train(numEpisodes=None, simTime=None, torchSeed=None, levelRatio=None):
     P = config_isl()
     P.routeName = 'routeC'
     P.nodeLogEnable = False
@@ -102,6 +115,8 @@ def train(numEpisodes=None, simTime=None, torchSeed=None):
     RL = config_rl(P)
     if torchSeed is not None:
         RL.torchSeed = torchSeed
+    if levelRatio:
+        apply_level_ratio(RL, levelRatio)
     numEpisodes = numEpisodes or RL.trainEpisodes
 
     agent = DQNAgent(RL)
@@ -204,4 +219,5 @@ if __name__ == '__main__':
     args = sys.argv[1:]
     train(int(args[0]) if len(args) > 0 else None,
           (int(args[1]) or None) if len(args) > 1 else None,
-          int(args[2]) if len(args) > 2 else None)
+          int(args[2]) if len(args) > 2 else None,
+          args[3] if len(args) > 3 else None)

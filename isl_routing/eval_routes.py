@@ -1,7 +1,8 @@
 # 라우팅 비교 평가 - 평가 시드(1~20)로 B, C를 (A는 고를 때만) 같은 조건에서 돌려 표로 비교
 #
 # 실행 (isl_routing 폴더에서):
-#   python eval_routes.py 모델경로                     -> 혼잡 3단계 x B, C, 에피소드 20개 (기본은 A 제외)
+#   python eval_routes.py 모델경로                     -> high, severe x B, C, 에피소드 20개 (기본은 A 제외, 7차 기준)
+#   python eval_routes.py 모델경로 all                 -> base, high, severe 모두
 #   python eval_routes.py 모델경로 severe              -> severe만
 #   python eval_routes.py 모델경로 all routeA,routeC  -> 고른 라우팅만
 #   python eval_routes.py none all routeA,routeB  -> C 없이 (모델 없음)
@@ -99,7 +100,10 @@ def evaluate(level, route, modelPath=None, numEpisodes=None, cRun=''):
 def main():
     args = sys.argv[1:]
     models = args[0].split(',') if args and args[0] != 'none' else []   # C 모델 여러 개 (학습 시드별)
-    levels = list(BG_LEVELS) if len(args) < 2 or args[1] == 'all' else args[1].split(',')   # 'high,severe'처럼 여러 단계 가능
+    if len(args) < 2:
+        levels = ['high', 'severe']   # 기본 (학습 단계와 같음)
+    else:
+        levels = list(BG_LEVELS) if args[1] == 'all' else args[1].split(',')   # 'high,severe'처럼 여러 단계 가능
     routes = args[2].split(',') if len(args) > 2 else DEFAULT_ROUTES
     numEpisodes = int(args[3]) if len(args) > 3 else None   # 없으면 config의 numEpisodes (20)
     if 'routeC' in routes and not models:

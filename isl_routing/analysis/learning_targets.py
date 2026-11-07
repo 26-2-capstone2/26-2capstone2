@@ -41,7 +41,7 @@ def read_csv(path):
 def load_run(trainDir):
     # 검증 기록 -> 평가 점별 (누적 결정 수, 단계별 도착률, 단계별 1분당 연속 손실), 학습 기록 -> 에피소드별 학습 손실
     ev = read_csv(os.path.join(trainDir, 'eval_log.csv'))
-    levels = sorted({r['level'] for r in ev}, key=['base', 'high', 'severe', 'extreme'].index)
+    levels = sorted({r['level'] for r in ev}, key=['base', 'high', 'severe'].index)
     idx = sorted({int(r['evalIndex']) for r in ev})
     get = {(int(r['evalIndex']), r['level']): r for r in ev}
     dec = np.array([int(get[(i, levels[0])]['decisions']) for i in idx])

@@ -24,17 +24,12 @@ def route_A(curP, curS, queueLen, G, P, **packet):   # packet: B가 쓰는 패�
 
     # 다음 위성까지 링크 지연 + 다음 위성에서 목적지까지 최소 지연이 가장 작은 방향
     nextDir, best = 0, np.inf
-    down = getattr(G, 'linkDown', None)
     for d in TIE_ORDER:
         if d not in G.validDirs[curP][curS]:
-            continue
-        if down is not None and down[G.linkId[curP, curS, d - 1]]:   # 자기 위성의 끊긴 링크는 고르지 않음
             continue
         cost = G.linkDelay[G.linkId[curP, curS, d - 1]] + dist[G.nbrP[curP, curS, d - 1], G.nbrS[curP, curS, d - 1]]
         if cost < best:   # 같으면 TIE_ORDER 앞쪽 유지
             nextDir, best = d, cost
-    if nextDir == 0:   # 모든 링크가 끊김 (안전장치상 드묾): 아무 방향 (손실)
-        nextDir = G.validDirs[curP][curS][0]
     return nextDir, 1, L, N
 
 
