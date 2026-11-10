@@ -2,23 +2,9 @@ function R = main_gsl_simulation(CFG)
 % Run (F5): total environment attenuation slider and packet playback; no globe.
 if nargin == 0, CFG = configGSL(); end
 CFG.openViewer=false;
-assert(exist('satelliteScenario','file') ~= 0,'GSL:MissingToolbox', ...
-    'satelliteScenario requires Aerospace Toolbox or Satellite Communications Toolbox.');
-validateattributes(CFG.duration_s,{'numeric'},{'scalar','positive','finite'});
-validateattributes(CFG.channelUpdateStep_s,{'numeric'},{'scalar','positive','finite'});
-assert(mod(CFG.duration_s,CFG.channelUpdateStep_s)==0, ...
-    'GSL:TimeGrid','Duration must be an integer multiple of the sample step.');
-validateattributes(CFG.minElevation_deg,{'numeric'},{'scalar','>=',0,'<=',90});
-sc = satelliteScenario(CFG.startTime,CFG.startTime+seconds(CFG.duration_s), ...
-    CFG.channelUpdateStep_s);
-sats = createConstellation(sc,CFG);
-gs = groundStation(sc,CFG.gsLatitude_deg,CFG.gsLongitude_deg, ...
-    'Altitude',CFG.gsAltitude_m,'Name',CFG.gsName, ...
-    'MinElevationAngle',CFG.minElevation_deg);
-links = access(gs,sats); % only geometric access, not RF link closure
+[G,sc,sats,gs,links] = buildGSLGeometry(CFG);
 fprintf('===== Ground Station =====\nLatitude  : %.4f deg\nLongitude : %.4f deg\nAltitude  : %g m (WGS84)\n==========================\n', ...
     CFG.gsLatitude_deg,CFG.gsLongitude_deg,CFG.gsAltitude_m);
-G = computeGeometry(sc,sats,gs,links,CFG);
 R = struct('config',CFG,'scenario',sc,'satellites',sats, ...
     'groundStation',gs,'access',links,'geometry',G,'viewer',[]);
 if CFG.exportResults

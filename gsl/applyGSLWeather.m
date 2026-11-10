@@ -31,8 +31,7 @@ n=height(L); L.gasLoss_dB=nan(n,1); L.cloudLoss_dB=nan(n,1); L.rainLoss_dB=nan(n
 L.gasLoss_dB(valid)=gas; L.cloudLoss_dB(valid)=cloud; L.rainLoss_dB(valid)=rain;
 L.atmosphericLoss_dB=L.gasLoss_dB+L.cloudLoss_dB+L.rainLoss_dB;
 L.txEIRP_dBW=repmat(C.groundTxPower_dBW+C.groundTxGain_dBi,n,1);
-L.vacuumSNR_dB=L.txEIRP_dBW+C.satelliteRxGT_dB_per_K-L.fspl_dB ...
-    -10*log10(1.380649e-23)-10*log10(C.noiseBandwidth_Hz)-C.fixedImplementationLoss_dB;
+L.vacuumSNR_dB=gslVacuumUplinkSNR(L.fspl_dB,C);
 L.baseSNR_dB=L.vacuumSNR_dB-L.atmosphericLoss_dB;
 L.snr_dB=L.baseSNR_dB; L.channelLoss_dB=L.atmosphericLoss_dB;
 L.weatherName=repmat(string(W.name),n,1);
