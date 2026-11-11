@@ -73,4 +73,4 @@ weights = struct('onTime',1,'burst',0.5,'handover',0.05);
 env = GSLRLEnvironment(weights);
 ~~~
 
-현재 구현 범위는 State, Action 인터페이스와 Reward 계산이다. 학습 신경망과 Double DQN 학습 루프는 다음 연결 단계다.
+Double DQN 학습과 세 방식 비교 코드는 train_gsl_ddqn.m으로 실행한다. [학습 실행 방법](README_GSL_DDQN.md).
