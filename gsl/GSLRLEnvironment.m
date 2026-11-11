@@ -6,6 +6,7 @@ classdef GSLRLEnvironment < handle
     end
 
     properties (SetAccess=private)
+        rewardWeights
         maxCandidateCount
     end
 
@@ -24,7 +25,15 @@ classdef GSLRLEnvironment < handle
     end
 
     methods
-        function obj=GSLRLEnvironment()
+        function obj=GSLRLEnvironment(rewardWeights)
+            if nargin<1
+                rewardWeights=struct('onTime',1,'burst',0.5,'handover',0.05);
+            end
+            for name={'onTime','burst','handover'}
+                validateattributes(rewardWeights.(name{1}),{'numeric'}, ...
+                    {'scalar','finite','nonnegative'});
+            end
+            obj.rewardWeights=rewardWeights;
             obj.config=configGSL();
             cfg=obj.config;
             assert(cfg.channelUpdateStep_s==obj.decisionInterval_s && ...
@@ -93,14 +102,9 @@ classdef GSLRLEnvironment < handle
             P=evaluateGSLPackets(L,cfg,obj.packetTimes(ids),ids,obj.packetDraws(ids));
             P.environmentLoss_dB=repmat(obj.environmentLoss_dB,height(P),1);
             assert(~any(P.outcome_pending),'GSL:RLPendingPackets');
-            for lost=(P.lost==1).'
-                if lost
-                    obj.lossStreak=obj.lossStreak+1;
-                    obj.maxLossRun=max(obj.maxLossRun,obj.lossStreak);
-                else
-                    obj.lossStreak=0;
-                end
-            end
+            reward=computeGSLReward(P,obj.lossStreak,handover,obj.rewardWeights);
+            obj.lossStreak=reward.trailingLossRun;
+            obj.maxLossRun=max(obj.maxLossRun,reward.maxLossRunInStep);
             feedback=struct('startTime_s',t,'stopTime_s',t+1,'servingSatID',satID, ...
                 'handover',handover,'generatedPackets',height(P), ...
                 'receivedPackets',sum(P.received),'lostPackets',sum(P.lost), ...
@@ -108,12 +112,31 @@ classdef GSLRLEnvironment < handle
                 'outageLossPackets',sum(P.outage_loss),'onTimePackets',sum(P.onTime), ...
                 'latePackets',sum(P.late),'trailingLossRun',obj.lossStreak, ...
                 'maxConsecutiveLoss',obj.maxLossRun);
+            feedback.reward=reward.total;
+            feedback.rewardDetails=reward;
             obj.packetBatches{t+1}=P;
             obj.servingSatID=satID;
             obj.currentSecond=t+1;
             done=obj.currentSecond==cfg.duration_s;
             obj.candidates=obj.makeCandidates();
             next=obj.candidates;
+        end
+
+        function observation=observe(obj)
+            % Fixed-size input uses current/past measurements only.
+            T=obj.candidates;
+            n=height(T);
+            features=zeros(obj.maxCandidateCount,6);
+            features(1:n,:)=[T.snr_dB/10,T.snrChange_dB,T.elevation_deg/90, ...
+                double(T.isServing),double(T.hasSNRHistory),ones(n,1)];
+            mask=false(obj.maxCandidateCount,1);
+            mask(1:n)=true;
+            ids=zeros(obj.maxCandidateCount,1);
+            ids(1:n)=T.satelliteID;
+            streak=obj.lossStreak/(obj.lossStreak+obj.config.packetRate_pps);
+            observation=struct('time_s',obj.currentSecond,'candidateFeatures',features, ...
+                'actionMask',mask,'satelliteIDs',ids,'trailingLossRun',obj.lossStreak, ...
+                'vector',[features(:);streak]);
         end
 
         function [P,M]=results(obj)
@@ -135,9 +158,18 @@ classdef GSLRLEnvironment < handle
                 ids=ids(order); snr=snr(order);
                 elevation=obj.geometry.elevation_deg(t+1,ids).';
             end
+            change=zeros(numel(ids),1);
+            known=false(numel(ids),1);
+            if t>0 && t<obj.config.duration_s
+                previous=obj.candidateSNR_dB(t,ids).';
+                known=isfinite(previous);
+                change(known)=snr(known)-previous(known);
+            end
             T=table(repmat(t,numel(ids),1),(1:numel(ids)).',ids,snr,elevation, ...
                 ids==obj.servingSatID,'VariableNames',{'time_s','rank','satelliteID', ...
                 'snr_dB','elevation_deg','isServing'});
+            T.snrChange_dB=change;
+            T.hasSNRHistory=known;
         end
     end
 end
