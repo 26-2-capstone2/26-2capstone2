@@ -1,0 +1,2 @@
+episode,packetSeed,epsilon,reward,trainingLoss,gradientUpdates,loss_pct,onTime_pct,maxConsecutiveLoss,handovers
+1,20262001,0.943095,44.131111111111,0.63798110122266,23,31.1972222222222,68.8027777777778,1680,8
