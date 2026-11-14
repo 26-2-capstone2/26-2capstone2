@@ -33,3 +33,5 @@ SNR → 정보 Eb/N0 → JPL Figure 14 CWER → `PER=1-(1-CWER)^2`를 사용합�
 검증: `verify_environment_slider`, `verify_attenuation_slider`, `verify_saturation_sweep`. [검증 기록](validation_saturation.md).
 
 ![환경 감쇠 슬라이더](docs/environment_slider.png)
+
+[후보별 SNR·연결 공백·최고 SNR 선택 비교 진단 화면](README_GSL_DIAGNOSTICS.md)은 main_gsl_simulation 실행 시 함께 열립니다.

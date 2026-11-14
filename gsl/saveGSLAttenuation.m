@@ -6,6 +6,10 @@ C.outputDir=fullfile(fileparts(mfilename('fullpath')),'results_attenuation', ...
     sprintf('loss_%.1f_dB',C.environmentLoss_dB));
 C.exportResults=true; C.makePlots=false;
 reportPacketResults(Q.linkState,Q.packetTable,Q.packetMetrics,C);
+if isappdata(f,'GSLCandidateDiagnostics')
+    saveGSLLinkDiagnostics(getappdata(f,'GSLCandidateDiagnostics'),C, ...
+        getappdata(f,'GSLCandidateDiagnosticsFigure'));
+end
 exportapp(f,fullfile(C.outputDir,'attenuation_performance.png'));
 diag=findall(groot,'Name','GSL Uplink - Channel and Loss Runs');
 if numel(diag)==1, exportgraphics(diag,fullfile(C.outputDir,'uplink_channel_loss_runs.png'),'Resolution',140); end

@@ -35,6 +35,7 @@ if isfield(CFG,'enablePackets') && CFG.enablePackets
     initialLoss=2;
     if isfield(CFG,'initialEnvironmentLoss_dB'), initialLoss=CFG.initialEnvironmentLoss_dB; end
     Q=evaluateGSLAttenuation(L,CFG,initialLoss);
+    Q.geometry=G;
     L=Q.linkState; P=Q.packetTable; M=Q.packetMetrics;
     packetConfig=Q.config; packetConfig.makePlots=CFG.makePlots;
     packetConfig.exportResults=CFG.exportResults; packetConfig.outputDir=CFG.outputDir;
@@ -45,6 +46,17 @@ if isfield(CFG,'enablePackets') && CFG.enablePackets
     reportPacketResults(L,P,M,packetConfig);
     if CFG.makePlots
         R.attenuationResultsFigure=attachGSLAttenuationResults(Q,CFG);
+        R.candidateDiagnostics=getappdata(R.attenuationResultsFigure,'GSLCandidateDiagnostics');
+        R.candidateDiagnosticsFigure=getappdata(R.attenuationResultsFigure,'GSLCandidateDiagnosticsFigure');
+    else
+        R.candidateDiagnostics=computeGSLLinkDiagnostics(G,Q);
+    end
+    if CFG.exportResults
+        if CFG.makePlots
+            saveGSLLinkDiagnostics(R.candidateDiagnostics,packetConfig,R.candidateDiagnosticsFigure);
+        else
+            saveGSLLinkDiagnostics(R.candidateDiagnostics,packetConfig);
+        end
     end
 else
     if CFG.makePlots, plotResults(L,[],[],CFG); end

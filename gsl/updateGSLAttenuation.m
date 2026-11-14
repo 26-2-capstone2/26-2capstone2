@@ -12,4 +12,12 @@ slider=findall(f,'Tag','GSLAttenuationSlider'); slider.Value=value;
 label=findall(f,'Tag','GSLEnvironmentValue');
 if ~isempty(label), label.String=sprintf('환경 감쇠량: %.1f dB',value); end
 switchGSLWeather(f,"manual");
+if isfield(Q0,'geometry')
+    D=computeGSLLinkDiagnostics(Q0.geometry,Q);
+    diagnosticsFigure=getappdata(f,'GSLCandidateDiagnosticsFigure');
+    if isempty(diagnosticsFigure), diagnosticsFigure=[]; end
+    diagnosticsFigure=plotGSLLinkDiagnostics(D,diagnosticsFigure);
+    setappdata(f,'GSLCandidateDiagnostics',D);
+    setappdata(f,'GSLCandidateDiagnosticsFigure',diagnosticsFigure);
+end
 end
