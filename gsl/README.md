@@ -35,3 +35,5 @@ SNR → 정보 Eb/N0 → JPL Figure 14 CWER → `PER=1-(1-CWER)^2`를 사용합�
 ![환경 감쇠 슬라이더](docs/environment_slider.png)
 
 [후보별 SNR·연결 공백·최고 SNR 선택 비교 진단 화면](README_GSL_DIAGNOSTICS.md)은 main_gsl_simulation 실행 시 함께 열립니다.
+
+[전체 위성 SNR·가시성 조회와 DDQN 실제 위성 ID 연결](README_GSL_LINK_INTERFACE.md). 연동 예제는 main_gsl_link_interface.m으로 실행합니다.
