@@ -1,5 +1,7 @@
 # GSL — 실험용 이동 격자와 환경 감쇠 실험
 
+**미해결 문제:** 현재 이동 격자에서 PHY 손실률이 높아 링크 설정 재점검이 필요합니다. [팀 공유 내용·확인할 항목](KNOWN_ISSUES_GSL_PHY.md). 오류율 근사 정책은 변경하지 않았습니다.
+
 DDQN 히스테리시스 0·0.1·0.3·0.5 dB 각 10회 비교: `R = run_gsl_hysteresis_comparison;` 실행. [비교 조건과 결과 파일](README_GSL_HYSTERESIS.md).
 
 기본 배치는 6×11개 위성이 함께 이동하는 실험용 격자입니다. 이웃 간격 200/400 km, 중심 속도 7.5 km/s는 새 연구 가정입니다. [이동 방식·ISL 번호 대응·공유 좌표 파일](README_GSL_MOVING_GRID.md).
