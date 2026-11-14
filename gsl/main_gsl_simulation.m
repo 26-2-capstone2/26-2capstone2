@@ -18,6 +18,10 @@ if CFG.exportResults
     writetable(summary,fullfile(CFG.outputDir,'visibility_summary.csv'));
     satellites = table(G.satelliteIndex,G.satelliteName, ...
         'VariableNames',{'satelliteIndex','satelliteName'});
+    if isfield(G,'planeIndex')
+        satellites.planeIndex=G.planeIndex;
+        satellites.satelliteInPlane=G.satelliteInPlane;
+    end
     writetable(satellites,fullfile(CFG.outputDir,'satellite_index.csv'));
 end
 [L,D] = computeLinkState(G,sats,CFG);

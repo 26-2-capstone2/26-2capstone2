@@ -64,6 +64,14 @@ P.lossLocation(hoLoss)="GROUND_STATION: handover, not transmitted";
 P.lossLocation(known & phyLoss==1)="UPLINK: "+string(CFG.gsName)+" -> satellite "+string(id(known & phyLoss==1));
 P.source=repmat(string(CFG.gsName),n,1);
 P.destinationSatelliteID=id;
+if isfield(CFG,'constellationType') && strcmp(CFG.constellationType,'iridium')
+    P.destinationPlaneIndex=nan(n,1);
+    P.destinationSatelliteInPlane=nan(n,1);
+    selected=id>0;
+    [planes,within]=gslSatelliteGrid(CFG);
+    P.destinationPlaneIndex(selected)=planes(id(selected));
+    P.destinationSatelliteInPlane(selected)=within(id(selected));
+end
 P.channelPerturbation_dB=channelLoss; P.syntheticFade_dB=testFade;
 P.txPower_dBW=repmat(CFG.groundTxPower_dBW,n,1);
 P.copyID=ones(n,1); % original IDs are unique; replication is not implemented

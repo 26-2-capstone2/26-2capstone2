@@ -1,4 +1,6 @@
-# GSL — 환경 감쇠 슬라이더
+# GSL — Iridium 형태 위성망과 환경 감쇠 실험
+
+기본 위성 배치는 ISL에 맞춘 6×11개, 고도 780 km, 경사각 86.4도, 궤도면 간격 31.6도입니다. [이리듐 배치와 ISL 위성 ID 대응](README_GSL_IRIDIUM.md).
 
 빠른 계산 검증: MATLAB에서 `verify_packets; verify_uplink; verify_weather;` 실행. [최신 검증 코드 수정 내용](validation_packet_checks.md).
 

@@ -207,6 +207,10 @@ classdef GSLRLEnvironment < handle
                 offsets=reshape(obj.snrOffsets_dB(t+1,ids),[],1);
             end
             T.snrRandomOffset_dB=offsets;
+            if isfield(obj.geometry,'planeIndex')
+                T.planeIndex=obj.geometry.planeIndex(ids);
+                T.satelliteInPlane=obj.geometry.satelliteInPlane(ids);
+            end
         end
     end
 

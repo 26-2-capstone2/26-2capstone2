@@ -7,7 +7,10 @@ assert(isequal(t,accessTime),'GSL:TimeMismatch','AER/access time mismatch.');
 assert(isequal(size(el),size(status)),'GSL:ShapeMismatch','AER/access shape mismatch.');
 G.timeUTC = t(:);
 G.time_s = seconds(G.timeUTC-sc.StartTime);
-G.satelliteIndex = (1:numel(sats)).'; % stable indices in returned Walker array
+G.satelliteIndex = (1:numel(sats)).';
+if isfield(CFG,'constellationType') && strcmp(CFG.constellationType,'iridium')
+    [G.planeIndex,G.satelliteInPlane]=gslSatelliteGrid(CFG,numel(sats));
+end % stable indices in returned Walker array
 G.satelliteName = strings(numel(sats),1);
 for k = 1:numel(sats)
     G.satelliteName(k) = string(sats(k).Name);

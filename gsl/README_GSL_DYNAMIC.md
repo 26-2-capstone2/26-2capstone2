@@ -4,12 +4,12 @@
 
 ~~~matlab
 CFG = configGSL();
-CFG.numPlanes = 30;       % 궤도면 수
-CFG.satsPerPlane = 30;    % 면당 위성 수. 전체 900개
+CFG.numPlanes = 6;       % 궤도면 수
+CFG.satsPerPlane = 11;    % 면당 위성 수. 전체 66개
 R = main_gsl_simulation(CFG);
 ~~~
 
-전체 위성 수는 numPlanes × satsPerPlane으로 계산한다. 기본 설정은 30 × 30 = 900개다. 예를 들어 20 × 40은 800개, 40 × 40은 1,600개다. configGSL.m에서 두 값을 바꿔 저장하면 일반 시뮬레이션과 강화학습 모두 같은 배열 설정을 사용한다.
+전체 위성 수는 numPlanes × satsPerPlane으로 계산한다. 기본 설정은 ISL과 맞춘 Iridium 형태 6 × 11 = 66개다. [이리듐 배치 설명](README_GSL_IRIDIUM.md). 예를 들어 20 × 40은 800개, 40 × 40은 1,600개다. configGSL.m에서 두 값을 바꿔 저장하면 일반 시뮬레이션과 강화학습 모두 같은 배열 설정을 사용한다.
 
 위성 수는 환경을 생성할 때 정하며, 바꾸면 새 환경을 생성한다. 위성이 줄면 연결 가능한 위성이 없는 구간이 생길 수 있으며, 해당 구간은 연결 불가 손실로 처리한다. 실행 가능한 최대 개수는 PC 메모리와 계산 시간에 따라 달라진다.
 
@@ -32,8 +32,8 @@ SNR = 거리 기반 링크 버짓 SNR - 환경감쇠 8 dB + 위성별 랜덤 변
 
 ~~~matlab
 CFG = configGSL();
-CFG.numPlanes = 30;       % 궤도면 수
-CFG.satsPerPlane = 30;    % 면당 위성 수. 전체 900개
+CFG.numPlanes = 6;       % 궤도면 수
+CFG.satsPerPlane = 11;    % 면당 위성 수. 전체 66개
 CFG.snrRandomStd_dB = 1;
 env = GSLRLEnvironment([], CFG);
 candidates = env.reset();
@@ -55,8 +55,8 @@ allCandidates()는 슬롯 제한 없이 현재 보이는 위성 전체를 반환
 
 ~~~matlab
 O = configGSLDQN();
-O.environmentConfig.numPlanes = 30;
-O.environmentConfig.satsPerPlane = 30;
+O.environmentConfig.numPlanes = 6;
+O.environmentConfig.satsPerPlane = 11;
 O.environmentConfig.snrRandomStd_dB = 1;
 R = train_gsl_ddqn(O);
 ~~~

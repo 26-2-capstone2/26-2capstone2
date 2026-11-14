@@ -5,15 +5,18 @@ CFG.startTime = datetime(2026,10,2,0,0,0,'TimeZone','UTC');
 CFG.duration_s = 600;
 CFG.channelUpdateStep_s = 1;
 CFG.earthEquatorialRadius_m = 6378137; % WGS84 semi-major axis
-CFG.satAltitude_m = 550e3; % circular orbital radius minus reference radius
-CFG.inclination_deg = 53;
-CFG.numPlanes = 30; % number of orbital planes
-CFG.satsPerPlane = 30; % satellites per plane; 30 x 30 = 900
+CFG.constellationType = 'iridium';
+CFG.orbitReferenceRadius_m = 6371e3; % ISL sphere, separate from GS WGS84 radius
+CFG.iridiumPlaneSpacing_deg = 31.6; % exact ISL six-plane preset
+CFG.satAltitude_m = 780e3; % matched to ISL iridium preset
+CFG.inclination_deg = 86.4;
+CFG.numPlanes = 6; % orbital planes
+CFG.satsPerPlane = 11; % satellites per plane; 6 x 11 = 66
 CFG.candidateCapacity = 13; % fixed trained-network input/output capacity
 CFG.snrRandomStd_dB = 1; % experimental Gaussian variation, not calibrated weather
 CFG.snrCorrelation_s = 5; % smooth variation between one-second decisions
 CFG.snrRandomSeed = 20261115;
-CFG.phaseFactor = 39; % Walker Delta F; NOT an angle in degrees
+CFG.phaseFactor = 0; % ISL initializes the same orbital phase in every plane
 CFG.raan0_deg = 0;
 CFG.argumentOfLatitude0_deg = 0;
 % Temporary inland Korea example, not a surveyed/confirmed research site.
