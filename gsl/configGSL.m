@@ -7,9 +7,8 @@ CFG.channelUpdateStep_s = 1;
 CFG.earthEquatorialRadius_m = 6378137; % WGS84 semi-major axis
 CFG.satAltitude_m = 550e3; % circular orbital radius minus reference radius
 CFG.inclination_deg = 53;
-CFG.numPlanes = 72;
-CFG.satsPerPlane = 22;
-CFG.totalSatellites = []; % set e.g. 1000 for an exact count; [] uses planes*satsPerPlane
+CFG.numPlanes = 30; % number of orbital planes
+CFG.satsPerPlane = 30; % satellites per plane; 30 x 30 = 900
 CFG.candidateCapacity = 13; % fixed trained-network input/output capacity
 CFG.snrRandomStd_dB = 1; % experimental Gaussian variation, not calibrated weather
 CFG.snrCorrelation_s = 5; % smooth variation between one-second decisions

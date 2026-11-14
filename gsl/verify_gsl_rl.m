@@ -2,6 +2,7 @@ function verify_gsl_rl()
 % Replay the original selector through the RL API and compare every packet.
 verifyReward();
 cfg=configGSL();
+cfg.numPlanes=72; cfg.satsPerPlane=22; cfg.phaseFactor=39; % historical fixture
 cfg.initialEnvironmentLoss_dB=8;
 cfg.snrRandomStd_dB=0; % preserve the historical numeric regression
 cfg.makePlots=false;
