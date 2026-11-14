@@ -2,6 +2,11 @@ function R = main_gsl_simulation(CFG)
 % Run (F5): total environment attenuation slider and packet playback; no globe.
 if nargin == 0, CFG = configGSL(); end
 CFG.openViewer=false;
+if strcmp(CFG.constellationType,'moving_grid')
+    fprintf('Experimental moving grid: %d x %d | p spacing %.0f km | s spacing %.0f km | center %.1f km/s\n', ...
+        CFG.numPlanes,CFG.satsPerPlane,CFG.gridCrossSpacing_m/1000, ...
+        CFG.gridAlongSpacing_m/1000,CFG.gridCenterSpeed_mps/1000);
+end
 [G,sc,sats,gs,links] = buildGSLGeometry(CFG);
 fprintf('===== Ground Station =====\nLatitude  : %.4f deg\nLongitude : %.4f deg\nAltitude  : %g m (WGS84)\n==========================\n', ...
     CFG.gsLatitude_deg,CFG.gsLongitude_deg,CFG.gsAltitude_m);
@@ -23,6 +28,9 @@ if CFG.exportResults
         satellites.satelliteInPlane=G.satelliteInPlane;
     end
     writetable(satellites,fullfile(CFG.outputDir,'satellite_index.csv'));
+    if strcmp(CFG.constellationType,'moving_grid')
+        exportGSLGridInterface(G,sats,CFG);
+    end
 end
 [L,D] = computeLinkState(G,sats,CFG);
 R.linkState=L;
@@ -60,6 +68,12 @@ if isfield(CFG,'enablePackets') && CFG.enablePackets
     end
 else
     if CFG.makePlots, plotResults(L,[],[],CFG); end
+end
+if CFG.makePlots && strcmp(CFG.constellationType,'moving_grid')
+    R.gridLayoutFigure=plotMovingGSLGrid(CFG);
+    if CFG.exportResults
+        exportgraphics(R.gridLayoutFigure,fullfile(CFG.outputDir,'moving_grid_layout.png'),'Resolution',140);
+    end
 end
 if ~CFG.openViewer && CFG.enablePackets && isfield(CFG,'openPacketViewer') && CFG.openPacketViewer
     R.packetViewer=GSLPacketViewer(R.packetTable,R.linkState,packetConfig,[],sc.StartTime);

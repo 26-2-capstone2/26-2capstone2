@@ -61,6 +61,10 @@ if CFG.exportResults
     if isfield(M,'lossRuns')
         writetable(M.lossRuns,fullfile(CFG.outputDir,'loss_runs.csv'));
         delivered=P(P.received==1,{'packetID','generationTime_s','arrivalTime_s','destinationSatelliteID','onTime','latency_ms'});
+        if all(ismember({'destinationPlaneIndex','destinationSatelliteInPlane'},P.Properties.VariableNames))
+            delivered.p=P.destinationPlaneIndex(P.received==1);
+            delivered.s=P.destinationSatelliteInPlane(P.received==1);
+        end
         writetable(delivered,fullfile(CFG.outputDir,'isl_input_packets.csv'));
     end
     save(fullfile(CFG.outputDir,'packet_results.mat'),'P','M','L','CFG','-v7');

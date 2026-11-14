@@ -1,5 +1,10 @@
 function sats=createConstellation(sc,CFG)
-% Exact requested count. Equal plane populations retain the Walker layout.
+% Exact requested count. Moving-grid ephemerides preserve relative geometry.
+if isfield(CFG,'constellationType') && strcmp(CFG.constellationType,'moving_grid')
+    [positionTT,velocityTT]=movingGSLGridEphemeris(CFG);
+    sats=satellite(sc,positionTT,velocityTT,'CoordinateFrame','ecef');
+    return;
+end
 validateattributes(CFG.numPlanes,{'numeric'},{'scalar','integer','positive','finite'});
 validateattributes(CFG.satsPerPlane,{'numeric'},{'scalar','integer','positive','finite'});
 validateattributes(CFG.phaseFactor,{'numeric'},{'scalar','integer','nonnegative','finite'});

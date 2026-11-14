@@ -1,5 +1,5 @@
 function verify_gsl_dynamic()
-cfg=configGSL();
+cfg=configGSL(); cfg.constellationType='iridium';
 before=rng;
 a=computeGSLRandomSNR((0:20).',4,cfg,17);
 b=computeGSLRandomSNR((0:20).',4,cfg,17);
@@ -11,7 +11,7 @@ cfg.snrRandomStd_dB=0;
 assert(all(computeGSLRandomSNR((0:20).',4,cfg)==0,'all'));
 
 for count=[1 73 1000]
-    cfg=configGSL();
+    cfg=configGSL(); cfg.constellationType='iridium';
     cfg.totalSatellites=count;
     cfg.duration_s=3;
     cfg.candidateCapacity=2;
@@ -60,7 +60,7 @@ for count=[1 73 1000]
 end
 
 % Full main entry and RL use identical random SNR for the selected satellites.
-cfg=configGSL(); cfg.totalSatellites=1000; cfg.duration_s=3;
+cfg=configGSL(); cfg.constellationType='iridium'; cfg.totalSatellites=1000; cfg.duration_s=3;
 cfg.makePlots=false; cfg.openPacketViewer=false; cfg.exportResults=false;
 baseline=main_gsl_simulation(cfg);
 env=GSLRLEnvironment([],cfg);

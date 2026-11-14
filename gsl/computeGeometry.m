@@ -8,7 +8,7 @@ assert(isequal(size(el),size(status)),'GSL:ShapeMismatch','AER/access shape mism
 G.timeUTC = t(:);
 G.time_s = seconds(G.timeUTC-sc.StartTime);
 G.satelliteIndex = (1:numel(sats)).';
-if isfield(CFG,'constellationType') && strcmp(CFG.constellationType,'iridium')
+if isfield(CFG,'constellationType') && ismember(string(CFG.constellationType),["iridium","moving_grid"])
     [G.planeIndex,G.satelliteInPlane]=gslSatelliteGrid(CFG,numel(sats));
 end % stable indices in returned Walker array
 G.satelliteName = strings(numel(sats),1);

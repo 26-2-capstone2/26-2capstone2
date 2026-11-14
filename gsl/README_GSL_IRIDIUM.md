@@ -1,4 +1,6 @@
-# ISL과 맞춘 Iridium 형태 GSL
+# 이전 전 지구 Iridium 형태 GSL
+
+현재 기본 실행은 [실험용 이동 격자](README_GSL_MOVING_GRID.md)를 사용한다. 아래 내용은 constellationType='iridium'인 이전 전 지구 배치에 대한 설명이다.
 
 기본 위성 배치를 ISL의 RL 브랜치 isl_routing/sim/topology.py에 있는 iridium 프리셋에 맞췄다.
 

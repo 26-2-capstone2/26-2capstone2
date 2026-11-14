@@ -64,7 +64,7 @@ P.lossLocation(hoLoss)="GROUND_STATION: handover, not transmitted";
 P.lossLocation(known & phyLoss==1)="UPLINK: "+string(CFG.gsName)+" -> satellite "+string(id(known & phyLoss==1));
 P.source=repmat(string(CFG.gsName),n,1);
 P.destinationSatelliteID=id;
-if isfield(CFG,'constellationType') && strcmp(CFG.constellationType,'iridium')
+if isfield(CFG,'constellationType') && ismember(string(CFG.constellationType),["iridium","moving_grid"])
     P.destinationPlaneIndex=nan(n,1);
     P.destinationSatelliteInPlane=nan(n,1);
     selected=id>0;

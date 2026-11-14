@@ -1,5 +1,5 @@
 function verify_gsl_iridium()
-C=configGSL();
+C=configGSL(); C.constellationType='iridium';
 assert(strcmp(C.constellationType,'iridium') && C.numPlanes==6 && C.satsPerPlane==11);
 assert(C.satAltitude_m==780e3 && C.inclination_deg==86.4 && C.iridiumPlaneSpacing_deg==31.6);
 C.makePlots=false; C.openPacketViewer=false; C.exportResults=false;

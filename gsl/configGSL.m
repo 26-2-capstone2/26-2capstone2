@@ -5,7 +5,12 @@ CFG.startTime = datetime(2026,10,2,0,0,0,'TimeZone','UTC');
 CFG.duration_s = 600;
 CFG.channelUpdateStep_s = 1;
 CFG.earthEquatorialRadius_m = 6378137; % WGS84 semi-major axis
-CFG.constellationType = 'iridium';
+CFG.constellationType = 'moving_grid';
+CFG.gridCrossSpacing_m = 200e3; % experimental p-neighbor spacing on reference sphere
+CFG.gridAlongSpacing_m = 400e3; % experimental s-neighbor spacing on reference sphere
+CFG.gridCenterSpeed_mps = 7500; % ECEF grid-center speed, research assumption
+CFG.gridHeading_deg = 90; % eastward; 0=north, 90=east
+CFG.gridPassTime_s = []; % [] = midpoint of duration; or specify seconds
 CFG.orbitReferenceRadius_m = 6371e3; % ISL sphere, separate from GS WGS84 radius
 CFG.iridiumPlaneSpacing_deg = 31.6; % exact ISL six-plane preset
 CFG.satAltitude_m = 780e3; % matched to ISL iridium preset
