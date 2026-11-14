@@ -3,11 +3,12 @@ function verify_gsl_rl()
 verifyReward();
 cfg=configGSL();
 cfg.initialEnvironmentLoss_dB=8;
+cfg.snrRandomStd_dB=0; % preserve the historical numeric regression
 cfg.makePlots=false;
 cfg.openPacketViewer=false;
 cfg.exportResults=false;
 baseline=main_gsl_simulation(cfg);
-env=GSLRLEnvironment();
+env=GSLRLEnvironment([],cfg);
 candidates=env.reset();
 previous=candidates;
 for t=0:599

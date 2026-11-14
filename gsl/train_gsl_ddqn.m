@@ -5,13 +5,14 @@ validateOptions(O);
 assert(exist('dlnetwork','file')~=0,'GSL:DeepLearningToolbox', ...
     'Double DQN requires Deep Learning Toolbox.');
 if ~isfolder(O.outputDir), mkdir(O.outputDir); end
-env=GSLRLEnvironment(O.rewardWeights);
+if ~isfield(O,'environmentConfig'), O.environmentConfig=configGSL(); end
+env=GSLRLEnvironment(O.rewardWeights,O.environmentConfig);
 state=env.observe();
 agent=GSLDoubleDQN(numel(state.vector),env.maxCandidateCount,O);
 history=table();
 steps=0;
 for episode=1:O.numEpisodes
-    env.reset(O.trainingSeeds(episode));
+    env.reset(O.trainingSeeds(episode),mod(O.environmentConfig.snrRandomSeed+O.trainingSeeds(episode),2^32));
     state=env.observe();
     done=false; totalReward=0; losses=[]; handovers=0;
     while ~done

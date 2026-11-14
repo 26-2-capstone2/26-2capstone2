@@ -1,5 +1,6 @@
 function O=configGSLDQN()
 % Experimental starting settings. Tune on validation seeds, then freeze for test.
+O.environmentConfig=configGSL(); % totalSatellites, SNR variation and candidate capacity
 O.numEpisodes=20;
 O.batchSize=64;
 O.replayCapacity=20000;

@@ -47,6 +47,13 @@ L.satelliteVelocityZ_ECEF_mps=velocity(:,3);
 if isfield(CFG,'linkDirection') && strcmp(CFG.linkDirection,'UPLINK')
     if ismember(string(CFG.channelScenario),["clear","cloudy","rainy"])
         L=applyGSLWeather(L,CFG);
+        offsets=computeGSLRandomSNR(G.time_s,size(G.elevation_deg,2),CFG);
+        selected=zeros(n,1);
+        selected(valid)=offsets(idx);
+        L.snrRandomOffset_dB=selected;
+        L.vacuumSNR_dB=L.vacuumSNR_dB+selected;
+        L.baseSNR_dB=L.baseSNR_dB+selected;
+        L.snr_dB=L.snr_dB+selected;
         return;
     end
     % Total EIRP + satellite G/T - path loss - k - receiver noise bandwidth.

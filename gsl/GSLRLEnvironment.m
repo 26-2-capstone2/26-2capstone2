@@ -8,12 +8,15 @@ classdef GSLRLEnvironment < handle
     properties (SetAccess=private)
         rewardWeights
         maxCandidateCount
+        totalSatelliteCount
     end
 
     properties (Access=private)
         config
         geometry
         candidateSNR_dB
+        baseCandidateSNR_dB
+        snrOffsets_dB
         packetTimes
         packetDraws
         packetBatches
@@ -25,8 +28,8 @@ classdef GSLRLEnvironment < handle
     end
 
     methods
-        function obj=GSLRLEnvironment(rewardWeights)
-            if nargin<1
+        function obj=GSLRLEnvironment(rewardWeights,CFG)
+            if nargin<1 || isempty(rewardWeights)
                 rewardWeights=struct('onTime',1,'burst',0.5,'handover',0.05);
             end
             for name={'onTime','burst','handover'}
@@ -34,15 +37,19 @@ classdef GSLRLEnvironment < handle
                     {'scalar','finite','nonnegative'});
             end
             obj.rewardWeights=rewardWeights;
-            obj.config=configGSL();
+            if nargin<2, CFG=configGSL(); end
+            obj.config=CFG;
             cfg=obj.config;
             assert(cfg.channelUpdateStep_s==obj.decisionInterval_s && ...
                 cfg.handoverInterruption_s<=obj.decisionInterval_s, 'GSL:RLTimeGrid');
             assert(cfg.channelSigma_dB==0 && cfg.linkDataRate_bps>= ...
                 cfg.packetSize_bytes*8*cfg.packetRate_pps, 'GSL:RLPacketModel');
             obj.geometry=buildGSLGeometry(cfg);
+            obj.totalSatelliteCount=size(obj.geometry.elevation_deg,2);
             visible=obj.geometry.isVisible(1:end-1,:);
-            obj.maxCandidateCount=max(sum(visible,2));
+            validateattributes(cfg.candidateCapacity,{'numeric'},{'scalar','integer','positive'});
+            validateattributes(cfg.duration_s,{'numeric'},{'scalar','integer','positive'});
+            obj.maxCandidateCount=cfg.candidateCapacity;
             ranges=obj.geometry.slantRange_m(1:end-1,:);
             c=299792458;
             % All generated packets resolve before the next decision in this setup.
@@ -50,15 +57,20 @@ classdef GSLRLEnvironment < handle
                 +cfg.receiverProcessing_s;
             assert(all(delay_s<1/cfg.packetRate_pps),'GSL:RLFeedbackTiming');
             fspl=20*log10(4*pi*ranges(visible)*cfg.carrierFrequency_Hz/c);
-            obj.candidateSNR_dB=nan(size(visible));
-            obj.candidateSNR_dB(visible)=gslVacuumUplinkSNR(fspl,cfg)-obj.environmentLoss_dB;
+            obj.baseCandidateSNR_dB=nan(size(visible));
+            obj.baseCandidateSNR_dB(visible)=gslVacuumUplinkSNR(fspl,cfg);
             obj.packetTimes=(0:cfg.duration_s*cfg.packetRate_pps-1).'/cfg.packetRate_pps;
             obj.reset();
         end
 
-        function candidates=reset(obj,packetSeed)
+        function candidates=reset(obj,packetSeed,snrSeed)
             % Geometry is reused across episodes. Optional seed changes PHY draws.
             if nargin<2, packetSeed=obj.config.packetRandomSeed; end
+            if nargin<3, snrSeed=obj.config.snrRandomSeed; end
+            obj.snrOffsets_dB=computeGSLRandomSNR(obj.geometry.time_s, ...
+                size(obj.geometry.elevation_deg,2),obj.config,snrSeed);
+            obj.candidateSNR_dB=obj.baseCandidateSNR_dB+obj.snrOffsets_dB(1:end-1,:) ...
+                -obj.environmentLoss_dB;
             stream=RandStream('mt19937ar','Seed',packetSeed);
             obj.packetDraws=rand(stream,numel(obj.packetTimes),1);
             obj.packetBatches=cell(obj.config.duration_s,1);
@@ -80,6 +92,22 @@ classdef GSLRLEnvironment < handle
             assert((isempty(candidates) && action==0) || ...
                 (action>=1 && action<=height(candidates)),'GSL:RLInvalidAction', ...
                 'Choose an available rank, or 0 when there are no candidates.');
+            satID=0;
+            if action>0, satID=candidates.satelliteID(action); end
+            [next,feedback,done,P]=obj.stepSatelliteID(satID);
+        end
+
+        function [next,feedback,done,P]=stepSatelliteID(obj,satelliteID)
+            % Stable-ID entry point, also used by full-candidate baselines.
+            validateattributes(satelliteID,{'numeric'},{'scalar','integer','finite','nonnegative'});
+            t=obj.currentSecond;
+            cfg=obj.config;
+            assert(t<cfg.duration_s,'GSL:RLEpisodeDone');
+            candidates=obj.allCandidates();
+            action=find(candidates.satelliteID==satelliteID,1);
+            assert((satelliteID==0 && isempty(candidates)) || ~isempty(action), ...
+                'GSL:RLInvalidSatelliteID','Select a currently visible satellite ID.');
+            if isempty(action), action=0; end
             satID=0; snr=NaN; elevation=NaN; delay_ms=NaN;
             if action>0
                 satID=candidates.satelliteID(action);
@@ -139,6 +167,10 @@ classdef GSLRLEnvironment < handle
                 'vector',[features(:);streak]);
         end
 
+        function CFG=configuration(obj)
+            CFG=obj.config;
+        end
+
         function [P,M]=results(obj)
             assert(obj.currentSecond==obj.config.duration_s,'GSL:RLIncompleteEpisode', ...
                 'Complete the episode before requesting session metrics.');
@@ -147,21 +179,21 @@ classdef GSLRLEnvironment < handle
         end
     end
 
-    methods (Access=private)
-        function T=makeCandidates(obj)
+    methods
+        function T=allCandidates(obj)
             t=obj.currentSecond;
             ids=zeros(0,1); snr=zeros(0,1); elevation=zeros(0,1);
             if t<obj.config.duration_s
-                ids=find(obj.geometry.isVisible(t+1,:)).';
-                snr=obj.candidateSNR_dB(t+1,ids).';
+                ids=reshape(find(obj.geometry.isVisible(t+1,:)),[],1);
+                snr=reshape(obj.candidateSNR_dB(t+1,ids),[],1);
                 [~,order]=sortrows([-snr,ids],[1,2]);
                 ids=ids(order); snr=snr(order);
-                elevation=obj.geometry.elevation_deg(t+1,ids).';
+                elevation=reshape(obj.geometry.elevation_deg(t+1,ids),[],1);
             end
             change=zeros(numel(ids),1);
             known=false(numel(ids),1);
             if t>0 && t<obj.config.duration_s
-                previous=obj.candidateSNR_dB(t,ids).';
+                previous=reshape(obj.candidateSNR_dB(t,ids),[],1);
                 known=isfinite(previous);
                 change(known)=snr(known)-previous(known);
             end
@@ -170,6 +202,28 @@ classdef GSLRLEnvironment < handle
                 'snr_dB','elevation_deg','isServing'});
             T.snrChange_dB=change;
             T.hasSNRHistory=known;
+            offsets=zeros(numel(ids),1);
+            if t<obj.config.duration_s
+                offsets=reshape(obj.snrOffsets_dB(t+1,ids),[],1);
+            end
+            T.snrRandomOffset_dB=offsets;
+        end
+    end
+
+    methods (Access=private)
+        function T=makeCandidates(obj)
+            T=obj.allCandidates();
+            capacity=obj.maxCandidateCount;
+            if height(T)>capacity
+                keep=(1:capacity).';
+                old=find(T.isServing,1);
+                if ~isempty(old) && old>capacity
+                    keep(end)=old;
+                end
+                T=T(keep,:);
+                T=sortrows(T,{'snr_dB','satelliteID'},{'descend','ascend'});
+            end
+            T.rank=(1:height(T)).';
         end
     end
 end

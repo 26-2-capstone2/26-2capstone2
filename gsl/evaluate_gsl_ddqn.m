@@ -1,34 +1,46 @@
 function comparison=evaluate_gsl_ddqn(agent,O,env)
 % Frozen-policy evaluation. Same original packet draws for each policy/seed.
-if nargin<3, env=GSLRLEnvironment(O.rewardWeights); end
+if nargin<3
+    if ~isfield(O,'environmentConfig'), O.environmentConfig=configGSL(); end
+    env=GSLRLEnvironment(O.rewardWeights,O.environmentConfig);
+end
 if ~isfolder(O.outputDir), mkdir(O.outputDir); end
 names=["existing","max_snr","double_dqn"];
-cfg=configGSL();
+cfg=env.configuration();
 comparison=table();
 for seedIndex=1:numel(O.evaluationSeeds)
     seed=O.evaluationSeeds(seedIndex);
     for policy=names
-        T=env.reset(seed);
+        T=env.reset(seed,mod(cfg.snrRandomSeed+seed,2^32));
         state=env.observe();
+        assert(agent.onlineNetwork.Layers(1).InputSize==numel(state.vector) && ...
+            agent.onlineNetwork.Layers(end).OutputSize==env.maxCandidateCount, ...
+            'GSL:ModelCapacity','Candidate capacity must match the saved network.');
         done=false; reward=0; handovers=0;
         while ~done
-            action=0;
             if policy=="double_dqn"
                 action=agent.select(state,0);
-            elseif ~isempty(T)
-                action=1;
-                if policy=="existing"
-                    [~,order]=sortrows([-T.elevation_deg,T.satelliteID],[1,2]);
-                    best=order(1);
-                    old=find(T.isServing,1);
-                    action=best;
-                    if ~isempty(old) && T.elevation_deg(best)<= ...
-                            T.elevation_deg(old)+cfg.handoverMargin_deg
-                        action=old;
+                [~,feedback,done]=env.step(action);
+            else
+                % Baselines may inspect every visible satellite, beyond the agent cap.
+                T=env.allCandidates();
+                satelliteID=0;
+                if ~isempty(T)
+                    chosen=1;
+                    if policy=="existing"
+                        [~,order]=sortrows([-T.elevation_deg,T.satelliteID],[1,2]);
+                        best=order(1);
+                        old=find(T.isServing,1);
+                        chosen=best;
+                        if ~isempty(old) && T.elevation_deg(best)<= ...
+                                T.elevation_deg(old)+cfg.handoverMargin_deg
+                            chosen=old;
+                        end
                     end
+                    satelliteID=T.satelliteID(chosen);
                 end
+                [~,feedback,done]=env.stepSatelliteID(satelliteID);
             end
-            [T,feedback,done]=env.step(action);
             state=env.observe();
             reward=reward+feedback.reward;
             handovers=handovers+feedback.handover;

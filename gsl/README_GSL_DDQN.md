@@ -4,7 +4,7 @@ MATLAB 현재 폴더를 이 문서가 있는 gsl 폴더로 설정한다.
 
 ## 실행
 
-train_gsl_ddqn.m을 열고 F5로 실행한다. Deep Learning Toolbox가 필요하다. 기본 20회 학습이며 1회마다 600초를 계산한다. 실행 시간은 PC에 따라 달라진다.
+train_gsl_ddqn.m을 열고 F5로 실행한다. Deep Learning Toolbox가 필요하다. [위성 수·랜덤 SNR 설정](README_GSL_DYNAMIC.md)은 O.environmentConfig에서 바꾼다. 기본 20회 학습이며 1회마다 600초를 계산한다. 실행 시간은 PC에 따라 달라진다.
 
 ~~~matlab
 R = train_gsl_ddqn();
@@ -48,7 +48,7 @@ configGSLDQN.m에서 학습 설정과 시드를 수정할 수 있다. 학습 시
 2. 매초 최고 SNR 후보 선택.
 3. 학습한 Double DQN의 Q값이 가장 높은 유효 후보 선택. 탐색 확률은 0.
 
-세 방식은 같은 평가 시드에서 같은 원본 패킷 난수를 사용한다. evaluation_summary.csv에는 손실률, 기한 내 도착률, 최대·평균 연속 손실, 핸드오버 횟수, 원인별 손실 및 검증식 손실률을 기록한다.
+세 방식은 같은 평가 시드에서 같은 원본 패킷 난수와 같은 위성별 랜덤 SNR을 사용한다. evaluation_summary.csv에는 손실률, 기한 내 도착률, 최대·평균 연속 손실, 핸드오버 횟수, 원인별 손실 및 검증식 손실률을 기록한다.
 
 첫 번째 평가 시드의 전체 패킷 기록과 연속 손실 구간을 방식별 CSV로 저장한다. training.png와 comparison.png로 학습 경과와 평가 평균을 볼 수 있다. makePlots=false면 그래프 생성을 끌 수 있다.
 
