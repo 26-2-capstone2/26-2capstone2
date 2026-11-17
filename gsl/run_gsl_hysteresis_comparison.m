@@ -17,7 +17,7 @@ env=GSLRLEnvironment([],CFG);
 state=env.observe();
 assert(agent.onlineNetwork.Layers(1).InputSize==numel(state.vector) && ...
     agent.onlineNetwork.Layers(end).OutputSize==env.maxCandidateCount,'GSL:ModelCapacity');
-margins=[0 .1 .3 .5]; raw=table();
+margins=[0 .1 .3 .5]; raw=table(); logManifest=table();
 fprintf('Frozen DDQN model: %s\n0 dB = gate OFF; positive margins = proposed SNR >= serving SNR + margin.\n',modelPath);
 for repeat=1:numel(seeds)
     packetSeed=seeds(repeat); snrSeed=mod(double(CFG.snrRandomSeed)+double(packetSeed),2^32);
@@ -51,10 +51,15 @@ for repeat=1:numel(seeds)
         decisions=array2table(logs,'VariableNames',{'time_s','proposedID','selectedID', ...
             'previousID','proposedSNR_dB','previousSNR_dB','blocked','handover','lostPackets'});
         writetable(decisions,fullfile(outDir,[stem '_decisions.csv']));
-        if repeat==1
-            writetable(P,fullfile(outDir,[stem '_packets.csv']));
-            writetable(M.lossRuns,fullfile(outDir,[stem '_loss_runs.csv']));
-        end
+        % Keep packet-level evidence for EVERY repeat, not only repeat 1.
+        writetable(P,fullfile(outDir,[stem '_packets.csv']));
+        writetable(M.lossRuns,fullfile(outDir,[stem '_loss_runs.csv']));
+        manifestRow=table(repeat,packetSeed,snrSeed,margin,height(P),height(M.lossRuns), ...
+            height(decisions),string([stem '_packets.csv']),string([stem '_loss_runs.csv']), ...
+            string([stem '_decisions.csv']),'VariableNames',{'repeat','packetSeed','snrSeed', ...
+            'margin_dB','packetRows','lossRunRows','decisionRows','packetFile','lossRunFile','decisionFile'});
+        logManifest=[logManifest;manifestRow]; %#ok<AGROW>
+        writetable(logManifest,fullfile(outDir,'log_manifest.csv'));
         writetable(raw,fullfile(outDir,'runs.csv'));
         fprintf('Run %d/%d | %.1f dB | loss %.4f%% | max run %d | on-time %.4f%% | HO %d\n', ...
             repeat,numel(seeds),margin,M.packetLossRatio,M.maxConsecutiveLoss,M.onTimeDeliveryRate_pct,handovers);
@@ -87,7 +92,8 @@ sgtitle(sprintf('Frozen DDQN | %d paired runs | %d s | mean +/- sample SD | atte
 exportgraphics(f,fullfile(outDir,'comparison.png'),'Resolution',160);
 savefig(f,fullfile(outDir,'comparison.fig'));
 R=struct('raw',raw,'summary',summary,'pairedChanges',paired,'config',CFG, ...
-    'modelPath',modelPath,'seeds',seeds,'margins_dB',margins,'outputDir',outDir);
+    'modelPath',modelPath,'seeds',seeds,'margins_dB',margins,'outputDir',outDir, ...
+    'logManifest',logManifest);
 save(fullfile(outDir,'comparison.mat'),'R','-v7');
 disp(summary); fprintf('Saved to: %s\n',outDir);
 end
