@@ -75,7 +75,7 @@ def judge(run):
     total = dec[-1] if dec[-1] > 0 else 1
     avg = onTime.mean(axis=1)                              # 단계 평균 도착률
     start, final = avg[0], avg[-3:].mean()
-    res = dict(points=len(dec), total=int(dec[-1]), start=round(start, 2), final=round(final, 2))
+    res = dict(points=len(dec), total=int(dec[-1]), start=round(start, 2)
 
     learned = final - start >= T['minGain']
     if learned:
@@ -141,11 +141,13 @@ def plot(runs, out):
             axes[1].plot(run['decisions'] / 1e6, run['burst'][:, j], **kw)
     res = judge(runs[0])
     total = runs[0]['decisions'][-1] / 1e6
-    for name, frac, style in (('T50', res['t50'], ':'), ('T90', res['t90'], '--'), ('수렴', res['conv'], '-')):
-        if frac is not None:
+    marks = [('T50', res['t50'] * total if res['t50'] is not None else None, ':'),
+             ('T90', res['t90'] * total if res['t90'] is not None else None, '--')]
+    for name, x, style in marks:
+        if x is not None:
             for ax in axes:
-                ax.axvline(frac * total, color=C.muted, ls=style, lw=1)
-            axes[0].text(frac * total, 101, name, ha='center', fontsize=8, color=C.muted)
+                ax.axvline(x, color=C.muted, ls=style, lw=1)
+            axes[0].text(x, 101, name, ha='center', fontsize=8, color=C.muted)
     axes[0].set_ylabel('기한 내 도착률 (%, 검증 ε 0)')
     axes[0].set_ylim(0, 105)
     axes[0].legend(frameon=False, loc='lower right')

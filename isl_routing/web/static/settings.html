@@ -56,17 +56,19 @@ function render() {
       const g = box.lastChild, row = document.createElement('div'); row.className = 'row';
       let ctl = '';
       if (f.kind === 'pair') ctl = f.value.map((v, i) => `<input class="pair" type="number" step="any" data-k="${f.key}" data-i="${i}" value="${v}">`).join(' , ');
-      else if (f.kind === 'choice') ctl = `<span class="opts">${f.options.map(o => `<label><input type="radio" name="${f.key}" data-k="${f.key}" value="${o}" ${o === f.value ? 'checked' : ''}> ${o}</label>`).join('')}</span>`;
-      else if (f.kind === 'multi') ctl = `<span class="opts">${f.options.map(o => `<label><input type="checkbox" data-k="${f.key}" value="${o}" ${f.value.includes(o) ? 'checked' : ''}> ${o}</label>`).join('')}</span>`;
-      else if (f.kind === 'bool') ctl = `<span class="opts"><label><input type="checkbox" data-k="${f.key}" ${f.value ? 'checked' : ''}> 사용</label></span>`;
+      else if (f.kind === 'ratio') ctl = `<input type="text" data-k="${f.key}" value="${f.value}" placeholder="0:1:2">`;
+      else if (f.kind === 'bool') ctl = `<span class="opts"><label><input type="checkbox" data-k="${f.key}" ${f.value ? 'checked' : ''}> 사용</label></span><span class="note">${f.unit}</span>`;
       else if (f.kind === 'fixed') ctl = `<input type="text" disabled value="${f.value}"><span class="note">${f.unit || '고정'}</span>`;
       else ctl = `<input type="number" step="any" data-k="${f.key}" value="${f.value}">`;
-      const unit = f.kind === 'fixed' ? '' : `<span class="unit">${f.unit}</span>`;
+      const unit = (f.kind === 'fixed' || f.kind === 'bool') ? '' : `<span class="unit">${f.unit}</span>`;
       row.innerHTML = `<span>${f.label}</span><span>${ctl}${unit}</span><span class="code">${f.key}</span>`;
       g.appendChild(row);
-      if (f.table) { const t = document.createElement('table'); t.className = 'tbl';
-        t.innerHTML = '<tr><th></th><th>핫스팟 개수</th><th>켜짐 평균</th><th>꺼짐 평균</th></tr>' + Object.entries(f.table).map(([k, v]) =>
-          `<tr class="${k === f.value ? 'on' : ''}"><td><b>${k}</b></td><td class="mono">${v.bgNumMin} ~ ${v.bgNumMax}</td><td class="mono">${v.bgOnMean} ms</td><td class="mono">${v.bgOffMean} ms</td></tr>`).join(''); g.appendChild(t); }
+      if (f.table) { const t = document.createElement('table'); t.className = 'tbl'; const w = String(f.value).split(':');
+        t.innerHTML = '<tr><th></th><th>비율</th><th>핫스팟 발생 간격 평균</th><th>지속 평균</th><th>동시에 걸린 지역</th></tr>' + Object.entries(f.table).map(([k, v], i) =>
+          `<tr class="${+w[i] > 0 ? 'on' : ''}"><td><b>${k}</b></td><td class="mono">${w[i] ?? '-'}</td><td class="mono">${v.evIntervalMean} ms</td><td class="mono">${v.evDurationMean} ms</td><td class="mono">약 ${Math.round(v.evDurationMean / v.evIntervalMean)}개</td></tr>`).join('');
+        g.appendChild(t);
+        const n = document.createElement('p'); n.className = 'note'; n.style.margin = '4px 0 10px 180px';
+        n.textContent = '에피소드마다 이 비율대로 혼잡 단계를 무작위로 고릅니다 (순서는 학습 시드 시작값으로 고정). 0인 단계는 학습과 검증에서 뺍니다.'; g.appendChild(n); }
     }
   }
   document.querySelectorAll('[data-k]').forEach(el => el.addEventListener('input', mark));
@@ -75,16 +77,15 @@ function render() {
 function read(f) {
   const els = [...document.querySelectorAll(`[data-k="${f.key}"]`)];
   if (f.kind === 'pair') return els.map(e => +e.value);
-  if (f.kind === 'choice') return (els.find(e => e.checked) || {}).value;
-  if (f.kind === 'multi') return els.filter(e => e.checked).map(e => e.value);
+  if (f.kind === 'ratio') return els[0].value.trim();
   if (f.kind === 'bool') return els[0].checked;
   return +els[0].value;
 }
 function overrides() { const o = {}; for (const f of fields) if (f.kind !== 'fixed') { const v = read(f); if (!eq(v, f.default)) o[f.key] = v; } return o; }
 function mark() {
-  for (const f of fields) if (f.kind !== 'fixed') { const ch = !eq(read(f), f.default); document.querySelectorAll(`input[data-k="${f.key}"]`).forEach(e => { if (e.type === 'number') e.classList.toggle('changed', ch); }); }
+  for (const f of fields) if (f.kind !== 'fixed') { const ch = !eq(read(f), f.default); document.querySelectorAll(`input[data-k="${f.key}"]`).forEach(e => { if (e.type === 'number' || e.type === 'text') e.classList.toggle('changed', ch); }); }
   const v = k => read(fields.find(f => f.key === k));
-  document.getElementById('sum').textContent = `${v('numPlanes')}x${v('satsPerPlane')} 격자   기한 ${v('deadline')} ms   초당 ${v('genRate')}개   연속 손실 ${v('burstMinLen')}개 이상, 벌점 ${v('consecPenalty')}   학습 ${v('trainEpisodes')} 에피소드   바꾼 칸 ${Object.keys(overrides()).length}개`;
+  document.getElementById('sum').textContent = `${v('numPlanes')}x${v('satsPerPlane')} 격자   흐름 ${v('numFlows')}개 x 초당 ${v('genRate')}개   기한 ${v('deadline')} ms   연속 손실 ${v('burstMinLen')}개 이상   혼잡 단계 ${v('levelRatio')}   학습 ${v('trainEpisodes')} 에피소드 x ${v('simTime')}초   바꾼 칸 ${Object.keys(overrides()).length}개`;
 }
 async function load() { const d = await api('/api/settings'); fields = d.fields; render(); }
 document.getElementById('bSave').onclick = async () => {

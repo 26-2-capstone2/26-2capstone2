@@ -18,13 +18,13 @@ function cross(id, vals, dec, fmtv) {
   $(id).innerHTML = cells.join('');
 }
 
-const OBS_ROWS = [['큐 길이 ÷ 200', 0], ['이웃 부하 ÷ 200', 4], ['큐 증가 속도', 8], ['최근 큐 넘침', 12], ['링크 유무', 16]];
+// 관측 15개 (RL.stateMode = 'coarse'): 큐 3단계 4, 이웃 부하 4, 링크 유무 4, 남은 거리 2, 남은 기한 1
+const OBS_ROWS = [['큐 단계 (0, 0.5, 1)', 0], ['이웃 부하 ÷ 200 (30 ms 전)', 4], ['링크 유무', 8]];
 function obsTable(o) {
   let h = '<tr><th></th>' + DIRS.map(d => `<th style="text-align:right">${d}</th>`).join('') + '</tr>';
   for (const [name, k] of OBS_ROWS) h += `<tr><th>${name}</th>` + [0, 1, 2, 3].map(d => `<td>${o ? o[k + d].toFixed(2) : '-'}</td>`).join('') + '</tr>';
-  h += `<tr><th>남은 거리 p, s ÷ 5</th><td colspan="2">${o ? o[20].toFixed(2) : '-'}</td><td colspan="2">${o ? o[21].toFixed(2) : '-'}</td></tr>`;
-  h += `<tr><th>남은 기한 ÷ 70</th><td colspan="4">${o ? o[22].toFixed(2) : '-'}</td></tr>`;
-  h += `<tr><th>남은 TTL ÷ 20</th><td colspan="4">${o ? o[23].toFixed(2) : '-'}</td></tr>`;
+  h += `<tr><th>남은 거리 p, s (한 축 최대 거리로 나눔)</th><td colspan="2">${o ? o[12].toFixed(2) : '-'}</td><td colspan="2">${o ? o[13].toFixed(2) : '-'}</td></tr>`;
+  h += `<tr><th>남은 기한 ÷ ${grid.deadline || 70}</th><td colspan="4">${o ? o[14].toFixed(2) : '-'}</td></tr>`;
   $('obsTbl').innerHTML = h;
 }
 
@@ -34,10 +34,11 @@ function drawPolicy() {
   g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, 300, 300);
   const n = Math.max(grid.planes, grid.sats), GS = 260 / Math.max(n - 1, 1), X = p => 20 + p * GS, Y = s => 20 + s * GS;
   const map = {}; policy.forEach(([p, s, d]) => map[p + ',' + s] = d);
+  const ends = {}; (flows.length ? flows : [[grid.src, grid.dst]]).forEach(([a, b], f) => { ends[a[0] + ',' + a[1]] = f; ends[b[0] + ',' + b[1]] = f; });
   for (let p = 0; p < grid.planes; p++) for (let s = 0; s < grid.sats; s++) {
-    const src = p === grid.src[0] && s === grid.src[1], dst = p === grid.dst[0] && s === grid.dst[1];
-    g.fillStyle = (src || dst) ? '#333' : '#BBB'; g.beginPath(); g.arc(X(p), Y(s), (src || dst) ? 5 : 3, 0, 7); g.fill();
-    const d = map[p + ',' + s]; if (!d || dst) continue;
+    const f = ends[p + ',' + s], end = f !== undefined;
+    g.fillStyle = end ? flowColor(f) : '#BBB'; g.beginPath(); g.arc(X(p), Y(s), end ? 5 : 3, 0, 7); g.fill();
+    const d = map[p + ',' + s]; if (!d) continue;
     const [dp, ds] = STEP[d], L = GS * 0.38, x2 = X(p) + dp * L, y2 = Y(s) + ds * L, a = Math.atan2(ds, dp);
     g.strokeStyle = g.fillStyle = BL; g.lineWidth = 2; g.beginPath(); g.moveTo(X(p), Y(s)); g.lineTo(x2, y2); g.stroke();
     g.beginPath(); g.moveTo(x2 + 5 * Math.cos(a), y2 + 5 * Math.sin(a));
@@ -67,7 +68,7 @@ function showQ(d) {
   if (rec.length) { lastDec = rec[rec.length - 1];
     $('qRecent').innerHTML = rec.slice().reverse().map(r => `<div class="rrow"><span>${r.t}</span>` +
       [0, 1, 2, 3].map(k => `<span class="${r.action === k ? 'pk' : ''}">${r.mask[k] ? r.qRaw[k].toFixed(2) : '<i class="kr" style="font-style:normal;font-family:var(--font);color:#AAA">막힘</i>'}</span>`).join('') +
-      `<span class="pk kr">${ARROW[r.action]} ${DIRS[r.action]}</span><span class="kr ${r.random ? 'rnd' : ''}">${r.random ? '탐험' : '최고 점수'}</span><span>${r.remDeadline} ms</span></div>`).join(''); }
+      `<span class="pk kr">${ARROW[r.action]} ${DIRS[r.action]}</span><span class="kr ${r.random ? 'rnd' : ''}">${r.random ? '탐험' : '최고 점수'}</span><span>${r.remDeadline} ms</span><span>${r.dst ? `(${r.dst[0]}, ${r.dst[1]})` : '-'}</span></div>`).join(''); }
   render();
 }
 render();
