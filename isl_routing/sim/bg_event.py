@@ -3,7 +3,8 @@
 # 기존 방식(bg_traffic.py, 'hotspot'): 에피소드 시작에 핫스팟 위치를 한 번 뽑고 끝까지 고정, 켜짐/꺼짐만 반복
 # 이 방식('event'), 선행 연구 참고: DTAR (기본 트래픽 + 무작위 지역 급증), Back-Pressure 부하 분산 (버스트 평균 1초)
 #   1. 기본 부하: 모든 링크에 에피소드 내내 링크 용량의 P.bgBaseMin ~ P.bgBaseMax배 (링크마다 에피소드 시작에 정함)
-#   2. 지역 핫스팟: 포아송 과정으로 발생 (평균 간격 P.evIntervalMean step)
+#   2. 지역 핫스팟: 포아송 과정으로 발생 (평균 간격 P.evIntervalMean x P.evRefSats / 위성 수 step)
+#      간격은 6x6(위성 36개) 기준값. 망이 커지면 위성 수에 비례해 더 자주 생겨 혼잡 밀도(위성 몇 개 중 하나가 막힘)가 같음
 #      위치: 사건마다 중심 위성을 새로 뽑음. 주 흐름이 지나는 지역(출발 -> 도착 직선에서 P.evCorridor칸 이내)은 P.bgRelWeight배 더 잘 뽑힘
 #      범위: 중심 위성의 송신 링크에 P.evLoadMin ~ P.evLoadMax배, 이웃 위성의 송신 링크에 그 P.evNbrRatio배를 더함
 #      지속: 지수분포 (평균 P.evDurationMean step), 끝나면 큐에 남은 패킷은 그대로 비워짐
@@ -58,7 +59,7 @@ def sample_events(P, G, seed, maxTry=500):
     hot = []   # (시작, 끝, 링크, 추가 세기)
     t = 0.0
     while True:
-        t += rng.exponential(P.evIntervalMean)
+        t += rng.exponential(P.evIntervalMean * P.evRefSats / (P.numPlanes * P.satsPerPlane))   # 위성 수에 비례해 더 자주 (6x6 = 그대로)
         start = int(round(t))
         if start > P.simTime:
             break

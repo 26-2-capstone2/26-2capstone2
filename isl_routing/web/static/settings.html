@@ -68,7 +68,7 @@ function render() {
           `<tr class="${+w[i] > 0 ? 'on' : ''}"><td><b>${k}</b></td><td class="mono">${w[i] ?? '-'}</td><td class="mono">${v.evIntervalMean} ms</td><td class="mono">${v.evDurationMean} ms</td><td class="mono">약 ${Math.round(v.evDurationMean / v.evIntervalMean)}개</td></tr>`).join('');
         g.appendChild(t);
         const n = document.createElement('p'); n.className = 'note'; n.style.margin = '4px 0 10px 180px';
-        n.textContent = '에피소드마다 이 비율대로 혼잡 단계를 무작위로 고릅니다 (순서는 학습 시드 시작값으로 고정). 0인 단계는 학습과 검증에서 뺍니다.'; g.appendChild(n); }
+        n.textContent = '간격과 동시 지역 수는 6x6(위성 36개) 기준이고, 망이 크면 위성 수에 비례해 더 자주 생깁니다. 에피소드마다 이 비율대로 혼잡 단계를 무작위로 고릅니다 (순서는 학습 시드 시작값으로 고정). 0인 단계는 학습과 검증에서 뺍니다.'; g.appendChild(n); }
     }
   }
   document.querySelectorAll('[data-k]').forEach(el => el.addEventListener('input', mark));

@@ -12,6 +12,7 @@
 #   GET  /api/state      지금 상태, 에피소드 기록, 이벤트
 #   GET  /api/stream     실시간 상태 (Server-Sent Events, 약 0.1초마다)
 #   GET  /api/results    저장된 학습 기록(train_log.csv)과 평가 결과(summary.csv) 중 가장 최근 것
+#   GET  /api/results/list, /api/results/train?name=, /api/results/eval?name=   결과 분석 화면 (web/results.py)
 import csv
 import glob
 import json
@@ -78,6 +79,19 @@ class Handler(SimpleHTTPRequestHandler):
             tf, train = latest_csv(os.path.join(home, 'rl_models', 'routeC_*', 'train_log.csv'))
             ef, ev = latest_csv(os.path.join(home, 'isl_saved_runs', 'eval_*', 'summary.csv'))
             return self._json(dict(trainFile=tf, train=train, evalFile=ef, eval=ev))
+        if path.startswith('/api/results/'):   # 결과 분석 화면 (web/results.py)
+            from urllib.parse import parse_qs, urlparse
+            from web import results as RES
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+            try:
+                if path == '/api/results/list':
+                    return self._json(RES.list_runs())
+                if path == '/api/results/train':
+                    return self._json(RES.load_train(q.get('name', '')))
+                if path == '/api/results/eval':
+                    return self._json(RES.load_eval(q.get('name', '')))
+            except Exception as e:
+                return self._json(dict(error=f'{type(e).__name__}: {e}'), 400)
         if path == '/api/stream':
             return self._stream()
         return super().do_GET()

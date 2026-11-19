@@ -11,7 +11,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # isl_routing
 
 from config_isl import EVENT_LEVELS, config_isl
-from rl.config_rl import config_rl
+from sim.topology import update_limits
+from rl.config_rl import apply_level_ratio, config_rl
 
 LEVELS = list(EVENT_LEVELS)
 
@@ -28,18 +29,6 @@ def level_ratio(RL):
     else:
         w = {lv: 1 for lv in RL.trainLevels}
     return ':'.join(f'{w.get(lv, 0):g}' for lv in LEVELS)
-
-
-def apply_level_ratio(RL, ratio):
-    # rl/train_rl.py의 apply_level_ratio와 같음 (그 파일은 PyTorch를 불러와서 여기서 따로 씀). 0인 단계는 학습과 검증에서 뺌
-    w = [float(x) for x in str(ratio).split(':')]
-    if len(w) != 3 or min(w) < 0 or sum(w) <= 0:
-        raise ValueError(f'혼잡 단계 비율은 base:high:severe 형식 (예 0:1:2): {ratio}')
-    RL.trainLevelMode = 'weighted'
-    RL.trainLevels = [lv for lv, x in zip(LEVELS, w) if x > 0]
-    RL.trainLevelWeights = {lv: x for lv, x in zip(LEVELS, w) if x > 0}
-    RL.valLevels = list(RL.trainLevels)
-    return RL
 
 
 def _pair(a, b, cast):
@@ -75,14 +64,12 @@ FIELDS = [
      lambda P, v: _set_delay(P, [int(x) for x in v])),
     ('processingDelay', '네트워크', 'left', '처리 지연', 'ms', 'int', _get('processingDelay'), _set('processingDelay', int)),
     ('numFlows', '주 흐름', 'left', '흐름 수', '개', 'int', _get('numFlows'), _set('numFlows', int)),
-    ('srcSat', '주 흐름', 'left', '흐름 0 출발 (검증, 평가)', '', 'pair', lambda P, RL: [int(x) for x in P.srcSat],
-     lambda P, v: P.srcSat.__setitem__(slice(None), [int(x) for x in v])),
-    ('dstSat', '주 흐름', 'left', '흐름 0 도착 (검증, 평가)', '', 'pair', lambda P, RL: [int(x) for x in P.dstSat],
-     lambda P, v: P.dstSat.__setitem__(slice(None), [int(x) for x in v])),
-    ('flowDelay', '주 흐름', 'left', '무작위 흐름 최소 지연', 'ms', 'pair', lambda P, RL: [P.flowDelayMin, P.flowDelayMax],
-     _pair('flowDelayMin', 'flowDelayMax', int)),
-    ('deadline', '패킷', 'left', '기한', 'ms', 'int', _get('deadline'), _set('deadline', int)),
-    ('ttlInit', '패킷', 'left', 'TTL', '홉', 'int', _get('ttlInit'), _set('ttlInit', int)),
+    ('dstSat', '주 흐름', 'left', '흐름 0 도착', '격자 끝점, 출발은 시드로 무작위', 'fixed', lambda P, RL: f'({P.dstSat[0]}, {P.dstSat[1]})', None),
+    ('flowDistBands', '주 흐름', 'left', '흐름 1, 2, 3 거리 구간', 'D의 비율 (D = 끝점까지 가장 먼 거리)', 'fixed',
+     lambda P, RL: ', '.join(f'{lo * P.maxFlowDelay:.0f}~{hi * P.maxFlowDelay:.0f} ms' for lo, hi in P.flowDistBands), None),
+    ('deadlineMargin', '패킷', 'left', '기한 여유 (흐름 최소 지연 +)', 'ms', 'int', _get('deadlineMargin'), _set('deadlineMargin', int)),
+    ('ttlMargin', '패킷', 'left', 'TTL 여유 (흐름 최소 홉 +)', '홉', 'int', _get('ttlMargin'), _set('ttlMargin', int)),
+    ('deadline', '패킷', 'left', '가장 먼 흐름 0 기한', 'ms, 자동 계산', 'fixed', _get('deadline'), None),
     ('genRate', '패킷', 'left', '흐름마다 초당 패킷', '개', 'int', _get('genRate'), _set('genRate', int)),
     ('packetSize', '패킷', 'left', '패킷 크기', 'Byte', 'int', _get('packetSize'), _set('packetSize', int)),
     ('burstMinLen', '패킷', 'left', '연속 손실 기준', '개 이상', 'int', _get('burstMinLen'), _set('burstMinLen', int)),
@@ -99,7 +86,7 @@ FIELDS = [
     ('numEpisodes', '실험 (평가)', 'left', '평가 에피소드 수', '개', 'int', _get('numEpisodes'), _set('numEpisodes', int)),
     ('evalSeeds', '실험 (평가)', 'left', '평가 시드', '학습에 쓰지 않음', 'fixed', lambda P, RL: '1 ~ 20', None),
     # ---- 오른쪽: 강화학습 (config_rl.py) ----
-    ('obsDim', '에이전트 구조', 'right', '관측 숫자', '큐 4, 이웃 4, 링크 4, 거리 2, 기한 1', 'fixed', _getr('obsDim'), None),
+    ('obsDim', '에이전트 구조', 'right', '관측 숫자', '큐 4, 이웃 4, 링크 4, 거리 2, 기한 1, 들어온 방향 4', 'fixed', _getr('obsDim'), None),
     ('numActions', '에이전트 구조', 'right', '행동 (상, 하, 좌, 우)', '개', 'fixed', _getr('numActions'), None),
     ('maskMode', '에이전트 구조', 'right', '막는 방향', '링크 없는 방향만', 'fixed', _getr('maskMode'), None),
     ('hidden', '에이전트 구조', 'right', '신경망 중간층', '개', 'pair', lambda P, RL: list(RL.hidden),
@@ -110,6 +97,7 @@ FIELDS = [
     ('burstBase', '보상', 'right', '연속 손실 기본 벌점', '', 'float', _getr('burstBase'), _set('burstBase', float)),
     ('burstStep', '보상', 'right', '연속 손실 증가폭', '개마다', 'float', _getr('burstStep'), _set('burstStep', float)),
     ('burstMax', '보상', 'right', '연속 손실 최대 벌점', '', 'float', _getr('burstMax'), _set('burstMax', float)),
+    ('burstStartPenalty', '보상', 'right', '연속 손실 시작 벌점', '3번째 손실에 한 번', 'float', _getr('burstStartPenalty'), _set('burstStartPenalty', float)),
     ('burstEnabled', '보상', 'right', '연속 손실 보상', '끄면 단발 손실과 같게 (대조 실험)', 'bool', _getr('burstEnabled'), _set('burstEnabled', bool)),
     ('rewardHopQueue', '보상', 'right', '홉 보상에 큐 포함', '끄면 링크 지연 ÷ 기한만', 'bool', _getr('rewardHopQueue'), _set('rewardHopQueue', bool)),
     ('rewardHopScale', '보상', 'right', '홉 보상 나눔값', '= 기한', 'fixed', _getr('rewardHopScale'), None),
@@ -126,8 +114,6 @@ FIELDS = [
     ('epsDecaySteps', '탐험 (ε-greedy)', 'right', 'ε 줄이는 기간 (흐름 수 비례)', '번 결정', 'int', _getr('epsDecaySteps'), _set('epsDecaySteps', int)),
     ('levelRatio', '학습 실행', 'right', '혼잡 단계 비율', 'base : high : severe', 'ratio', lambda P, RL: level_ratio(RL), apply_level_ratio),
     ('trainEpisodes', '학습 실행', 'right', '학습 에피소드 수', '개', 'int', _getr('trainEpisodes'), _set('trainEpisodes', int)),
-    ('flowZeroRandomTrain', '학습 실행', 'right', '학습 때 흐름 0도 무작위', '검증, 평가는 항상 고정', 'bool', _getr('flowZeroRandomTrain'),
-     _set('flowZeroRandomTrain', bool)),
     ('trainSeedStart', '학습 실행', 'right', '학습 시드 시작', '', 'int', _getr('trainSeedStart'), _set('trainSeedStart', int)),
     ('saveEvery', '학습 실행', 'right', '중간 저장 주기', '에피소드', 'int', _getr('saveEvery'), _set('saveEvery', int)),
     ('torchSeed', '학습 실행', 'right', '신경망 시드', '', 'int', _getr('torchSeed'), _set('torchSeed', int)),
@@ -139,7 +125,7 @@ P_KEYS = {f[0] for f in FIELDS if f[2] == 'left'}
 
 def build_config(overrides=None):
     # 기본 설정 + 화면에서 바꾼 값 -> (P, RL)
-    # 순서: P 덮어쓰기 -> config_rl(P) (기한, 흐름 수 등 P에서 따라오는 값 반영) -> RL 덮어쓰기
+    # 순서: P 덮어쓰기 -> 끝점, 기한, TTL 다시 계산 -> config_rl(P) (기한, 흐름 수 등 P에서 따라오는 값 반영) -> RL 덮어쓰기
     overrides = overrides or {}
     P = config_isl()
     P.nodeLogEnable = False
@@ -147,6 +133,7 @@ def build_config(overrides=None):
     for key, _, side, _, _, kind, _, setter in FIELDS:
         if side == 'left' and setter and key in overrides:
             setter(P, overrides[key])
+    update_limits(P)                   # 격자 크기, 링크 지연, 여유를 바꿨으면 끝점, 기한, TTL이 따라 바뀜
     RL = config_rl(P)
     for key, _, side, _, _, kind, _, setter in FIELDS:
         if side == 'right' and setter and key in overrides:

@@ -1,6 +1,6 @@
 # ISL 라우팅 시뮬레이션 사용 안내
 
-LEO 위성 사이 링크(ISL)에서 출발 위성 (0,0) → 도착 위성 (5,5)로 실시간 UDP 패킷을 보내고, 라우팅 A(최단 경로), B(DRA), C(강화학습)가 **연속 패킷 손실을 줄이고 기한 내 도착률을 높이는지** 비교함.
+LEO 위성 사이 링크(ISL)에서 실시간 UDP 흐름 4개(흐름 0: 무작위 위성 → 격자 맨 끝 모서리, 흐름 1~3: 짧은, 중간, 긴 경로 무작위 쌍)를 보내고, 라우팅 A(최단 경로), B(DRA), C(강화학습)가 **연속 패킷 손실을 줄이고 기한 내 도착률을 높이는지** 비교함.
 
 ## 0. 준비
 
@@ -34,11 +34,12 @@ python run.py
 | 최종 성능 목표 판정 | `python analysis/compare_runs.py 평가폴더` |
 | 여러 세트 한 번에 | `python tools/run_batch.py high routeB 1001 5` |
 | 테스트 | `python -m unittest discover -s tests` |
-| 웹 시뮬레이터 | `python web/server.py` 후 http://localhost:8000 |
+| 웹 시뮬레이터, 결과 분석 | `python web/server.py` 후 http://localhost:8000 (결과 분석: `/results.html`) |
 
 망 구조는 환경 변수 `ISL_TOPOLOGY`로 고름: `grid` (기본 6x6), `grid:8x8`, `iridium`, `starlink`, `starlink:12x12`
 - PowerShell: `$env:ISL_TOPOLOGY="iridium"; python rl/train_rl.py`
 - bash: `ISL_TOPOLOGY=iridium python rl/train_rl.py`
+- 어떤 구조든 흐름 0 도착(맨 끝 모서리), 흐름 1~3 거리 구간, 흐름별 기한과 TTL은 그 구조에 맞게 자동으로 계산됨
 
 ## 2. 결과 확인
 
@@ -75,7 +76,7 @@ python run.py
 
 | 파일 | 내용 |
 | --- | --- |
-| `config_isl.py` | 시뮬레이터: 망, 큐, 링크, 기한, 생성률, 에피소드, 배경 트래픽, 혼잡 단계 |
+| `config_isl.py` | 시뮬레이터: 망, 큐, 링크, 흐름, 기한 여유, 생성률, 에피소드, 배경 트래픽, 혼잡 단계 |
 | `rl/config_rl.py` | 강화학습: State 정규화, 보상, 신경망, 학습률, ε, 버퍼, 검증 평가 |
 
 주요 값
@@ -83,7 +84,10 @@ python run.py
 | 변수 | 값 |
 | --- | --- |
 | `P.simTime`, `P.numEpisodes` | 에피소드 10초 (10,000 step), 평가 에피소드 20개 |
-| `P.deadline`, `P.ttlInit`, `P.genRate` | 기한 70 ms, TTL 20, 초당 60개 |
+| `P.numFlows`, `P.genRate` | 주 흐름 4개, 흐름마다 초당 60개 |
+| `P.flowDistBands` | 흐름 1, 2, 3 거리 구간 (가장 먼 거리 D의 0~1/3, 1/3~2/3, 2/3~1. 6x6은 D = 45 ms) |
+| `P.deadlineMargin`, `P.ttlMargin` | 흐름마다 기한 = 최소 지연 + 25, TTL = 최소 홉 + 10 (6x6 (0,0) → (5,5)는 70, 20) |
+| `P.deadline`, `P.ttlInit` | 가장 먼 흐름 0의 기한, TTL (자동 계산, 관측 정규화 기준. 6x6: 70, 20) |
 | `P.bgMode` | `'event'` 새 배경 트래픽 (기본), `'hotspot'` 기존 방식 |
 | `EVENT_LEVELS` | 혼잡 단계별 핫스팟 발생 간격, 지속 시간 |
 | `RL.trainEpisodes`, `RL.lr`, `RL.epsDecaySteps` | 학습 80 에피소드, 학습률 0.0001, ε 감소 결정 40만 번 (흐름 하나당 10만) |
@@ -108,7 +112,7 @@ python run.py
 ### 자동으로 불리는 파일
 | 폴더 | 파일 |
 | --- | --- |
-| `sim/` | `run_isl_sim.py` 에피소드 1개 실행, `build_grid.py` 격자, `topology.py` Iridium, Starlink, `bg_event.py` 새 배경 트래픽, `bg_traffic.py` 기존 배경 트래픽, `link_history.py` 링크 기록, `episodes.py` 에피소드 합치기, `node_log.py` 노드 기록 |
+| `sim/` | `run_isl_sim.py` 에피소드 1개 실행, `build_grid.py` 격자, `topology.py` 망 구조와 끝점, 기한 계산, `flows.py` 주 흐름 뽑기, `bg_event.py` 새 배경 트래픽, `bg_traffic.py` 기존 배경 트래픽, `link_history.py` 링크 기록, `episodes.py` 에피소드 합치기, `node_log.py` 노드 기록 |
 | `routing/` | `route_A.py` Dijkstra, `route_B.py` DRA, `route_C.py` 강화학습 |
 | `rl/` | `rl_agent.py` Double DQN, `rl_state.py` State와 마스크, `rl_reward.py` 보상, `rl_collector.py` 경험 연결 |
 | `analysis/` | `compute_metrics.py` 지표, `burst_loss.py` 연속 손실 구간, `burst_summary.py` 연속 손실 요약, `save_results.py` 결과 저장 |

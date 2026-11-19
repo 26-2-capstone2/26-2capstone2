@@ -20,6 +20,7 @@ BG_LEVELS = {
 # 혼잡 사건 방식(P.bgMode = 'event', sim/bg_event.py)의 단계별 값 (step): 지역 핫스팟 발생 간격 평균, 지속 시간 평균
 # 지속 평균 1초 (7차 기준, Back-Pressure 논문의 버스트 평균 1초). 이전 2.5초 값을 0.4배로 줄이고 간격도 같은 비율로 줄여
 # 동시에 걸린 지역 수(base 약 1개, high 약 2개, severe 약 4개)는 그대로, 혼잡이 바뀌는 속도만 2.5배 빨라짐
+# 아래 간격은 6x6(위성 36개, P.evRefSats) 기준. 망이 크면 위성 수에 비례해 더 자주 생김 (이리듐 66개: 1.8배 자주, severe 동시 약 4 -> 7개)
 EVENT_LEVELS = {
     'base':   dict(evIntervalMean=1000, evDurationMean=1000),   # 동시 약 1개 지역
     'high':   dict(evIntervalMean=500, evDurationMean=1000),    # 동시 약 2개
@@ -46,11 +47,11 @@ def config_isl():
     # ---- 네트워크 구조 ----
     P.numPlanes = 6                        # 궤도면 수 (좌/우)
     P.satsPerPlane = 6                     # 궤도면당 위성 수 (상/하)
-    P.srcSat = np.array([0, 0])            # 출발 위성 (p,s)
-    P.dstSat = np.array([5, 5])            # 도착 위성 (p,s)
+    # 흐름 0 도착 = 격자 맨 끝 모서리 (numPlanes-1, satsPerPlane-1), 출발 = 에피소드 시드로 무작위 (sim/flows.py)
+    #   P.srcSat (0,0), P.dstSat (끝점)은 config 끝(update_limits)에서 크기에 맞춰 자동으로 정함
     # 망 구조: 'grid' (지금 6x6), 'grid:8x8' (크기 지정), 'iridium', 'starlink', 'starlink:12x12' (축소판) - sim/topology.py
     #   실행할 때 환경 변수로 바꿈: ISL_TOPOLOGY=iridium python main_isl.py  (기본은 'grid' = 아래 6x6 값 그대로)
-    #   grid가 아니면 크기, 원형 연결, 링크 지연, 출발/도착, 기한, TTL을 그 구조에 맞게 덮어씀 (config 끝에서 적용)
+    #   grid가 아니면 크기, 원형 연결, 링크 지연을 그 구조에 맞게 덮어씀 (config 끝에서 적용)
     P.topology = os.environ.get('ISL_TOPOLOGY', 'grid')
     P.queueMax = 200                       # 링크별 큐 최대 용량 (packets)
     P.linkCapacity = 5                    # ISL 대역폭 (packets/step)
@@ -58,8 +59,11 @@ def config_isl():
     P.processingDelay = 0                  # 처리 지연 (step)
 
     # ---- 패킷 ----
-    P.ttlInit = 20                         # TTL 초기값 (잔여 홉)
-    P.deadline = 70                       # 기한 (step)
+    # 기한, TTL은 흐름마다 그 흐름 거리로 정함 (sim/topology.flow_limits): 기한 = 최소 지연 + 여유, TTL = 최소 홉 + 여유
+    #   6x6 (0,0) -> (5,5)는 45 + 25 = 70, 10 + 10 = 20
+    #   P.deadline, P.ttlInit = 끝점에서 가장 먼 출발 위성 기준 값 (관측 정규화, 홉 보상 기준). config 끝에서 자동 계산
+    P.deadlineMargin = 25                  # 기한 여유 (step)
+    P.ttlMargin = 10                       # TTL 여유 (홉)
     P.packetSize = 160                     # 패킷 크기 (Byte)
 
     # ---- 연속 손실 ----
@@ -78,8 +82,10 @@ def config_isl():
 
     # ---- 실험 ----
     P.genRate = 60                         # 1초마다 생성하는 패킷 수 (일정 간격)
-    P.numFlows = 4                         # 주 흐름 수 (흐름마다 초당 genRate개): 흐름 0 (0,0) -> (5,5) + 무작위 3개 (sim/flows.py, 7차 기준)
-    P.flowDelayMin, P.flowDelayMax = 30, 45   # 무작위 흐름의 출발 -> 도착 최소 지연 범위 (step, 주 흐름은 45)
+    P.numFlows = 4                         # 주 흐름 수 (흐름마다 초당 genRate개): 흐름 0 (무작위 -> 끝점) + 무작위 3개 (sim/flows.py)
+    # 흐름 1~ 의 거리 구간: D(끝점까지 가장 먼 위성의 최소 지연, 6x6: 45)에 대한 비율. 흐름 k는 (k-1)번째 구간 (구간보다 흐름이 많으면 다시 처음부터)
+    #   6x6: 흐름 1 0~15 ms (짧은 경로), 흐름 2 15~30 ms (중간), 흐름 3 30~45 ms (긴 경로). 격자가 커지면 같은 비율로 길어짐
+    P.flowDistBands = [(0, 1 / 3), (1 / 3, 2 / 3), (2 / 3, 1.0)]
     P.epsilonList = [0, 0.1]               # 무작위 선택 확률 (0: 성능 측정용, 0.1: 데이터 수집용)
     P.simTime = 10000                      # 에피소드 1개의 길이 (step = 10초). 에피소드마다 큐가 비어 있는 상태로 시작
                                            #   학습 안정화 계획: 에피소드당 결정 약 7천~8천 번으로 줄여 학습 곡선을 촘촘하게 봄
@@ -108,6 +114,7 @@ def config_isl():
     P.evNbrRatio = 0.5                     # 'event' 이웃 위성의 송신 링크에는 위 세기의 이 비율만큼 더함 (지역 혼잡)
     P.evCorridor = 1.0                     # 'event' 출발 -> 도착 직선에서 이 칸 수 이내 위성이 '주 흐름이 지나는 지역' (bgRelWeight배 더 자주)
     P.evSafeLoad = 1.0                     # 'event' 안전장치: 부하 합이 용량의 이 배수 이상인 링크를 모두 빼고도 출발 -> 도착 길이 있어야 핫스팟을 만듦
+    P.evRefSats = 36                       # 'event' 핫스팟 간격(EVENT_LEVELS)의 기준 위성 수 (6x6). 위성이 많으면 그 비율만큼 더 자주 발생
     P.bgScenarioSeed = 1                   # 첫 에피소드의 시나리오 시드. 에피소드 e는 시드+e를 씀 (None이면 실행마다 무작위 시작 시드)
                                            # 실행할 때 python main_isl.py 7 처럼 시작 시드를 직접 줄 수도 있음
     P.bgNumMin, P.bgNumMax = 2, 5          # 핫스팟(과부하 송신 큐) 개수 범위
@@ -125,8 +132,10 @@ def config_isl():
     P.bgLevel = 'base'                     # 혼잡 단계: 'base', 'high', 'severe' (위 BG_LEVELS 값으로 핫스팟 개수, ON/OFF를 덮어씀)
     apply_bg_level(P, P.bgLevel)
 
+    from sim.topology import apply_topology, update_limits
     if P.topology != 'grid':
-        from sim.topology import apply_topology
         apply_topology(P, P.topology)
+    else:
+        update_limits(P)                   # 흐름 0 끝점, 기한, TTL 상한 (6x6: (5,5), 70, 20)
 
     return P

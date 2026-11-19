@@ -14,6 +14,7 @@ from sim.bg_traffic import sample_hotspots
 from sim.build_grid import build_grid
 from sim.flows import make_flows
 from sim.run_isl_sim import run_isl_sim
+from sim.topology import flow_limits
 
 
 class MultiFlowTest(unittest.TestCase):
@@ -23,17 +24,27 @@ class MultiFlowTest(unittest.TestCase):
         self.G = build_grid(self.P)
 
     def test_flows(self):
-        # 흐름 0은 기존 주 흐름, 나머지는 최소 지연 조건을 만족하고 서로 다름, 같은 시드면 같은 흐름
+        # 흐름 0: 무작위 출발 -> 격자 끝점 (5,5), 나머지는 최소 지연 조건을 만족하고 서로 다름, 같은 시드면 같은 흐름
         flows = make_flows(self.P, self.G, 11)
         self.assertEqual(len(flows), 3)
-        self.assertEqual(flows[0], ((0, 0), (5, 5)))
+        self.assertEqual(flows[0][1], (5, 5))
+        self.assertNotEqual(flows[0][0], (5, 5))
         self.assertEqual(len(set(flows)), 3)
-        for src, dst in flows[1:]:
+        D = self.P.maxFlowDelay                                   # 6x6: 45
+        self.assertEqual(D, 45)
+        for (src, dst), (lo, hi) in zip(flows[1:], self.P.flowDistBands):   # 흐름 1 짧은 구간, 흐름 2 중간 구간
             d = _dist_to(self.G, dst)[src]
-            self.assertTrue(self.P.flowDelayMin <= d <= self.P.flowDelayMax)
+            self.assertTrue(lo * D < d <= hi * D)
         self.assertEqual(flows, make_flows(self.P, self.G, 11))
+        self.assertGreater(len({make_flows(self.P, self.G, s)[0][0] for s in range(20)}), 5)   # 시드마다 출발이 바뀜
         self.P.numFlows = 1
-        self.assertEqual(make_flows(self.P, self.G, 11), [((0, 0), (5, 5))])
+        self.assertEqual(len(make_flows(self.P, self.G, 11)), 1)
+
+    def test_flow_limits(self):
+        # 기한 = 최소 지연 + 25, TTL = 최소 홉 + 10. (0,0) -> (5,5)는 기존과 같은 70, 20
+        self.assertEqual(flow_limits(self.P, self.G, (0, 0), (5, 5)), (70, 20))
+        self.assertEqual(flow_limits(self.P, self.G, (5, 4), (5, 5)), (32, 11))
+        self.assertEqual((self.P.deadline, self.P.ttlInit), (70, 20))   # 가장 먼 흐름 0 기준
 
     def test_burst_split_by_flow(self):
         # 흐름 0의 마지막 손실 2개와 흐름 1의 첫 손실 2개는 이어지지 않음 (각각 길이 2)

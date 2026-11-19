@@ -25,7 +25,7 @@ flowchart TD
 | 실행 | 시드 | 결과 |
 | --- | --- | --- |
 | ① `main_isl.py` | 시작 시드부터 에피소드 수만큼 (기본 1~20) | `~/isl_saved_runs/라우팅_혼잡단계_날짜/` |
-| ② `rl/train_rl.py` | 학습 1001부터, 검증 501~505 | `~/rl_models/routeC_날짜_s학습시드/` |
+| ② `rl/train_rl.py` | 학습 1001부터, 검증 501~503 | `~/rl_models/routeC_날짜_s학습시드/` |
 | ③ `eval_routes.py` | 평가 1~20 | `~/isl_saved_runs/eval_날짜/` |
 
 ---
@@ -118,10 +118,10 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["config_isl + config_rl"] --> V0["검증 0<br/>학습 전 성능 (ε 0, 검증 시드 501~505, 3단계)"]
-    V0 --> EP["에피소드 1개 학습<br/>혼잡 단계 번갈아, 시드 1001 + e"]
-    EP --> X["결정마다: 관측 → 행동 (ε-greedy)<br/>→ 경험 저장 → 결정 4번마다 학습"]
-    X --> EP2{"10 에피소드마다?"}
+    A["config_isl + config_rl"] --> V0["검증 0<br/>학습 전 성능 (ε 0, 검증 시드 501~503, high, severe)"]
+    V0 --> EP["에피소드 1개 학습<br/>혼잡 단계 high : severe = 1 : 2 무작위, 시드 1001 + e<br/>흐름 4개 (흐름 0: 무작위 → 끝점)"]
+    EP --> X["결정마다: 관측 → 행동 (ε-greedy)<br/>→ 경험 저장 → 결정 16번마다 학습"]
+    X --> EP2{"5 에피소드마다?"}
     EP2 -- "예" --> V["검증 평가<br/>eval_log.csv에 기록"]
     EP2 -- "아니오" --> EP
     V --> EP
@@ -173,7 +173,7 @@ flowchart LR
 
 | 바꿀 것 | 위치 |
 | --- | --- |
-| 망, 큐, 링크, 기한, 생성률 | `config_isl.py` (`P.queueMax`, `P.linkCapacity`, `P.deadline`, `P.genRate` 등) |
+| 망, 큐, 링크, 기한 여유, 생성률, 흐름 | `config_isl.py` (`P.queueMax`, `P.linkCapacity`, `P.deadlineMargin`, `P.genRate`, `P.numFlows`, `P.flowDistBands` 등) |
 | 에피소드 길이, 평가 에피소드 수 | `config_isl.py` (`P.simTime`, `P.numEpisodes`) |
 | 배경 트래픽 방식, 혼잡 단계 | `config_isl.py` (`P.bgMode`, `EVENT_LEVELS`, `P.bgBaseMin`, `P.evLoadMin` 등) |
 | 망 구조 | 환경 변수 `ISL_TOPOLOGY` (`grid`, `grid:8x8`, `iridium`, `starlink`) |

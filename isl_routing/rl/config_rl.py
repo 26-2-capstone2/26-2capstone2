@@ -13,9 +13,11 @@ def config_rl(P):
     RL = SimpleNamespace()
 
     # ---- 관측 벡터 (rl_state.py) ----
-    RL.stateMode = 'coarse'                # 15개 (7차 기준): 큐 3단계 4 + 30 step 전 이웃 부하 4 + 링크 유무 4 + 남은 거리 2 + 남은 기한 1
+    RL.stateMode = 'coarseIn'              # 19개: coarse 15개 (큐 3단계 4 + 30 step 전 이웃 부하 4 + 링크 유무 4 + 남은 거리 2 + 남은 기한 1)
+                                           #   + 들어온 방향 4 (11/18, 이리듐 극지방에서 두 위성 사이를 맴도는 문제)
+                                           # 7차~이리듐 1차 모델은 'coarse' 15개 (그 모델을 평가하려면 여기를 'coarse'로)
                                            # 그 밖의 값 (이전 실험용, 코드로만 바꿈): 'full' 24개, 'noTrend' 16개
-    RL.obsDim = {'full': 24, 'noTrend': 16, 'coarse': 15}[RL.stateMode]
+    RL.obsDim = {'full': 24, 'noTrend': 16, 'coarse': 15, 'coarseIn': 19}[RL.stateMode]
     RL.qLevelLow = 0.5 * P.queueMax        # coarse 큐 3단계: 100개 미만 여유 0, 100~150개 보통 0.5, 150개 이상 혼잡 1
     RL.qLevelHigh = 0.75 * P.queueMax
     RL.nbrDelay = 30                       # coarse 이웃 부하: 30 step 전 값
@@ -29,7 +31,7 @@ def config_rl(P):
     RL.overflowWindow = 300                # 최근 큐 넘침: min(지난 시간, 300) ÷ 300 (핫스팟 켜짐 평균 150~450의 가운데)
     RL.normDist = max(P.numPlanes // 2 if getattr(P, 'wrapP', False) else P.numPlanes - 1,
                       P.satsPerPlane // 2 if getattr(P, 'wrapS', False) else P.satsPerPlane - 1)   # 남은 거리 ÷ 한 축 최대 거리 (6x6: 5, 원형이면 절반)
-    RL.normDeadline = P.deadline           # 남은 기한 ÷ 70
+    RL.normDeadline = P.deadline           # 남은 기한 ÷ 가장 먼 흐름 0 기한 (6x6: 70)
     RL.normTtl = P.ttlInit                 # 남은 TTL ÷ 20
 
     # ---- 보상 (rl_reward.py) ----
@@ -41,6 +43,9 @@ def config_rl(P):
     RL.burstBase = 0.2                     # 연속 손실 (3개 이상) k번째 패킷: -min(1.0, 0.2 + 0.1 x max(0, k - 3))
     RL.burstStep = 0.1                     #   구간 전체(처음 2개 포함)에 단발 손실 대신 적용
     RL.burstMax = 1.0
+    RL.burstStartPenalty = 0.5             # 연속 손실 시작 벌점: 3번째 패킷(연속 손실이 되는 순간)에 -0.5 한 번 더 (11/19)
+                                           #   같은 개수를 잃어도 쪼갤수록 벌점이 작던 문제 -> 횟수도 줄이게. 0이면 이전과 같음
+                                           #   2.2를 넘기면 긴 손실 1번이 짧은 손실 2번보다 덜 나빠지므로 그보다 작게
 
     # ---- 신경망 (rl_agent.py) ----
     RL.hidden = [64, 64]                   # 중간층 크기: 입력 24 -> 64 -> 64 -> 출력 4 (방향별 Q값)
@@ -64,7 +69,6 @@ def config_rl(P):
 
     # ---- 학습 실행 (train_rl.py) ----
     RL.trainLevels = ['high', 'severe']    # 학습에 쓰는 혼잡 단계
-    RL.flowZeroRandomTrain = True          # 학습 에피소드마다 흐름 0의 출발, 도착도 무작위 (검증, 평가는 항상 (0,0) -> (5,5))
     RL.trainLevelMode = 'weighted'         # 'weighted': 아래 비율로 에피소드마다 무작위로 고름, 'cycle': base, high, severe 차례로 돌아가며 (이전 방식)
     RL.trainLevelWeights = {'high': 1, 'severe': 2}   # severe 강조 혼합, 순서는 trainSeedStart로 고정
     RL.trainSeedStart = 1001               # 학습용 시드 시작 (평가용 시드 1~20은 학습에 절대 안 씀)
@@ -82,3 +86,28 @@ def config_rl(P):
     RL.valLevels = ['high', 'severe']      # 검증할 혼잡 단계 (ε 0, 학습 없음)
 
     return RL
+
+
+# 혼잡 단계 비율 -> 에피소드별 단계 (터미널 학습 train_rl.py와 웹 web/live.py, web/schema.py가 함께 씀)
+# PyTorch 없이 불러올 수 있게 이 파일에 둠
+def apply_level_ratio(RL, ratio):
+    # 'b:h:s' (예 '1:1:2') -> 학습 단계 비율. 0인 단계는 학습과 검증에서 뺌
+    w = [float(x) for x in str(ratio).split(':')]
+    if len(w) != 3 or min(w) < 0 or sum(w) <= 0:
+        raise ValueError(f'혼잡 단계 비율은 base:high:severe 형식 (예 0:1:2): {ratio}')
+    levels = [lv for lv, x in zip(['base', 'high', 'severe'], w) if x > 0]
+    RL.trainLevelMode = 'weighted'
+    RL.trainLevels = levels
+    RL.trainLevelWeights = {lv: x for lv, x in zip(['base', 'high', 'severe'], w) if x > 0}
+    RL.valLevels = list(levels)
+    return RL
+
+
+def train_level_sequence(RL, numEpisodes, seedStart=None):
+    # 에피소드별 혼잡 단계 목록. weighted는 비율대로 무작위 (seedStart, 기본 trainSeedStart로 고정해서 학습 시드가 달라도 같은 순서)
+    import numpy as np
+    if getattr(RL, 'trainLevelMode', 'cycle') != 'weighted':
+        return [RL.trainLevels[ep % len(RL.trainLevels)] for ep in range(numEpisodes)]
+    w = np.array([RL.trainLevelWeights[lv] for lv in RL.trainLevels], dtype=float)
+    rng = np.random.RandomState(RL.trainSeedStart if seedStart is None else seedStart)
+    return [str(lv) for lv in rng.choice(RL.trainLevels, size=numEpisodes, p=w / w.sum())]

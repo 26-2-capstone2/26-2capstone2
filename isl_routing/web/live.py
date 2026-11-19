@@ -2,7 +2,7 @@
 #
 # 학습 순서는 rl/train_rl.py와 같음
 #   혼잡 단계: 비율(trainLevelWeights)대로 무작위 (trainSeedStart로 순서 고정), 시드 1001부터
-#   주 흐름: numFlows개. 학습 때는 흐름 0도 무작위 (flowZeroRandomTrain), 평가와 검증은 흐름 0 = (0,0) -> (5,5) 고정
+#   주 흐름: numFlows개. 흐름 0은 시드로 무작위 출발 -> 격자 끝점, 흐름마다 기한, TTL은 그 거리로 (sim/flows.py)
 #   배경 트래픽: 지역 핫스팟 방식 (bgMode = 'event')
 #   검증: evalEvery 에피소드마다 학습을 멈추고 검증 시드(501~503)로 ε 0 평가
 # 화면의 결과 숫자는 흐름 0 기준 (흐름 4개 전체 도착률은 옆에 작게)
@@ -13,7 +13,9 @@ import time
 
 import numpy as np
 
+from analysis.burst_loss import loss_runs as finished_loss_runs
 from config_isl import apply_bg_level
+from rl.config_rl import train_level_sequence
 from routing.route_C import STATE as C_STATE, set_agent
 from sim.bg_traffic import sample_hotspots
 from sim.build_grid import build_grid
@@ -30,7 +32,8 @@ class StopRun(Exception):
 
 
 def loss_runs(status):
-    # 생성 순서로 이어진 손실 구간 길이 (아직 안 끝난 패킷, 도착 패킷에서 끊음)
+    # 진행 중 화면용: 생성 순서로 이어진 손실 구간 길이 (아직 안 끝난 패킷, 도착 패킷에서 끊음)
+    # 끝난 에피소드는 분석 코드와 같은 finished_runs를 씀
     runs, cur = [], 0
     for st in status:
         if st in LOSS:
@@ -44,13 +47,9 @@ def loss_runs(status):
     return runs
 
 
-def level_sequence(RL, n, seedStart):
-    # 에피소드별 혼잡 단계 (train_rl.train_level_sequence와 같음)
-    if getattr(RL, 'trainLevelMode', 'cycle') != 'weighted':
-        return [RL.trainLevels[ep % len(RL.trainLevels)] for ep in range(n)]
-    w = np.array([RL.trainLevelWeights[lv] for lv in RL.trainLevels], dtype=float)
-    rng = np.random.RandomState(seedStart)
-    return [str(lv) for lv in rng.choice(RL.trainLevels, size=n, p=w / w.sum())]
+def finished_runs(status):
+    # 끝난 에피소드의 손실 구간 길이 (analysis/burst_loss.py, train_rl.py와 같은 정의)
+    return finished_loss_runs(status)[1].tolist()
 
 
 class LiveRunner:
@@ -152,7 +151,7 @@ class LiveRunner:
         nEp = RL.trainEpisodes if train else P.numEpisodes
         seedStart = RL.trainSeedStart if train else P.randomSeed
         if self.state['level'] == 'ratio':
-            levels = level_sequence(RL, nEp, seedStart)
+            levels = train_level_sequence(RL, nEp, seedStart)
         else:
             levels = [self.state['level']] * nEp
         startEp = len(self.history) if train else 0
@@ -169,7 +168,6 @@ class LiveRunner:
                 seed = seedStart + ep
                 apply_bg_level(P, level)
                 G = build_grid(P)
-                P.flowZeroRandom = bool(train and RL.flowZeroRandomTrain)
                 sample_hotspots(P, G, seed)          # 주 흐름(P.mainFlows)과 지역 핫스팟(P.bgEvents)도 여기서 정함
                 self._begin_episode(P, G, ep, level, seed)
                 if collector:
@@ -208,13 +206,12 @@ class LiveRunner:
             G = build_grid(P)
             st0, stAll, runs = [], [], []
             for seed in RL.valSeeds:
-                P.flowZeroRandom = False
                 sample_hotspots(P, G, seed)
                 R = run_isl_sim(P, P.genRate, 0, seed, False)
                 s0 = R.status[R.packetFlow == 0]
                 st0.append(s0)
                 stAll.append(R.status)
-                runs += loss_runs(s0.tolist())
+                runs += finished_runs(s0)
             st0, stAll = np.concatenate(st0), np.concatenate(stAll)
             minutes = len(RL.valSeeds) * P.simTime * P.stepTime / 60
             bursts = [r for r in runs if r >= P.burstMinLen]
@@ -378,7 +375,7 @@ class LiveRunner:
 
     def _end_episode(self, R, P, agent, collector, ep, level, seed, secs):
         st = R.status[R.packetFlow == 0]          # 흐름 0 기준
-        runs = loss_runs(st.tolist())
+        runs = finished_runs(st)
         row = dict(episode=ep + 1, level=level, seed=seed,
                    onTimeRate=round(float((st == 1).mean()) * 100, 2), lossRate=round(float(np.isin(st, LOSS).mean()) * 100, 2),
                    allOnTimeRate=round(float((R.status == 1).mean()) * 100, 2),

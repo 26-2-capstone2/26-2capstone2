@@ -21,6 +21,9 @@ ROUTE_FUNCS = {'routeA': route_A, 'routeB': route_B, 'routeC': route_C}
 ROUTE_LABELS = {'routeA': 'A 정적 최단 경로', 'routeB': 'B DRA', 'routeC': 'C 강화학습'}
 
 
+
+OPPOSITE = {1: 2, 2: 1, 3: 4, 4: 3}   # 상 <-> 하, 좌 <-> 우
+
 def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     # 2D Grid ISL 시뮬레이션 1회 실행 (매 step = 1 ms)
     # genRate: 1초마다 생성하는 패킷 수 (일정 간격), epsilon: 무작위 선택 확률 ε
@@ -54,6 +57,12 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     P.flowBlock = perFlow                                    # 경험 연결 장치가 흐름 경계를 알 수 있게
     flowSrc = np.array([f[0] for f in mainFlows], dtype=np.int64)
     flowDst = np.array([f[1] for f in mainFlows], dtype=np.int64)
+    # 흐름마다 기한, TTL (sim/flows.set_flow_limits). 없으면 모든 흐름에 P.deadline, P.ttlInit
+    flowDl = getattr(P, 'mainDeadlines', None)
+    flowTtl = getattr(P, 'mainTtls', None)
+    if flowDl is None or len(flowDl) != numFlows:
+        flowDl, flowTtl = [P.deadline] * numFlows, [P.ttlInit] * numFlows
+    flowDl, flowTtl = np.array(flowDl, dtype=np.int64), np.array(flowTtl, dtype=np.int64)
     mainDst = G.dstSat.copy()
     maxPackets = perFlow * numFlows
     bgOn = bool(getattr(P, 'bgEnable', False))
@@ -61,6 +70,8 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     bgPool = P.bgPoolSize if bgOn else 0
     total = maxPackets + bgPool
     genTime = np.zeros(total, dtype=np.int64)
+    pktDl = np.zeros(total, dtype=np.int64)   # 주 흐름 패킷의 기한 (흐름마다 다름)
+    backDir = np.zeros(total, dtype=np.int64)  # 주 흐름 패킷이 들어온 방향 (직전 위성 쪽, 1 상 2 하 3 좌 4 우, 0 = 막 생성)
     ttl = np.zeros(total, dtype=np.int64)
     hops = np.zeros(total, dtype=np.int64)
     curP = np.zeros(total, dtype=np.int64)
@@ -130,16 +141,16 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
         # 2. 목적지 확인
         atDst = (curP[arrived] == dstP[arrived]) & (curS[arrived] == dstS[arrived])
         age = t - genTime[arrived]
-        onTimeIds = arrived[atDst & (age <= P.deadline)]
+        onTimeIds = arrived[atDst & (age <= pktDl[arrived])]
         status[onTimeIds] = 1
         endTime[onTimeIds] = t
-        lateIds = arrived[atDst & (age > P.deadline)]
+        lateIds = arrived[atDst & (age > pktDl[arrived])]
         status[lateIds] = 2
         endTime[lateIds] = t
 
         # 3. 중간 위성 확인: 기한 초과 -> TTL 만료
         inTransit = arrived[~atDst]
-        overDeadline = t - genTime[inTransit] > P.deadline
+        overDeadline = t - genTime[inTransit] > pktDl[inTransit]
         status[inTransit[overDeadline]] = 3
         endTime[inTransit[overDeadline]] = t
         lateMidIds = inTransit[overDeadline]
@@ -180,7 +191,9 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             newIds = fOf * perFlow + seq0 + np.tile(np.arange(k), numFlows)   # 흐름 순서대로, 흐름 안에서는 생성 순서
             numPackets += k * numFlows
             genTime[newIds] = t
-            ttl[newIds] = P.ttlInit
+            ttl[newIds] = flowTtl[fOf]
+            pktDl[newIds] = flowDl[fOf]
+            backDir[newIds] = 0
             hops[newIds] = 0
             curP[newIds] = flowSrc[fOf, 0]
             curS[newIds] = flowSrc[fOf, 1]
@@ -246,14 +259,16 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             s = int(curS[packet_id])
             if numFlows > 1:   # 라우팅(A, B, C)과 결정 기록은 G.dstSat 기준 -> 이 패킷의 도착 위성으로 바꿔 둠
                 G.dstSat = np.array([dstP[packet_id], dstS[packet_id]])
-            nextDir, choiceType, L, N = route(p, s, queueLen, G, P, t=t, remDeadline=P.deadline - (t - genTime[packet_id]),
-                                              ttl=int(ttl[packet_id]), hops=int(hops[packet_id]), hist=hist)   # 패킷 정보와 링크 기록은 route_C만 씀
+            nextDir, choiceType, L, N = route(p, s, queueLen, G, P, t=t, remDeadline=pktDl[packet_id] - (t - genTime[packet_id]),
+                                              ttl=int(ttl[packet_id]), hops=int(hops[packet_id]), hist=hist,
+                                              backDir=int(backDir[packet_id]))   # 패킷 정보와 링크 기록은 route_C만 씀
             if epsilon > 0 and rng.random_sample() < epsilon:
                 dirs = G.validDirs[p][s]
                 nextDir = dirs[math.ceil(rng.random_sample() * len(dirs)) - 1]
                 choiceType = 4   # 무작위
 
             link = G.linkId[p, s, nextDir - 1]
+            backDir[packet_id] = OPPOSITE[nextDir]   # 다음 위성에서 보면 지금 위성 쪽이 들어온 방향
             enqueued = queueLen[link] < queueMax
             qAtLink = int(queueLen[link])   # 넣기 전 큐 길이 (강화학습 홉 보상용)
 
@@ -265,7 +280,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
                 decisionLog = np.vstack([decisionLog, np.zeros_like(decisionLog)])
             decisionLog[numDecisions, :] = [t, packet_id, hops[packet_id], p, s, *qNow, *L, *N,
                                             *displacement(G, p, s, G.dstSat[0], G.dstSat[1]),
-                                            P.deadline - (t - genTime[packet_id]), ttl[packet_id],
+                                            pktDl[packet_id] - (t - genTime[packet_id]), ttl[packet_id],
                                             nextDir, choiceType, enqueued]
             numDecisions += 1
 
@@ -335,6 +350,7 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     R.status = status[:numPackets]
     R.numFlows = numFlows
     R.flows = mainFlows
+    R.flowDeadlines = flowDl.tolist()                 # 흐름별 기한 (step)
     R.packetFlow = np.arange(numPackets) // perFlow   # 패킷이 속한 흐름 번호 (0 = 기존 주 흐름)
     R.flowSeq = np.arange(numPackets) % perFlow       # 흐름 안 순번 (GSL 원본 ID와 같은 역할)
     R.decisionLog = decisionLog[:numDecisions, :]

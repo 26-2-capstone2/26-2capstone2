@@ -12,6 +12,7 @@ from rl.rl_reward import burst_reward
 from rl.rl_state import action_mask, obs_from_sim
 from sim.link_history import LinkHistory
 from sim.build_grid import build_grid
+from sim.run_isl_sim import run_isl_sim
 
 
 class FakeAgent:
@@ -64,11 +65,11 @@ class ObjectiveTests(unittest.TestCase):
         P = config_isl()
         RL = config_rl(P)
         self.assertEqual([round(burst_reward(k, P, RL), 2) for k in (1, 3, 4, 5, 10, 13, 20)],
-                         [-0.2, -0.2, -0.3, -0.4, -0.9, -1.0, -1.0])
+                         [-0.2, -0.7, -0.3, -0.4, -0.9, -1.0, -1.0])   # k = 3: 시작 벌점 -0.5 포함
         results = [1, 4, 4, 1] + [4] * 5 + [1]           # 단발 2개, 연속 5개
         _, RL, collector, rewards = self._run_collector(results, order=list(range(len(results)))[::-1])
         self.assertEqual(collector.numBurstPenalties, 5)
-        for packet_id, expected in [(0, 0.5), (1, -0.1), (2, -0.1), (3, 0.5), (4, -0.2), (5, -0.2), (6, -0.2),
+        for packet_id, expected in [(0, 0.5), (1, -0.1), (2, -0.1), (3, 0.5), (4, -0.2), (5, -0.2), (6, -0.7),
                                     (7, -0.3), (8, -0.4), (9, 0.5)]:
             self.assertAlmostEqual(rewards[packet_id], expected, msg=f'패킷 {packet_id}')
 
@@ -136,18 +137,45 @@ class ObjectiveTests(unittest.TestCase):
             agent.learn()
 
     def test_coarse_observation(self):
-        # 기본 State (coarse 15개): 큐 3단계, 링크 유무, 남은 거리, 남은 기한
+        # 기본 State (coarseIn 19개): 큐 3단계, 이웃 부하, 링크 유무, 남은 거리, 남은 기한 + 들어온 방향
         P = config_isl()
         RL = config_rl(P)
+        self.assertEqual((RL.stateMode, RL.obsDim), ('coarseIn', 19))
         G = build_grid(P)
         queue = np.zeros(G.numLinks, dtype=int)
         queue[G.linkId[1, 0, 3]] = 160                    # (1, 0) 우 방향 큐 160개 -> 혼잡 1
         queue[G.linkId[1, 0, 1]] = 120                    # 하 방향 큐 120개 -> 보통 0.5
         o = obs_from_sim(1, 0, queue, G, P, RL, 43, 20).values
-        self.assertEqual(o.shape, (15,))
+        self.assertEqual(o.shape, (19,))
         self.assertEqual(list(o[:4]), [0.0, 0.5, 0.0, 1.0])
         self.assertEqual(list(o[8:12]), [0.0, 1.0, 1.0, 1.0])   # 상 방향은 격자 끝
         self.assertAlmostEqual(o[14], 43 / 70, places=5)
+        self.assertEqual(list(o[15:]), [0, 0, 0, 0])             # 막 생성된 패킷: 들어온 방향 없음
+        o = obs_from_sim(1, 0, queue, G, P, RL, 43, 20, backDir=3).values
+        self.assertEqual(list(o[15:]), [0, 0, 1, 0])             # 왼쪽 위성에서 들어옴
+        RL.stateMode, RL.obsDim = 'coarse', 15                   # 이전 모델 (15개)도 그대로 계산됨
+        self.assertEqual(obs_from_sim(1, 0, queue, G, P, RL, 43, 20, backDir=3).values.shape, (15,))
+
+    def test_back_direction_in_sim(self):
+        # 시뮬레이터가 패킷마다 들어온 방향을 넘겨 줌: 직전에 고른 방향의 반대
+        from sim.run_isl_sim import OPPOSITE, ROUTE_FUNCS
+        seen = []
+        orig = ROUTE_FUNCS['routeB']
+
+        def spy(p, s, queueLen, G, P, backDir=0, **kw):
+            out = orig(p, s, queueLen, G, P, **kw)
+            seen.append((kw.get('hops'), backDir, out[0]))
+            return out
+        P = config_isl()
+        P.simTime, P.bgEnable, P.numFlows, P.routeName = 50, False, 1, 'routeB'
+        ROUTE_FUNCS['routeB'] = spy
+        try:
+            run_isl_sim(P, P.genRate, 0, 1, False)
+        finally:
+            ROUTE_FUNCS['routeB'] = orig
+        first = [x for x in seen if x[0] == 0]
+        self.assertTrue(first and all(b == 0 for _, b, _ in first))   # 막 생성
+        self.assertTrue(all(b in OPPOSITE for h, b, _ in seen if h > 0))
 
 
 if __name__ == '__main__':

@@ -76,7 +76,7 @@
       <span id="flowLegend"></span>
       <span style="color:#F59322;font-weight:500">X 손실</span>
     </div>
-    <p class="sub" style="font-size:11.5px;margin-top:8px">흐름마다 출발 위성은 채운 네모, 도착 위성은 테두리 네모이고 숫자가 흐름 번호입니다. 흐름 0은 검증, 평가 때 (0, 0) → (5, 5)로 고정되고, 학습 때는 다른 흐름처럼 무작위입니다. 모든 링크에는 기본 부하가 깔려 있습니다.<br>위성을 누르면 점선 네모로 표시됩니다. 그 위성의 방향 선택은 아래 3-2에서 실시간으로 볼 수 있습니다.</p>
+    <p class="sub" style="font-size:11.5px;margin-top:8px">흐름마다 출발 위성은 채운 네모, 도착 위성은 테두리 네모이고 숫자가 흐름 번호입니다. 흐름 0은 시드마다 무작위 위성에서 격자 끝점으로 갑니다 (학습, 검증, 평가 모두). 모든 링크에는 기본 부하가 깔려 있습니다.<br>위성을 누르면 점선 네모로 표시됩니다. 그 위성의 방향 선택은 아래 3-2에서 실시간으로 볼 수 있습니다.</p>
   </div>
 
   <div>
@@ -107,7 +107,7 @@
         <div><div class="sub" style="font-size:11.5px">학습 중 연속 손실 구간 수</div><canvas id="c2" width="300" height="150"></canvas></div>
         <div><div class="sub" style="font-size:11.5px">검증 도착률 (%, ε 0) <span id="valLegend"></span></div><canvas id="c3" width="300" height="150"></canvas></div>
       </div>
-      <p class="sub" style="font-size:11.5px;margin:8px 0 0">학습 중 값에는 탐험(ε) 무작위가 섞여 있습니다. 실제 실력은 검증 도착률로 봅니다 (검증 주기마다 학습을 멈추고 검증 시드 501~503, 흐름 0 고정).</p>
+      <p class="sub" style="font-size:11.5px;margin:8px 0 0">학습 중 값에는 탐험(ε) 무작위가 섞여 있습니다. 실제 실력은 검증 도착률로 봅니다 (검증 주기마다 학습을 멈추고 검증 시드 501~503).</p>
     </div>
 
     <div class="sec">
@@ -141,7 +141,7 @@
     <div><h3 class="h-col">선택 확률</h3><p class="h-en">Action Probabilities π(a|s)</p>
       <div class="cross" id="pCross"></div>
       <p class="sub qnote" id="pNote"></p></div>
-    <div><h3 class="h-col">이번 결정 때 본 상태</h3><p class="h-en">Observation (15)</p>
+    <div><h3 class="h-col">이번 결정 때 본 상태</h3><p class="h-en">Observation (19)</p>
       <table class="obs" id="obsTbl"></table>
       <div class="sub qnote" id="obsMeta"></div></div>
   </div>

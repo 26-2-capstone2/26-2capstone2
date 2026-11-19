@@ -28,7 +28,7 @@ import numpy as np
 
 from analysis.burst_summary import burst_rate_stats, burst_summary, loss_run_lengths
 from config_isl import apply_bg_level, config_isl
-from rl.config_rl import config_rl
+from rl.config_rl import apply_level_ratio, config_rl, train_level_sequence
 from rl.rl_agent import DQNAgent
 from rl.rl_collector import Collector
 from routing.route_C import STATE as C_STATE, set_agent
@@ -54,15 +54,6 @@ def make_save_dir(RL, topology='grid'):
         i += 1
 
 
-def train_level_sequence(RL, numEpisodes):
-    # 에피소드별 혼잡 단계 목록. weighted는 비율대로 무작위 (trainSeedStart로 고정해서 학습 시드가 달라도 같은 순서)
-    if getattr(RL, 'trainLevelMode', 'cycle') != 'weighted':
-        return [RL.trainLevels[ep % len(RL.trainLevels)] for ep in range(numEpisodes)]
-    w = np.array([RL.trainLevelWeights[lv] for lv in RL.trainLevels], dtype=float)
-    rng = np.random.RandomState(RL.trainSeedStart)
-    return [str(lv) for lv in rng.choice(RL.trainLevels, size=numEpisodes, p=w / w.sum())]
-
-
 def validate(agent, RL, P, collector):
     # 검증 평가: 단계마다 검증 시드 에피소드를 ε 0, 학습 없이 돌려 합친 지표 (학습은 잠시 멈춤)
     set_agent(agent, RL, explore=False, collector=None)
@@ -72,7 +63,6 @@ def validate(agent, RL, P, collector):
         G = build_grid(P)
         status, runs, latency = [], [], []
         for seed in RL.valSeeds:
-            P.flowZeroRandom = False   # 검증은 흐름 0을 (0,0) -> (5,5)로 고정
             sample_hotspots(P, G, seed)
             R = run_isl_sim(P, P.genRate, 0, seed, False)
             status.append(R.status)
@@ -92,18 +82,6 @@ def validate(agent, RL, P, collector):
                          avgLatency_ms=round(float(latency.mean()) * P.stepTime * 1000, 2) if len(latency) else ''))
     set_agent(agent, RL, explore=True, collector=collector)
     return rows
-
-
-def apply_level_ratio(RL, ratio):
-    # 'b:h:s' (예 '1:1:2') -> 학습 단계 비율. 0인 단계는 학습과 검증에서 뺌
-    w = [float(x) for x in ratio.split(':')]
-    if len(w) != 3 or min(w) < 0 or sum(w) <= 0:
-        raise ValueError(f'혼잡 단계 비율은 base:high:severe 형식 (예 0:1:2): {ratio}')
-    levels = [lv for lv, x in zip(['base', 'high', 'severe'], w) if x > 0]
-    RL.trainLevels = levels
-    RL.trainLevelWeights = {lv: x for lv, x in zip(['base', 'high', 'severe'], w) if x > 0}
-    RL.valLevels = list(levels)
-    return RL
 
 
 def train(numEpisodes=None, simTime=None, torchSeed=None, levelRatio=None):
@@ -129,8 +107,8 @@ def train(numEpisodes=None, simTime=None, torchSeed=None, levelRatio=None):
         f.write(f'에피소드 {numEpisodes}개 x {P.simTime} step, 혼잡 단계 {RL.trainLevelMode} {RL.trainLevelWeights if RL.trainLevelMode == "weighted" else RL.trainLevels}, 시드 {RL.trainSeedStart}부터, '
                 f'학습 시드(신경망 초기값) {RL.torchSeed}\n')
         f.write(f'검증 평가: {RL.evalEvery} 에피소드마다, 검증 시드 {RL.valSeeds}, 단계 {RL.valLevels}, ε 0\n')
-        f.write(f'망 구조 {P.topology} ({P.numPlanes} x {P.satsPerPlane}), 출발 {P.srcSat.tolist()} -> 도착 {P.dstSat.tolist()}\n')
-        f.write(f'기한 {P.deadline}, TTL {P.ttlInit}, 큐 {P.queueMax}, 링크 용량 {P.linkCapacity}, 초당 {P.genRate}개, '
+        f.write(f'망 구조 {P.topology} ({P.numPlanes} x {P.satsPerPlane}), 흐름 {P.numFlows}개, 흐름 0: 무작위 출발 -> 끝점 {P.dstSat.tolist()}\n')
+        f.write(f'기한, TTL: 흐름마다 최소 지연 + {P.deadlineMargin}, 최소 홉 + {P.ttlMargin} (가장 먼 흐름 0: {P.deadline}, {P.ttlInit}), 큐 {P.queueMax}, 링크 용량 {P.linkCapacity}, 초당 {P.genRate}개, '
                 f'배경 트래픽 {getattr(P, "bgMode", "hotspot")}\n')
         f.write('강화학습 설정: ' + ', '.join(f'{k}={v}' for k, v in vars(RL).items()) + '\n')
 
@@ -170,7 +148,6 @@ def train(numEpisodes=None, simTime=None, torchSeed=None, levelRatio=None):
         seed = RL.trainSeedStart + ep
         apply_bg_level(P, level)
         G = build_grid(P)
-        P.flowZeroRandom = bool(getattr(RL, 'flowZeroRandomTrain', False))   # 학습 때만 흐름 0도 무작위 (켜면)
         sample_hotspots(P, G, seed)
         collector.reset_stats()
         maskFallbackStart = C_STATE.infeasibleMasks

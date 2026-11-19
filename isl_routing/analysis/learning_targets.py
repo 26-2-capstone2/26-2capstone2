@@ -75,7 +75,7 @@ def judge(run):
     total = dec[-1] if dec[-1] > 0 else 1
     avg = onTime.mean(axis=1)                              # 단계 평균 도착률
     start, final = avg[0], avg[-3:].mean()
-    res = dict(points=len(dec), total=int(dec[-1]), start=round(start, 2)
+    res = dict(points=len(dec), total=int(dec[-1]), start=round(start, 2), final=round(final, 2))
 
     learned = final - start >= T['minGain']
     if learned:

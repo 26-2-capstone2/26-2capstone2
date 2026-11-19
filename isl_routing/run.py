@@ -5,13 +5,14 @@
 #   2. grid 구조:    6x6 격자 / 크기 지정 격자 / Iridium / Starlink / Starlink 축소판
 #   3. 혼잡 단계:  base / high / severe (학습, 평가 기본은 high, severe)
 #   4. 라우팅:     B / A / C
-#   설정은 7차 테스트 기준 (config_isl.py, rl/config_rl.py 기본값): 주 흐름 4개, 핫스팟 지속 1초, State 15개, hard update
+#   설정은 config_isl.py, rl/config_rl.py 기본값: 주 흐름 4개, 핫스팟 지속 1초, State 19개 (coarse 15 + 들어온 방향 4), hard update
 #   그 밖에 시드, 에피소드 수를 묻고, 마지막에 설정과 저장 위치를 보여 준 뒤 실행 여부를 확인함
 #   실행이 끝나면 실제 결과 폴더 경로를 보여 줌
 #   엔터만 누르면 [괄호] 안의 기본값을 씀
 
 import glob
 import os
+import re
 import subprocess
 import sys
 import time
@@ -106,18 +107,22 @@ def state_mode_of(modelPath):
         text = open(os.path.join(os.path.dirname(modelPath), 'run_info.txt'), encoding='utf-8').read()
     except OSError:
         return 'full'
-    return 'coarse' if 'stateMode=coarse' in text else 'noTrend' if 'stateMode=noTrend' in text else 'full'
+    m = re.search(r'stateMode=(\w+)', text)
+    return m.group(1) if m else 'full'
 
 
 def pick_model(topology):
     # 홈 폴더 rl_models (하위 폴더 포함)에서 이 grid 구조로 학습한 모델을 최신순으로 보여 줌
-    # 지금 설정(State 15개, coarse)으로 학습한 모델만 보여 줌. 이전 State로 학습한 모델은 config_rl.py를 바꿔야 쓸 수 있음
+    # 지금 설정(config_rl.py의 RL.stateMode)으로 학습한 모델만 보여 줌. 이전 State로 학습한 모델은 config_rl.py를 바꿔야 쓸 수 있음
+    from config_isl import config_isl
+    from rl.config_rl import config_rl
+    RL = config_rl(config_isl())
     tag = '' if topology == 'grid' else topology.replace(':', '') + '_'
     root = os.environ.get('RL_SAVE_ROOT', os.path.join(HOME, 'rl_models'))
     found = glob.glob(os.path.join(root, '**', f'routeC_{tag}20*', 'model_*.pt'), recursive=True)
-    found = sorted([f for f in found if state_mode_of(f) == 'coarse'], key=os.path.getmtime, reverse=True)
+    found = sorted([f for f in found if state_mode_of(f) == RL.stateMode], key=os.path.getmtime, reverse=True)
     if not found:
-        print(f'\n이 grid 구조({topology})와 지금 State(15개)로 학습한 C 모델 없음. 먼저 "C 학습" 실행 필요')
+        print(f'\n이 grid 구조({topology})와 지금 State({RL.obsDim}개, {RL.stateMode})로 학습한 C 모델 없음. 먼저 "C 학습" 실행 필요')
         return None
     options = [(f'{os.path.relpath(os.path.dirname(f), root)} / {os.path.basename(f)}', f) for f in found[:9]]
     return ask_choice('사용할 C 모델 선택 (최신순)', options)

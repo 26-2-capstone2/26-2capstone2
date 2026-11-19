@@ -18,13 +18,14 @@ function cross(id, vals, dec, fmtv) {
   $(id).innerHTML = cells.join('');
 }
 
-// 관측 15개 (RL.stateMode = 'coarse'): 큐 3단계 4, 이웃 부하 4, 링크 유무 4, 남은 거리 2, 남은 기한 1
+// 관측 15개 (coarse) 또는 19개 (coarseIn: + 들어온 방향 4): 큐 3단계 4, 이웃 부하 4, 링크 유무 4, 남은 거리 2, 남은 기한 1
 const OBS_ROWS = [['큐 단계 (0, 0.5, 1)', 0], ['이웃 부하 ÷ 200 (30 ms 전)', 4], ['링크 유무', 8]];
 function obsTable(o) {
   let h = '<tr><th></th>' + DIRS.map(d => `<th style="text-align:right">${d}</th>`).join('') + '</tr>';
   for (const [name, k] of OBS_ROWS) h += `<tr><th>${name}</th>` + [0, 1, 2, 3].map(d => `<td>${o ? o[k + d].toFixed(2) : '-'}</td>`).join('') + '</tr>';
   h += `<tr><th>남은 거리 p, s (한 축 최대 거리로 나눔)</th><td colspan="2">${o ? o[12].toFixed(2) : '-'}</td><td colspan="2">${o ? o[13].toFixed(2) : '-'}</td></tr>`;
   h += `<tr><th>남은 기한 ÷ ${grid.deadline || 70}</th><td colspan="4">${o ? o[14].toFixed(2) : '-'}</td></tr>`;
+  if (!o || o.length > 15) h += `<tr><th>들어온 방향</th>` + [0, 1, 2, 3].map(d => `<td>${o ? o[15 + d].toFixed(0) : '-'}</td>`).join('') + '</tr>';
   $('obsTbl').innerHTML = h;
 }
 

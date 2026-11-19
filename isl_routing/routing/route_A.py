@@ -43,7 +43,8 @@ def dist_to_dst(G):
     return cache[key]
 
 
-def _dist_to(G, dst):
+def _dist_to(G, dst, hops=False):
+    # hops=True면 링크 지연 대신 홉 수 (최소 홉)
     numP, numS = G.hasLink.shape[:2]
     dist = np.full((numP, numS), np.inf)
     dist[dst[0], dst[1]] = 0
@@ -62,7 +63,7 @@ def _dist_to(G, dst):
             continue
         for l in incoming[(p, s)]:   # (p,s)로 들어오는 링크 l: 이웃 (q,r)에서 출발 (원형 연결 포함)
             q, r = link_src[l]
-            nd = dd + G.linkDelay[l]
+            nd = dd + (1 if hops else G.linkDelay[l])
             if nd < dist[q, r]:
                 dist[q, r] = nd
                 heapq.heappush(heap, (nd, int(q), int(r)))
