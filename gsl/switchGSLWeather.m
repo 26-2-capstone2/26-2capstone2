@@ -29,6 +29,16 @@ popup=getappdata(f,'GSLWeatherSelector'); if ~isempty(popup) && isgraphics(popup
 setappdata(f,'GSLSelectedWeather',name);
 status=findall(f,'Tag','GSLAttenuationStatus');
 if ~isempty(status)
+    if isfield(C,'phyModel') && strcmp(C.phyModel,'TOOLBOX_AR4JA_AWGN')
+        D0=readtable(C.phyToolboxCurveFile); x=P.ebNo_dB(P.attempted);
+        status.String=sprintf(['TOOLBOX PHY | QPSK + AR4JA | AWGN | BP max 50 | 160 B packets\n' ...
+            'Eb/N0 %.2f..%.2f dB | measured %.2f..%.2f dB | unresolved %d\n' ...
+            'PLR %s | on-time %s | PHY %d / HO %d / outage %d | max run %d\n' ...
+            '%d packets/point; empirical 0/1 are observations, not exact probabilities. 95%% intervals saved in CSV.'], ...
+            min(x),max(x),D0.ebNo_dB(1),D0.ebNo_dB(end),M.pendingPackets, ...
+            percent(M.packetLossRatio),percent(M.onTimeDeliveryRate_pct), ...
+            sum(P.phy_loss==1),M.handoverLossPackets,M.outageLossPackets,M.maxConsecutiveLoss,min(D0.packets));
+    else
     attempted=P.attempted; x=P.ebNo_dB(attempted);
     range=[NaN NaN]; if ~isempty(x), range=[min(x) max(x)]; end
     D0=readtable(fullfile(fileparts(mfilename('fullpath')),'ar4ja_r12_k1024_cwer.csv'));
@@ -48,6 +58,7 @@ if ~isempty(status)
             'Curve-external packets: high %d / low %d. Original endpoint policies are assumptions.\n' ...
             'Move slider / press Apply for strict manual evaluation; outside curve becomes unresolved.'],name,above,below);
     end
+    end
 end
 diag=findall(groot,'Type','figure','Tag','GSLCoreResult','Name','GSL Uplink - Channel and Loss Runs');
 if numel(diag)==1
@@ -64,7 +75,9 @@ if numel(diag)==1
     D.statusTitle.String=sprintf('Loss %s | On-time %s | Unresolved %d | Deadline %.1f ms',percent(M.packetLossRatio),percent(M.onTimeDeliveryRate_pct),M.pendingPackets,1000*C.gslDeadline_s);
     D.runTitle.String=sprintf('%d KNOWN loss runs | max %d | mean %.2f | unresolved %d',M.lossRunCount,M.maxConsecutiveLoss,M.meanConsecutiveLoss,M.pendingPackets);
     if M.pendingPackets==0
-        D.runTitle.String=sprintf('%d loss runs | max %d | mean %.2f packets | model includes tail approximations',M.lossRunCount,M.maxConsecutiveLoss,M.meanConsecutiveLoss);
+        note='JPL curve + tail assumptions';
+        if isfield(C,'phyModel') && strcmp(C.phyModel,'TOOLBOX_AR4JA_AWGN'), note='toolbox empirical PHY'; end
+        D.runTitle.String=sprintf('%d loss runs | max %d | mean %.2f packets | %s',M.lossRunCount,M.maxConsecutiveLoss,M.meanConsecutiveLoss,note);
     end
 end
 if notifyPacket

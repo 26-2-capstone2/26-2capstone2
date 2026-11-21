@@ -1,4 +1,8 @@
 function [per,ebNo_dB,pCW,status] = getPERfromSNR(snr_dB,CFG)
+if isfield(CFG,'phyModel') && strcmp(CFG.phyModel,'TOOLBOX_AR4JA_AWGN')
+    [per,ebNo_dB,pCW,status]=getGSLToolboxPER(snr_dB,CFG);
+    return;
+end
 % C/N to INFORMATION Eb/N0, then source-backed AR4JA CWER lookup.
 % Outside published support follows an explicitly named approximation policy.
 assert(strcmp(CFG.modulation,'QPSK') && strcmp(CFG.channelCoding,'CCSDS AR4JA') ...

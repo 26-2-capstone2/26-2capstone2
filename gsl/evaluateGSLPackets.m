@@ -37,11 +37,21 @@ P=table(packetIDs,t,id,true(n,1),rx,lost,cause,elev,snr,ebNo,cw,per,interrupted,
     'VariableNames',{'packetID','time_s','servingSatID','generated','received','lost', ...
     'lossCause','servingElevation_deg','snr_dB','ebNo_dB','codewordErrorRate','phyPER','handoverInterruption'});
 P.phyStatus=phyStatus; P.phy_loss=phyLoss; P.handover_loss=hoLoss; P.outage_loss=outage;
+if isfield(CFG,'phyModel') && strcmp(CFG.phyModel,'TOOLBOX_AR4JA_AWGN')
+    P.phyPER_lower95=nan(n,1); P.phyPER_upper95=nan(n,1);
+    [~,~,~,~,lo,hi]=getGSLToolboxPER(snr(attempted),CFG);
+    P.phyPER_lower95(attempted)=lo; P.phyPER_upper95(attempted)=hi;
+end
 P.outcome_pending=pending; P.attempted=attempted; P.transmitted=attempted;
 P.not_transmitted=~attempted; P.link_loss=phyLoss; % compatibility: PHY only
 P.packet_id=P.packetID; P.serving_sat_id=P.servingSatID; P.per=P.phyPER;
 P.propagation_delay_ms=L.propagationDelay_ms(ix);
-P.transmission_delay_ms=repmat(1000*CFG.packetSize_bytes*8/CFG.linkDataRate_bps,n,1);
+serializedInformationBits=gslPacketInformationBits(CFG);
+if isfield(CFG,'phyModel') && strcmp(CFG.phyModel,'TOOLBOX_AR4JA_AWGN')
+    P.phyPaddedInformationBits=repmat(serializedInformationBits,n,1);
+    P.phyTransmittedCodedBits=repmat(2*serializedInformationBits,n,1);
+end
+P.transmission_delay_ms=repmat(1000*serializedInformationBits/CFG.linkDataRate_bps,n,1);
 P.packet_interval_s=repmat(1/CFG.packetRate_pps,n,1);
 P.handover_event=event; P.handover_state=P.handoverInterruption;
 % GSL ends at the receiving satellite; no ISL hops/deadline are included.

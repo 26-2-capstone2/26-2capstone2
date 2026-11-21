@@ -1,13 +1,18 @@
 # 26-2capstone2 — GSL
 
-최신 실행 경로: **gsl → main_gsl_simulation.m → 실행(F5)**.
+## 최신 MATLAB 코드 — 2026-11-22
 
-명령어·기상 설정을 바꾸지 않아도 맑음/흐림/비를 자동으로 계산하고, 기존 UDP SESSION PERFORMANCE 창 위쪽에 세 조건의 결과값을 함께 표시합니다. 오른쪽 날씨 선택으로 같은 그래프·SNR/연속 손실·번호별 패킷 화면을 바꿀 수 있습니다. 기존 3D 위성망과 재생 시간은 그대로 유지합니다.
+GSL 브랜치의 `gsl` 폴더를 MATLAB 현재 폴더로 설정한다.
 
-RF: Ku uplink 14GHz / 잡음 대역폭 50MHz / 정보율 50Mbps. 기한은 GSL 전용 20ms 가정입니다. 결과는 results_weather/clear, cloudy, rainy에 저장합니다.
+```matlab
+R = main_gsl_three_constellations;
+```
 
-[실행 안내](gsl/README.md) · [날씨 입력·모델·한계](gsl/WEATHER_MODEL.md)
+6×11 / 20×20 / 36×36 이동 위성군에서 최대 SNR, 최대 SNR+0.1 dB, 후보별 Double DQN을 비교한다. 학습 30개 에피소드와 평가 정책별 10회(총 90회), 후보 SNR 표, 패킷 재생 창을 구현했다. 범위는 지상국→선택된 첫 수신 위성까지다.
 
-기상 관측을 불러온 실측은 아니며 명시한 기상 수치에 ITU 흡수식을 적용한 비교입니다. 인공 10dB 감쇠는 날씨 실행에서 사용하지 않습니다. 현재 세 조건의 SNR은 다르지만 신호 여유와 높은 SNR의 CWER 끝값 근사 때문에 손실·도착률은 동일합니다.
+이번 업로드는 코드와 실행에 필요한 PHY 측정 표다. 대용량 실험 기록은 포함하지 않는다. 저장 결과가 없는 첫 실행은 학습·평가를 수행하므로 시간이 걸린다. 이후 실행은 해당 PC에 저장한 결과를 연다. 초기 DDQN의 기준 정책 대비 성능 개선은 아직 확인되지 않았다.
 
-검증: verify_uplink, verify_weather, verify_weather_window. 기존 main의 600초·1,584개 위성 실행에서 세 날씨 자동 계산을 확인했습니다. ML·전력 제어·복제 전송·혼잡 큐는 아직 포함하지 않습니다.
+- [세 위성군 실행·설정](gsl/three_constellations/README_GSL_THREE.md)
+- [툴박스 PHY 설명](gsl/README_TOOLBOX_PHY.md)
+
+기존 단일 위성군 환경감쇠 슬라이더는 `main_gsl_toolbox_simulation`, 기존 JPL 방식은 `main_gsl_simulation`으로 실행한다.

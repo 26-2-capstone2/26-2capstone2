@@ -33,7 +33,11 @@ summary=sprintf(['===== GSL UDP SESSION RESULT =====\n' ...
     M.confirmedLossLowerBound_pct,CFG.perModelSource,number(CFG.noiseBandwidth_Hz),number(CFG.informationBitRate_bps));
 fprintf('%s',summary);
 if isfield(CFG,'environmentLoss_dB')
+    if isfield(CFG,'phyModel') && strcmp(CFG.phyModel,'TOOLBOX_AR4JA_AWGN')
+        extra=sprintf('ENVIRONMENT ATTENUATION: %.1f dB total. Toolbox-measured PHY; no JPL tail override.\nEmpirical 0/1 are finite-sample observations; see phyPER_lower95/upper95. Outside measured range = unresolved.\n',CFG.environmentLoss_dB);
+    else
     extra=sprintf('ENVIRONMENT ATTENUATION: %.1f dB total; weather labels are illustrative assumptions.\nOutside-curve research approximation: high=%s; low=%s. Interior = JPL lookup.\n',CFG.environmentLoss_dB,CFG.highSNRPolicy,CFG.lowSNRPolicy);
+    end
     fprintf('%s',extra); summary=[summary extra];
 end
 if isfield(M,'onTimePackets')

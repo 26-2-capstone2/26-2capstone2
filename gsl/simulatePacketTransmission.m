@@ -7,7 +7,7 @@ validateattributes(CFG.linkDataRate_bps,{'numeric'},{'scalar','positive','finite
 validateattributes(CFG.handoverInterruption_s,{'numeric'},{'scalar','nonnegative','finite'});
 validateattributes(CFG.gslDeadline_s,{'numeric'},{'scalar','positive','finite'});
 validateattributes(CFG.receiverProcessing_s,{'numeric'},{'scalar','nonnegative','finite'});
-assert(CFG.packetSize_bytes*8/CFG.linkDataRate_bps<=1/CFG.packetRate_pps, ...
+assert(gslPacketInformationBits(CFG)/CFG.linkDataRate_bps<=1/CFG.packetRate_pps, ...
     'GSL:QueueRequired','Serialization exceeds packet interval; queue model required.');
 required={'time_s','servingSatID','isLinkAvailable','handoverEvent','snr_dB','elevation_deg','propagationDelay_ms'};
 assert(all(ismember(required,L.Properties.VariableNames)),'GSL:LinkColumns');

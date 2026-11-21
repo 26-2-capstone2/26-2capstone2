@@ -17,6 +17,10 @@ saveFigure(f,'serving_handover.png',CFG); F(end+1)=f;
 if isempty(P), return; end
 f=figure('Name','UDP SESSION PERFORMANCE','NumberTitle','off','Color','w', ...
     'Tag','GSLCoreResult','Position',[120 40 1100 1000]); tl=tiledlayout(f,4,1);
+if isfield(CFG,'phyModel') && strcmp(CFG.phyModel,'TOOLBOX_AR4JA_AWGN')
+    screen=get(groot,'ScreenSize');
+    f.Position=[40 40 min(1100,screen(3)-80) min(1000,screen(4)-140)];
+end
 nexttile; H.generated=plot(P.time_s,M.cumulativeGenerated,'-','LineWidth',1.8); hold on;
 H.received=plot(P.time_s,M.cumulativeReceived,':','LineWidth',1.5);
 H.lost=plot(P.time_s,M.cumulativeLost,'-.','LineWidth',1.5);

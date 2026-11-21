@@ -1,0 +1,20 @@
+{
+  "modulation": "Gray QPSK, pi/4",
+  "channel": "complex AWGN",
+  "code": "CCSDS 131.0-B-5 AR4JA rate 1/2, k=1024",
+  "decoder": "belief propagation",
+  "maxIterations": 50,
+  "puncturedBits": 512,
+  "packetBytes": 160,
+  "padBits": 768,
+  "packetErrorRule": "any original payload bit incorrect",
+  "samplesPerSymbol": 1,
+  "informationBitsPerModulatedSymbol": 1,
+  "confidence": "pointwise 95% Wilson intervals, fixed sample size",
+  "snrMeaning": "curve x is INFORMATION Eb/N0; RF SNR converted by B/Rinfo",
+  "synchronization": "ideal; no Doppler/timing/phase residual, CRC, retransmission",
+  "MATLAB": "26.1.0.3346908 (R2026a) Update 5",
+  "seedBase": 2.0261121E+9,
+  "packetsPerPoint": 1000,
+  "standardURL": "https://ccsds.org/Pubs/131x0b5.pdf"
+}

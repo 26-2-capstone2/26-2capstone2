@@ -43,7 +43,7 @@ classdef GSLRLEnvironment < handle
             assert(cfg.channelUpdateStep_s==obj.decisionInterval_s && ...
                 cfg.handoverInterruption_s<=obj.decisionInterval_s, 'GSL:RLTimeGrid');
             assert(cfg.channelSigma_dB==0 && cfg.linkDataRate_bps>= ...
-                cfg.packetSize_bytes*8*cfg.packetRate_pps, 'GSL:RLPacketModel');
+                gslPacketInformationBits(cfg)*cfg.packetRate_pps, 'GSL:RLPacketModel');
             obj.geometry=buildGSLGeometry(cfg);
             obj.totalSatelliteCount=size(obj.geometry.elevation_deg,2);
             visible=obj.geometry.isVisible(1:end-1,:);
@@ -53,7 +53,7 @@ classdef GSLRLEnvironment < handle
             ranges=obj.geometry.slantRange_m(1:end-1,:);
             c=299792458;
             % All generated packets resolve before the next decision in this setup.
-            delay_s=ranges(visible)/c+cfg.packetSize_bytes*8/cfg.linkDataRate_bps ...
+            delay_s=ranges(visible)/c+gslPacketInformationBits(cfg)/cfg.linkDataRate_bps ...
                 +cfg.receiverProcessing_s;
             assert(all(delay_s<1/cfg.packetRate_pps),'GSL:RLFeedbackTiming');
             fspl=20*log10(4*pi*ranges(visible)*cfg.carrierFrequency_Hz/c);
