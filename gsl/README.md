@@ -2,6 +2,7 @@
 
 MATLAB에서 이 `gsl` 폴더를 현재 폴더로 선택한 뒤 실행한다.
 
+- `main_gsl_ddqn_6x11`: 최신 6×11·6 dB DDQN. 5초 SNR 추세 입력, 100회 학습 후 별도 10회 평가·회차별 패킷 재생. [설명](ddqn_6x11/README.md)
 - `main_gsl_three_constellations`: 6×11 / 20×20 / 36×36, 3정책 비교·후보 SNR 표·패킷 재생.
 - `main_gsl_toolbox_simulation`: 기존 단일 위성군, 툴박스 PHY, 환경감쇠 슬라이더.
 - `main_gsl_simulation`: 기존 JPL PHY 비교.
@@ -13,3 +14,6 @@ GitHub에는 코드와 실행에 필요한 PHY 표를 올렸다. 대용량 결�
 [세 위성군 설정·모델·검증](three_constellations/README_GSL_THREE.md) · [툴박스 PHY](README_TOOLBOX_PHY.md) · [PHY 비교 기록](RESULTS_TOOLBOX_PHY_20261121.md)
 
 이번 후보별 DDQN은 기존 팀원의 최종 모델과 다른 새 구조의 초기 모델이다. 성능 개선이 확인된 최종 정책으로 해석하지 않는다.
+
+
+새 DDQN의 첫 실행은 저장 결과가 없으면 100회 학습과 10회 평가를 진행한다. 기존 방식 비교는 별도로 실행해야 하며, 대용량 학습 모델과 평가 기록은 이 브랜치에 올리지 않았다.

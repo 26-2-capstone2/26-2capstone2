@@ -1,0 +1,3 @@
+results_ddqn_6x11/
+*.log
+__pycache__/
