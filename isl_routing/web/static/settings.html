@@ -14,14 +14,17 @@
   .grp { margin-bottom: 34px; }
   .grp-h { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 6px; }
   .grp-h b { font-weight: 500; font-size: 16px; } .grp-h span { font-family: var(--mono); font-size: 11px; color: var(--sub); }
-  .row { display: grid; grid-template-columns: 170px 1fr 170px; align-items: center; min-height: 44px; border-bottom: 1px solid var(--soft); gap: 10px; }
+  .row { display: grid; grid-template-columns: 170px 1fr 140px; align-items: center; min-height: 44px; border-bottom: 1px solid var(--soft); gap: 10px; }
   .row .code { font-family: var(--mono); font-size: 11px; color: var(--sub); text-align: right; }
-  .row input[type=number], .row input[type=text] { width: 110px; font: 12.5px var(--mono); padding: 5px 8px; border: 1px solid #bbb; border-radius: 0; }
-  .row input.pair { width: 62px; }
-  .row input.changed { border: 1.5px solid var(--orange); }
+  .row input[type=number], .row input[type=text], .row select { width: 150px; font: 12.5px var(--mono); padding: 5px 8px; border: 1px solid #bbb; border-radius: 0; background: #fff; }
+  .row select { font-family: var(--font); }
+  .row .fixed { display: inline-block; min-width: 150px; white-space: nowrap; font: 12.5px var(--mono); color: #666; padding: 5px 8px; background: #F3F3F3; }
+  .row input.pair { width: 68px; }
+  .row input.changed, .row select.changed { border: 1.5px solid var(--orange); }
   .row input:disabled { background: #F3F3F3; color: #999; }
   .row .unit { font-size: 12.5px; color: #555; margin-left: 8px; }
-  .row .note { font-size: 11px; color: #999; margin-left: 10px; }
+  .row .note { font-size: 11px; color: #999; flex-basis: 100%; margin-top: 2px; }
+  .row > span:nth-child(2) { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 0; padding: 6px 0; }
   .opts label { margin-right: 22px; font-size: 13px; }
   .tbl { margin: 6px 0 4px 180px; font-size: 12px; border-collapse: collapse; }
   .tbl td, .tbl th { padding: 3px 14px 3px 0; text-align: left; font-weight: 400; } .tbl th { color: var(--sub); font-size: 11.5px; }
@@ -42,7 +45,7 @@
   <span class="sum" id="sum"></span>
   <span><span id="msg"></span><button class="btn" id="bDefault">기본값으로</button> <button class="btn primary" id="bSave">저장 후 실행</button></span>
 </div>
-<script src="common.js"></script>
+<script src="common.js?v=1124"></script>
 <script>
 const FILES = { left: 'config_isl.py', right: 'config_rl.py' };
 let fields = [];
@@ -58,9 +61,10 @@ function render() {
       if (f.kind === 'pair') ctl = f.value.map((v, i) => `<input class="pair" type="number" step="any" data-k="${f.key}" data-i="${i}" value="${v}">`).join(' , ');
       else if (f.kind === 'ratio') ctl = `<input type="text" data-k="${f.key}" value="${f.value}" placeholder="0:1:2">`;
       else if (f.kind === 'bool') ctl = `<span class="opts"><label><input type="checkbox" data-k="${f.key}" ${f.value ? 'checked' : ''}> 사용</label></span><span class="note">${f.unit}</span>`;
-      else if (f.kind === 'fixed') ctl = `<input type="text" disabled value="${f.value}"><span class="note">${f.unit || '고정'}</span>`;
+      else if (f.kind === 'select') ctl = `<select data-k="${f.key}">${f.options.map(o => `<option value="${o.value}" ${o.value === f.value ? 'selected' : ''}>${o.label}</option>`).join('')}</select><span class="note">위성 수, 기한 같은 자동 계산 값이 따라 바뀜</span>`;
+      else if (f.kind === 'fixed') ctl = `<span class="fixed">${f.value}</span><span class="note">${f.unit || '고정'}</span>`;
       else ctl = `<input type="number" step="any" data-k="${f.key}" value="${f.value}">`;
-      const unit = (f.kind === 'fixed' || f.kind === 'bool') ? '' : `<span class="unit">${f.unit}</span>`;
+      const unit = (f.kind === 'fixed' || f.kind === 'bool' || f.kind === 'select') ? '' : `<span class="unit">${f.unit}</span>`;
       row.innerHTML = `<span>${f.label}</span><span>${ctl}${unit}</span><span class="code">${f.key}</span>`;
       g.appendChild(row);
       if (f.table) { const t = document.createElement('table'); t.className = 'tbl'; const w = String(f.value).split(':');
@@ -68,10 +72,12 @@ function render() {
           `<tr class="${+w[i] > 0 ? 'on' : ''}"><td><b>${k}</b></td><td class="mono">${w[i] ?? '-'}</td><td class="mono">${v.evIntervalMean} ms</td><td class="mono">${v.evDurationMean} ms</td><td class="mono">약 ${Math.round(v.evDurationMean / v.evIntervalMean)}개</td></tr>`).join('');
         g.appendChild(t);
         const n = document.createElement('p'); n.className = 'note'; n.style.margin = '4px 0 10px 180px';
-        n.textContent = '간격과 동시 지역 수는 6x6(위성 36개) 기준이고, 망이 크면 위성 수에 비례해 더 자주 생깁니다. 에피소드마다 이 비율대로 혼잡 단계를 무작위로 고릅니다 (순서는 학습 시드 시작값으로 고정). 0인 단계는 학습과 검증에서 뺍니다.'; g.appendChild(n); }
+        n.textContent = '간격과 동시 지역 수는 위성 36개 기준이고, 실제로는 위 "핫스팟 빈도 기준"의 배수만큼 더 자주 생깁니다. 에피소드마다 이 비율대로 혼잡 단계를 무작위로 고릅니다 (순서는 학습 시드 시작값으로 고정). 0인 단계는 학습과 검증에서 뺍니다.'; g.appendChild(n); }
     }
   }
   document.querySelectorAll('[data-k]').forEach(el => el.addEventListener('input', mark));
+  document.querySelector('select[data-k="topology"]').addEventListener('change', async e => {   // 망 구조를 바꾸면 위성 수, 기한 같은 자동 계산 값을 바로 다시 받음
+    const o = overrides(); const d = await api('/api/settings/preview', { overrides: o }); if (d.fields) { fields = d.fields.map(f => ({ ...f, value: f.kind === 'fixed' ? f.value : read(f) })); render(); } });
   mark();
 }
 function read(f) {
@@ -79,13 +85,14 @@ function read(f) {
   if (f.kind === 'pair') return els.map(e => +e.value);
   if (f.kind === 'ratio') return els[0].value.trim();
   if (f.kind === 'bool') return els[0].checked;
+  if (f.kind === 'select') return els[0].value;
   return +els[0].value;
 }
 function overrides() { const o = {}; for (const f of fields) if (f.kind !== 'fixed') { const v = read(f); if (!eq(v, f.default)) o[f.key] = v; } return o; }
 function mark() {
-  for (const f of fields) if (f.kind !== 'fixed') { const ch = !eq(read(f), f.default); document.querySelectorAll(`input[data-k="${f.key}"]`).forEach(e => { if (e.type === 'number' || e.type === 'text') e.classList.toggle('changed', ch); }); }
-  const v = k => read(fields.find(f => f.key === k));
-  document.getElementById('sum').textContent = `${v('numPlanes')}x${v('satsPerPlane')} 격자   흐름 ${v('numFlows')}개 x 초당 ${v('genRate')}개   기한 ${v('deadline')} ms   연속 손실 ${v('burstMinLen')}개 이상   혼잡 단계 ${v('levelRatio')}   학습 ${v('trainEpisodes')} 에피소드 x ${v('simTime')}초   바꾼 칸 ${Object.keys(overrides()).length}개`;
+  for (const f of fields) if (f.kind !== 'fixed') { const ch = !eq(read(f), f.default); document.querySelectorAll(`[data-k="${f.key}"]`).forEach(e => { if (e.type !== 'checkbox') e.classList.toggle('changed', ch); }); }
+  const v = k => { const f = fields.find(x => x.key === k); return f.kind === 'fixed' ? f.value : read(f); };   // 고정 칸(기한 등)은 입력 칸이 없음
+  document.getElementById('sum').textContent = `${fields.find(f => f.key === 'topology').options.find(o => o.value === v('topology')).label}   흐름 ${v('numFlows')}개 x 초당 ${v('genRate')}개   기한 ${v('deadline')} ms   연속 손실 ${v('burstMinLen')}개 이상   혼잡 단계 ${v('levelRatio')}   학습 ${v('trainEpisodes')} 에피소드 x ${v('simTime')}초   바꾼 칸 ${Object.keys(overrides()).length}개`;
 }
 async function load() { const d = await api('/api/settings'); fields = d.fields; render(); }
 document.getElementById('bSave').onclick = async () => {

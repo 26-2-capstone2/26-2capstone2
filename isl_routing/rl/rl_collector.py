@@ -35,7 +35,7 @@ class Collector:
         self.reset_stats()
 
     def reset_stats(self):
-        # packet_id는 시뮬레이션 에피소드마다 0부터 다시 시작한다
+        # packet_id는 시뮬레이션 에피소드마다 0부터 다시 시작
         self.pending = {}                  # packet_id -> 다음 위성 도착을 기다리는 홉
         self.outcomes = {}                 # packet_id -> 확정된 패킷 상태
         self.terminalPending = {}          # packet_id -> 단발/연속 손실 판정을 기다리는 마지막 홉
@@ -73,7 +73,7 @@ class Collector:
             self._record_terminal(int(packetId), prev, st)
 
     def finish(self):
-        # 에피소드 끝: 뒤 패킷이 없어 기다리던 손실을 마저 판정한다 (없는 패킷은 손실이 아닌 것으로 봄)
+        # 에피소드 끝: 뒤 패킷이 없어 기다리던 손실을 마저 판정 (없는 패킷은 손실이 아닌 것으로 봄)
         for packetId in sorted(self.terminalPending):
             self._flush_terminal(packetId, final=True)
         dropped = len(self.pending)        # 끝나지 않은 패킷의 홉 (경험으로 만들지 않음)

@@ -163,10 +163,10 @@
 | 변수 | 코드 | 값 |
 | --- | --- | --- |
 | 관측 수, 행동 수 | `RL.obsDim`, `RL.numActions` | 19 (`RL.stateMode = 'coarseIn'`: coarse 15 + 들어온 방향 4), 4 |
-| 관측 정규화 | `RL.normDist`, `RL.normDeadline` | 남은 거리 ÷ 한 축 최대 거리, 남은 기한 ÷ `P.deadline` (6x6: 5, 70) |
-| 행동 마스크 | `RL.maskMode` | `'link'` (없는 방향만 막음) |
+| 관측 정규화 | `RL.normDist`, `RL.normDeadline` | 남은 거리 ÷ 5칸 (-1~1로 자름, 망 크기와 상관없이 1칸 = 0.2, 11/23), 남은 기한 ÷ `P.deadline` (6x6: 70) |
+| 행동 마스크 | `RL.maskMode` | `'noBack'` (없는 방향 + 들어온 링크를 막음). 그 밖에 `'link'`, `'deadline'` |
 | 보상 | `RL.rewardOnTime`, `RL.rewardSingleLoss` | 기한 내 도착 +0.5, 단발 손실 −0.1 |
-| 연속 손실 보상 | `RL.burstBase`, `RL.burstStep`, `RL.burstMax` | k번째 패킷 −min(1.0, 0.2 + 0.1 x max(0, k − 3)) |
+| 연속 손실 보상 | `RL.burstBase`, `RL.burstStep`, `RL.burstMax` | 패킷당 −0.3 고정 (`burstStep` 0, 5차), 시작 벌점 `RL.burstStartPenalty` 2.0 |
 | 연속 손실 시작 벌점 | `RL.burstStartPenalty` | 3번째 패킷에 −0.5 한 번 더 |
 | 홉 보상 | `RL.rewardHopScale`, `RL.rewardHopQueue` | −링크 지연 ÷ 70 (큐 항목 없음, `rewardHopQueue = False`) |
 | 신경망 | `RL.hidden` | 19 → 64 → 64 → 4 |

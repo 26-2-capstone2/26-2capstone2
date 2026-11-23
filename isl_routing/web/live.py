@@ -6,6 +6,7 @@
 #   배경 트래픽: 지역 핫스팟 방식 (bgMode = 'event')
 #   검증: evalEvery 에피소드마다 학습을 멈추고 검증 시드(501~503)로 ε 0 평가
 # 화면의 결과 숫자는 흐름 0 기준 (흐름 4개 전체 도착률은 옆에 작게)
+# 지도에는 흐름 0 패킷만 그림 (다른 흐름은 링크 큐에만 반영, 손실 이벤트도 흐름 0만)
 # 시뮬레이터 안 상태는 P.stepHook(매 step 끝)으로 받고, 0.1초마다 한 번씩 화면에 보낼 묶음(snapshot)을 만듦
 import queue
 import threading
@@ -20,7 +21,7 @@ from routing.route_C import STATE as C_STATE, set_agent
 from sim.bg_traffic import sample_hotspots
 from sim.build_grid import build_grid
 from sim.run_isl_sim import run_isl_sim
-from web.schema import build_config
+from web.schema import build_config, map_data
 
 LOSS = (2, 3, 4, 5)
 LOSS_NAME = {2: '목적지에 늦게 도착', 3: '가는 중 기한 초과', 4: '큐 넘침', 5: 'TTL 만료'}
@@ -66,7 +67,6 @@ class LiveRunner:
         self.events = []
         self.selected = None           # 3-2: Q값을 볼 위성 (p, s). None이면 흐름 0 출발 위성
         self.selRecent = []            # 선택한 위성의 최근 결정
-        self.lastAct = {}              # 위성별 마지막으로 고른 방향 (정책 지도)
         self.validating = False
 
     # ---- 화면 연결 ----
@@ -136,11 +136,14 @@ class LiveRunner:
 
     # ---- 실행 ----
     def _run(self):
-        self.state.update(status='loading', error=None)   # 처음 실행은 PyTorch를 불러오느라 몇 초 걸림
+        # 준비 단계 (화면 3-0 준비 중): 0 설정 읽기, 1 위성망 만들기, 2 PyTorch 불러오기, 3 첫 에피소드 환경, 4 시작
+        self.state.update(status='loading', error=None, loadStep=0, prep=False)
         self.broadcast(dict(type='state', state=self.state))
+        P, RL = build_config(self.overrides)
+        self._load_step(2)
         from rl.rl_agent import DQNAgent      # PyTorch는 실행할 때만 필요
         from rl.rl_collector import Collector
-        P, RL = build_config(self.overrides)
+        self._load_step(3)
         P.routeName = 'routeC'
         train = self.state['mode'] == 'train'
         if self.agent is None:
@@ -155,7 +158,7 @@ class LiveRunner:
         else:
             levels = [self.state['level']] * nEp
         startEp = len(self.history) if train else 0
-        self.state.update(status='running', totalEpisodes=nEp)
+        self.state.update(totalEpisodes=nEp)
         self.collector = collector
         if self.selected is None:
             self.selected = (int(P.srcSat[0]), int(P.srcSat[1]))
@@ -168,7 +171,9 @@ class LiveRunner:
                 seed = seedStart + ep
                 apply_bg_level(P, level)
                 G = build_grid(P)
-                sample_hotspots(P, G, seed)          # 주 흐름(P.mainFlows)과 지역 핫스팟(P.bgEvents)도 여기서 정함
+                self._prep(True)
+                sample_hotspots(P, G, seed)          # 주 흐름(P.mainFlows)과 지역 핫스팟(P.bgEvents)도 여기서 정함 (36 x 36은 수십 초)
+                self._prep(False)
                 self._begin_episode(P, G, ep, level, seed)
                 if collector:
                     collector.reset_stats()
@@ -192,6 +197,19 @@ class LiveRunner:
             set_agent(agent, RL, explore=False, collector=None)
             self.state['status'] = 'idle'
             self.broadcast(dict(type='state', state=self.state))
+
+    def _load_step(self, k):
+        self.state['loadStep'] = k
+        self.broadcast(dict(type='state', state=self.state))
+
+    def _prep(self, on):
+        # 에피소드 환경(흐름, 핫스팟) 만드는 중. 첫 에피소드는 준비 화면 3단계, 그 뒤는 상태 칸에 표시
+        if self.cmd['stop']:
+            raise StopRun()
+        if not on and self.state['status'] == 'loading':
+            self.state.update(status='running', loadStep=4)
+        self.state['prep'] = on
+        self.broadcast(dict(type='state', state=self.state))
 
     def _validate(self, P, RL, agent, collector, episode):
         # 검증 평가: train_rl.validate와 같은 조건 (ε 0, 학습 없음, 흐름 0 고정). 화면 숫자는 흐름 0 기준
@@ -244,7 +262,6 @@ class LiveRunner:
             if self.validating:
                 return out
             obs, mask, action = C_STATE.last
-            self.lastAct[(p, s)] = action + 1
             if (p, s) == self.selected:
                 with torch.no_grad():
                     q = agent.q(torch.as_tensor(obs, dtype=torch.float32).unsqueeze(0)).squeeze(0).numpy()
@@ -254,7 +271,8 @@ class LiveRunner:
                 prob = [0.0] * 4
                 for d in allowed:
                     prob[d] = eps / len(allowed) + (1 - eps if d == best else 0.0)
-                why = ['가능' if mask[d] > 0 else '링크 없음' for d in range(4)]   # 마스크는 링크 없는 방향만 막음
+                back = int(kw.get('backDir', 0))
+                why = ['가능' if mask[d] > 0 else '들어온 링크' if d == back - 1 else '링크 없음' for d in range(4)]
                 dec = dict(t=int(kw.get('t', 0)), sat=[p, s], dst=[int(G.dstSat[0]), int(G.dstSat[1])],
                            q=[round(float(q[d]), 3) if mask[d] > 0 else None for d in range(4)],
                            qRaw=[round(float(v), 3) for v in q], mask=[int(m) for m in mask], action=action, random=action != best,
@@ -267,30 +285,35 @@ class LiveRunner:
 
     def _begin_episode(self, P, G, ep, level, seed):
         self.P, self.G = P, G
-        links = []
+        view, linkIds, pairOf = map_data(P, G)
+        self.linkIds, self.pairOf, self.numPairs = np.array(linkIds), np.array(pairOf), len(view['pairs'])
+        S = P.satsPerPlane
+        self.linkFrom = {}             # 방향 링크 -> 출발 위성 번호 (p x 궤도면당 위성 수 + s)
         for p in range(P.numPlanes):
-            for s in range(P.satsPerPlane):
+            for s in range(S):
                 for d in G.validDirs[p][s]:
-                    links.append((int(G.linkId[p, s, d - 1]), p, s, d))
-        self.linkIds = np.array([l[0] for l in links])
-        self.linkFrom = {l[0]: (l[1], l[2]) for l in links}
-        self.flows = [[list(a), list(b)] for a, b in P.mainFlows]
-        self.prevStatus = {}
+                    self.linkFrom[int(G.linkId[p, s, d - 1])] = p * S + s
+        self.flows = [[list(map(int, a)), list(map(int, b))] for a, b in P.mainFlows]
+        self.prevStatus = None
         self.prevBurst = 0
         self.lastSent = 0.0
-        # 지역 핫스팟 링크 (기본 부하는 모든 링크라 그리지 않음): [p, s, 방향, 시작 ms, 끝 ms]
+        # 지역 핫스팟 (기본 부하는 모든 링크라 그리지 않음): [링크 쌍 번호, 시작 ms, 끝 ms]
+        pairIdx = {tuple(sorted(pr)): k for k, pr in enumerate(view['pairs'])}
         hot = []
         for ((sp, ss), (np_, ns_)), (a, b) in zip(P.bgFlows, P.bgEvents):
             if (a, b) == (1, P.simTime):
                 continue
-            d = next(d for d in G.validDirs[sp][ss] if (int(G.nbrP[sp, ss, d - 1]), int(G.nbrS[sp, ss, d - 1])) == (np_, ns_))
-            hot.append([int(sp), int(ss), int(d), int(a), int(b)])
+            k = pairIdx.get(tuple(sorted((int(sp) * S + int(ss), int(np_) * S + int(ns_)))))
+            if k is not None:
+                hot.append([k, int(a), int(b)])
         self.state.update(episode=ep + 1, levelNow=level, seed=seed, simTime=P.simTime)
-        self.lastStart = dict(type='episode_start', state=self.state,
-                              grid=dict(planes=P.numPlanes, sats=P.satsPerPlane, src=self.flows[0][0], dst=self.flows[0][1],
-                                        queueMax=P.queueMax, burstMinLen=P.burstMinLen, deadline=P.deadline, topology=P.topology),
-                              flows=self.flows, links=[dict(p=l[1], s=l[2], dir=l[3]) for l in links], hotspots=hot)
-        self._event(0, '핫스팟', f'에피소드 {ep + 1} ({level}): 지역 핫스팟 링크 {len(hot)}개 예정', 'hot')
+        f0 = self.flows[0]
+        dl = getattr(P, 'mainDeadlines', None)
+        self.lastStart = dict(type='episode_start', state=self.state, map=view, flows=self.flows, hotspots=hot,
+                              grid=dict(src=f0[0], dst=f0[1], deadline=int(dl[0]) if dl is not None else int(P.deadline),
+                                        queueMax=P.queueMax, burstMinLen=P.burstMinLen, maxFlowDelay=int(P.maxFlowDelay), normDeadline=int(P.deadline),
+                                        hotRatio=round(P.numPlanes * S / P.evRefSats, 1)))
+        self._event(0, '핫스팟', f'에피소드 {ep + 1} ({level}): 지역 핫스팟 {len(hot)}개 예정', 'hot')
         self.broadcast(self.lastStart)   # 중간에 들어온 화면도 받을 수 있게 마지막 것을 남겨 둠 (info의 start)
 
     def _hook(self, t, queueLen, status, curP, curS, onLink, numPackets):
@@ -315,37 +338,33 @@ class LiveRunner:
             self._snapshot(t, queueLen, status, curP, curS, onLink, numPackets)
 
     def _snapshot(self, t, queueLen, status, curP, curS, onLink, numPackets):
-        # 패킷 id는 흐름별 묶음 (흐름 f = f x perFlow부터, 지금까지 흐름마다 seq개 생성)
-        P = self.P
-        nF = len(self.flows)
-        perFlow, seq = P.flowBlock, numPackets // nF
-        ids = [f * perFlow + np.arange(seq) for f in range(nF)]
-        sts = [status[i] for i in ids]
-        # 새로 끝난 손실 패킷 -> 이벤트 (모든 흐름, 흐름 번호 표시)
-        for f in range(nF):
-            prev = self.prevStatus.get(f)
-            if prev is not None:
-                n0 = len(prev)
-                newly = np.flatnonzero((sts[f][:n0] != prev) & np.isin(sts[f][:n0], LOSS))
-                for i in newly[-6:]:
-                    pid = int(ids[f][i])
-                    self._event(t, '손실', f'흐름 {f}  패킷 #{int(i)}  위성 ({int(curP[pid])}, {int(curS[pid])})  {LOSS_NAME[int(sts[f][i])]}',
-                                'loss', pos=[int(curP[pid]), int(curS[pid])], flow=f)
-            self.prevStatus[f] = sts[f].copy()
-        st0 = sts[0]
+        # 흐름 0만: 패킷 id는 흐름별 묶음 (흐름 0 = 0번부터, 지금까지 흐름마다 seq개 생성)
+        P, S = self.P, self.P.satsPerPlane
+        seq = numPackets // len(self.flows)
+        ids = np.arange(seq)
+        st0 = status[ids]
+        prev = self.prevStatus
+        if prev is not None:   # 새로 끝난 손실 패킷 -> 이벤트
+            n0 = len(prev)
+            for i in np.flatnonzero((st0[:n0] != prev) & np.isin(st0[:n0], LOSS))[-6:]:
+                self._event(t, '손실', f'흐름 0  패킷 #{int(i)}  위성 ({int(curP[i])}, {int(curS[i])})  {LOSS_NAME[int(st0[i])]}',
+                            'loss', pos=[int(curP[i]), int(curS[i])], flow=0)
+        self.prevStatus = st0.copy()
         runs = loss_runs(st0.tolist())
         bursts = [r for r in runs if r >= P.burstMinLen]
         if len(bursts) > self.prevBurst:
             self._event(t, '연속 손실', f'흐름 0  {bursts[-1]}개 연속', 'burst', flow=0)
         self.prevBurst = len(bursts)
-        # 이동 중인 패킷 [출발 p, s, 지금 p, s, 흐름]
+        # 이동 중인 흐름 0 패킷 [링크 출발 위성, 지금 위성] (위성 번호 = p x 궤도면당 위성 수 + s)
         pk = []
-        for f in range(nF):
-            for i in ids[f][sts[f] == 0][-150:]:
-                l = int(onLink[i])
-                fp, fs = self.linkFrom.get(l, (int(curP[i]), int(curS[i]))) if l >= 0 else (int(curP[i]), int(curS[i]))
-                pk.append([fp, fs, int(curP[i]), int(curS[i]), f])
-        allSt = np.concatenate(sts)
+        for i in ids[st0 == 0][-150:]:
+            cur = int(curP[i]) * S + int(curS[i])
+            l = int(onLink[i])
+            pk.append([self.linkFrom.get(l, cur) if l >= 0 else cur, cur])
+        q = np.zeros(self.numPairs, dtype=int)   # 링크 쌍마다 양방향 큐 중 큰 값
+        np.maximum.at(q, self.pairOf, queueLen[self.linkIds].astype(int))
+        nF = len(self.flows)
+        allSt = np.concatenate([status[f * P.flowBlock + np.arange(seq)] for f in range(nF)])
         onTime, lost = int((st0 == 1).sum()), int(np.isin(st0, LOSS).sum())
         ended = onTime + lost
         aOn, aEnd = int((allSt == 1).sum()), int((allSt != 0).sum())
@@ -357,15 +376,14 @@ class LiveRunner:
                      rewardHop=round(col.rewardHopSum, 2) if col else 0, rewardOutcome=round(col.rewardOutcomeSum, 2) if col else 0,
                      rewardBurst=round(col.rewardBurstSum, 2) if col else 0)
         self.broadcast(dict(type='snap', t=int(t), simTime=P.simTime, episode=self.state['episode'],
-                            queues=queueLen[self.linkIds].astype(int).tolist(), packets=pk,
+                            queues=q.tolist(), packets=pk,
                             stats=dict(generated=int(seq), onTime=onTime, lost=lost, inflight=int((st0 == 0).sum()),
                                        onTimeRate=round(onTime / ended * 100, 2) if ended else 0.0,
                                        lossRate=round(lost / ended * 100, 2) if ended else 0.0,
                                        maxConsecLoss=max(runs) if runs else 0, burstCount=len(bursts),
                                        allOnTimeRate=round(aOn / aEnd * 100, 2) if aEnd else 0.0),
                             timeline=st0[-120:].tolist(), learn=learn, paused=self.cmd['paused'],
-                            selected=dict(sat=list(self.selected) if self.selected else None, recent=self.selRecent[-12:]),
-                            policy=[[p, s, d] for (p, s), d in self.lastAct.items()]))
+                            selected=dict(sat=list(self.selected) if self.selected else None, recent=self.selRecent[-12:])))
 
     def _event(self, t, kind, text, cls, pos=None, flow=None):
         e = dict(t=int(t), episode=self.state['episode'], kind=kind, text=text, cls=cls, pos=pos, flow=flow)

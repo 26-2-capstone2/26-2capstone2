@@ -67,17 +67,23 @@ def evaluate(level, route, modelPath=None, numEpisodes=None, cRun=''):
     runs = loss_runs(Rs)
     minutes = P.numEpisodes * P.simTime * P.stepTime / 60 * P.numFlows   # 흐름 하나 기준 1분당 (흐름 수로 나눔)
     rate = burst_rate_stats(runs, P.burstMinLen, minutes)
+    epMin = P.simTime * P.stepTime / 60
+    mainRuns = [loss_run_lengths(r.status[r.packetFlow == 0]) for r in Rs]   # 흐름 0 (우리 GSL)만, 에피소드별
+    mainRate = burst_rate_stats(np.concatenate(mainRuns), P.burstMinLen, P.numEpisodes * epMin)
     perSeed = []
-    for e, r in enumerate(Rs):
+    for e, (r, mr) in enumerate(zip(Rs, mainRuns)):
         er = loss_run_lengths(r.status, r.packetFlow)
         ok = r.status == 1
         main = r.packetFlow == 0                         # 흐름 0 (기존 주 흐름, GSL 연결 흐름)
         arr = (r.status == 1) | (r.status == 2)          # 평균 지연은 compute_metrics와 같게 목적지 도착 패킷 전체
-        eRate = burst_rate_stats(er, P.burstMinLen, P.simTime * P.stepTime / 60 * P.numFlows)
+        eRate = burst_rate_stats(er, P.burstMinLen, epMin * P.numFlows)
+        mRate = burst_rate_stats(mr, P.burstMinLen, epMin)
         perSeed.append(dict(level=level, route=route, cRun=cRun, seed=P.randomSeed + e,
                             onTimeRate=round(float(ok.mean()) * 100, 2),
                             mainOnTimeRate=round(float(ok[main].mean()) * 100, 2),
-                            mainMaxConsecLoss=int(loss_run_lengths(r.status[main]).max(initial=0)),
+                            mainMaxConsecLoss=int(mr.max(initial=0)),
+                            mainBurstCount=int((mr >= P.burstMinLen).sum()),
+                            mainBurstPerMin=round(mRate.burstPerMin, 3),
                             burstCount=int((er >= P.burstMinLen).sum()),
                             burstPerMin=round(eRate.burstPerMin, 3),
                             burstLenP95=round(eRate.burstLenP95, 1),
@@ -94,7 +100,10 @@ def evaluate(level, route, modelPath=None, numEpisodes=None, cRun=''):
                 runs_ge5=int((runs >= 5).sum()), runs_ge10=int((runs >= 10).sum()),
                 avgLatency_ms=round(M.avgLatency_ms, 2),
                 worstEpisodeOnTime=round(min(float((r.status == 1).mean()) for r in Rs) * 100, 1),
-                burstPerMin=round(rate.burstPerMin, 3), burstLenP95=round(rate.burstLenP95, 1)), perSeed
+                burstPerMin=round(rate.burstPerMin, 3), burstLenP95=round(rate.burstLenP95, 1),
+                mainOnTimeRate=round(float(np.mean(np.concatenate([r.status[r.packetFlow == 0] for r in Rs]) == 1)) * 100, 2),
+                mainBurstPerMin=round(mainRate.burstPerMin, 3), mainBurstLenP95=round(mainRate.burstLenP95, 1),
+                mainMaxConsecLoss=int(max(m.max(initial=0) for m in mainRuns))), perSeed   # main: 흐름 0만
 
 
 def main():
@@ -128,7 +137,8 @@ def main():
                 seedRows += perSeed
                 name = route + (f' #{k}' if route == 'routeC' and len(models) > 1 else '')
                 print(f"{level:6s} {name:14s} 도착률 {row['onTimeRate']:6.2f}%  손실률 {row['lossRate']:5.2f}%  "
-                      f"연속 손실 {row['burstPerMin']:.2f}/분  최대 연속 손실 {row['maxConsecLoss']:4d}  평균 지연 {row['avgLatency_ms']} ms")
+                      f"연속 손실 {row['burstPerMin']:.2f}/분  최대 연속 손실 {row['maxConsecLoss']:4d}  평균 지연 {row['avgLatency_ms']} ms  "
+                      f"| 흐름 0: 도착률 {row['mainOnTimeRate']:6.2f}%  연속 손실 {row['mainBurstPerMin']:.2f}/분  최대 {row['mainMaxConsecLoss']}")
 
     with open(os.path.join(saveDir, 'summary.csv'), 'w', newline='', encoding='utf-8-sig') as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))

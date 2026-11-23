@@ -29,7 +29,7 @@ def step(title):
 
 
 def ask_choice(title, options, default=1):
-    # options: 번호 입력으로 고름.
+    # options: 번호 입력으로 고름
     print(step(title))
     for i, (label, _) in enumerate(options, 1):
         print(f'  {i}. {label}')

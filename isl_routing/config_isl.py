@@ -1,5 +1,5 @@
 # 설정값 모음 - 시뮬레이션에 쓰이는 모든 변수값을 여기서 정함
-# (값 바꾸려면 여기서 수정하면 됩니다!)
+# (값 수정은 여기서)
 #
 import os
 from types import SimpleNamespace

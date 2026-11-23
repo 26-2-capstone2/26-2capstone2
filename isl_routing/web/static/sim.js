@@ -1,59 +1,58 @@
-// 3-1 시뮬레이터: 서버(/api/stream)에서 0.1초마다 오는 상태를 그림
+// 3-1 시뮬레이터: 서버(/api/stream)에서 0.1초마다 오는 상태를 2D 지도 위에 그림 (흐름 0 패킷만)
 const $ = id => document.getElementById(id);
-const BL = '#0877BD', OR = '#F59322', DK = '#183D4E';
-let grid = { planes: 6, sats: 6, src: [0, 0], dst: [5, 5], queueMax: 200, burstMinLen: 3 };
-let validating = false;
-let links = [], hotspots = [], flows = [], snap = null, history = [], valHist = [], running = false, loading = false, paused = false, selected = null;
-const FLOW_C = ['#183D4E', '#7E57C2', '#1E9E78', '#C2185B', '#8D6E63', '#00838F'];   // 흐름별 색 (흐름 0은 기존 진한 색)
-const flowColor = f => FLOW_C[f % FLOW_C.length];
+const BL = '#0877BD', OR = '#F59322';
+let grid = { src: null, dst: null, queueMax: 200, burstMinLen: 3 };
+let view = null, topoInfo = null, hotspots = [], flows = [], snap = null, history = [], valHist = [];
+let running = false, loading = false, paused = false, validating = false, status = 'idle', selected = null;
 const LV_C = { base: '#9CB3C2', high: BL, severe: OR };
-const recentLoss = [];   // [{p, s, until}]
+const recentLoss = [];   // [{i, until}]
+const fmt = n => (n === null || n === undefined) ? '-' : Number(n).toLocaleString('ko-KR');
 
-// ---------- 위성망 ----------
-const cv = $('grid'), ctx = cv.getContext('2d');
-(function hiDPI() { const r = window.devicePixelRatio || 1; cv.width = 640 * r; cv.height = 640 * r; ctx.scale(r, r); })();
-const geo = () => { const G0 = 44, GS = (640 - 2 * G0) / Math.max(grid.planes - 1, grid.sats - 1); return { G0, GS, X: p => G0 + p * GS, Y: s => G0 + s * GS }; };
-const STEP = { 1: [0, -1], 2: [0, 1], 3: [-1, 0], 4: [1, 0] };
-function mix(f) { const a = [0xC4, 0xD6, 0xE4], b = [0x08, 0x77, 0xBD]; return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * f)).join(',')})`; }
-
+// ---------- 위성망 지도 ----------
+const cv = $('map');
 function drawGrid() {
-  const { GS, X, Y } = geo();
-  ctx.clearRect(0, 0, 640, 640);
-  const off = d => (d === 2 || d === 4) ? 4 : -4;            // 방향마다 한쪽으로 살짝 띄움
-  const seg = (l, k) => { const [dp, ds] = STEP[l.dir]; const x1 = X(l.p), y1 = Y(l.s), x2 = X(l.p + dp), y2 = Y(l.s + ds); const o = off(l.dir);
-    const ox = dp === 0 ? o : 0, oy = ds === 0 ? o : 0, m = 14 / GS;
-    return [x1 + (x2 - x1) * m + ox, y1 + (y2 - y1) * m + oy, x2 - (x2 - x1) * m + ox, y2 - (y2 - y1) * m + oy]; };
-  // 지역 핫스팟 (지금 켜진 것만, 아래에 깔기): [p, s, 방향, 시작, 끝]
-  const t = snap ? snap.t : 0;
-  for (const [hp, hs, hd, a0, b0] of hotspots) { if (t < a0 || t > b0) continue; const l = links.find(z => z.p === hp && z.s === hs && z.dir === hd); if (!l) continue; const [a, b, c, d] = seg(l);
-    ctx.strokeStyle = OR; ctx.globalAlpha = 0.4; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); ctx.globalAlpha = 1; }
-  // 링크 큐
-  links.forEach((l, k) => { const q = snap ? snap.queues[k] : 0; const f = Math.min(1, q / grid.queueMax); const [a, b, c, d] = seg(l);
-    ctx.strokeStyle = mix(f); ctx.lineWidth = 1.5 + f * 3.5; ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); });
-  // 위성 (흐름 출발: 채운 네모, 도착: 굵은 테두리 네모, 흐름 색과 번호)
-  const role = {}; flows.forEach(([a, b], f) => { role[a[0] + ',' + a[1]] = { f, src: true }; role[b[0] + ',' + b[1]] = { f, src: false }; });
-  for (let p = 0; p < grid.planes; p++) for (let s = 0; s < grid.sats; s++) {
-    const r0 = role[p + ',' + s], c = r0 ? flowColor(r0.f) : '#555';
-    ctx.fillStyle = r0 && r0.src ? c : '#fff'; ctx.strokeStyle = c; ctx.lineWidth = r0 && !r0.src ? 2.5 : 1.2;
-    const r = r0 ? 11 : 9; ctx.beginPath(); ctx.roundRect(X(p) - r, Y(s) - r, 2 * r, 2 * r, 3); ctx.fill(); ctx.stroke();
-    if (r0) { ctx.fillStyle = r0.src ? '#fff' : c; ctx.font = '500 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(r0.f, X(p), Y(s) + 4); } }
-  // 좌표
-  ctx.fillStyle = '#999'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-  for (let i = 0; i < grid.planes; i++) ctx.fillText(i, X(i), 632);
-  ctx.textAlign = 'left'; for (let i = 0; i < grid.sats; i++) ctx.fillText(i, 8, Y(i) + 4);
-  // 패킷
-  if (snap) { snap.packets.forEach(([fp, fs, cp, cs, f], i) => { const j = ((i * 37) % 9 - 4) * 1.6, k = ((i * 53) % 9 - 4) * 1.6;
-    const x = (X(fp) + X(cp)) / 2 + j, y = (Y(fs) + Y(cs)) / 2 + k; ctx.fillStyle = flowColor(f || 0); ctx.beginPath(); ctx.arc(x, y, f ? 3 : 3.6, 0, 7); ctx.fill(); }); }
-  // 손실 X (잠깐 보였다 사라짐)
-  const now = performance.now(); ctx.strokeStyle = OR; ctx.lineWidth = 2.2;
-  for (const e of recentLoss) if (e.until > now) { const x = X(e.p) + 12, y = Y(e.s) - 12; ctx.globalAlpha = (e.until - now) / 1200;
-    ctx.beginPath(); ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5); ctx.moveTo(x + 5, y - 5); ctx.lineTo(x - 5, y + 5); ctx.stroke(); }
-  ctx.globalAlpha = 1;
-  if (selected) { ctx.strokeStyle = OR; ctx.setLineDash([4, 3]); ctx.lineWidth = 2; ctx.strokeRect(X(selected[0]) - 16, Y(selected[1]) - 16, 32, 32); ctx.setLineDash([]); }
+  const t = snap ? snap.t : 0, now = performance.now();
+  drawMap(cv, view, {
+    queues: snap && snap.queues.length === (view ? view.pairs.length : -1) ? snap.queues : null, queueMax: grid.queueMax,
+    hot: new Set(hotspots.filter(([, a, b]) => t >= a && t <= b).map(h => h[0])),
+    src: grid.src, dst: grid.dst, packets: snap ? snap.packets : null,
+    losses: view ? recentLoss.filter(e => e.until > now).map(e => ({ i: e.i, a: (e.until - now) / 1200 })) : null,
+    selected: selected && view ? selected[0] * view.sats + selected[1] : null });
 }
-cv.addEventListener('click', ev => { const r = cv.getBoundingClientRect(), { X, Y } = geo(); const x = ev.clientX - r.left, y = ev.clientY - r.top;
-  let best = null, bd = 30; for (let p = 0; p < grid.planes; p++) for (let s = 0; s < grid.sats; s++) { const d = Math.hypot(X(p) - x, Y(s) - y); if (d < bd) { bd = d; best = [p, s]; } }
-  selected = best; drawGrid(); if (best && window.selectSat) selectSat(best); });
+cv.addEventListener('click', ev => { const i = mapPick(cv, view, ev); if (i == null) return;
+  selected = [Math.floor(i / view.sats), i % view.sats]; drawGrid(); if (window.selectSat) selectSat(selected); });
+window.addEventListener('resize', drawGrid);
+EARTH.onload = drawGrid;
+
+// 위 정보 띠, 대기 카드 (망 구조와 실행 조건 요약: /api/topology)
+function showInfo(v) {
+  topoInfo = v; const I = v.info;
+  if (!snap) { view = v; grid.src = null; grid.dst = v.info.dst; }   // 대기 중: 끝점만 (출발은 시드로 정해짐)
+  $('mapEn').textContent = `${v.topology.toUpperCase()}   2D 지도 (한 순간의 배치, 위성 위치 고정)   라우팅 RL`;
+  $('info').innerHTML = [['위성', `${I.numSats} (궤도면 ${v.planes} x ${v.sats})`], ['흐름 0 끝점', `(${I.dst[0]}, ${I.dst[1]})`],
+    ['가장 먼 거리 D', `${I.maxFlowDelay} ms`], ['기한 상한', `${I.deadline} ms`], ['핫스팟 빈도', `6x6의 ${I.hotRatio}배`],
+    ['링크 지연', I.delay], ['고를 수 있는 구조', '이리듐 6x11, 스타링크 20x20, 36x36, 72x22']].map(([k, x]) => `<div><span>${k}</span><b>${x}</b></div>`).join('');
+  $('lgPolar').style.display = v.polar ? '' : 'none';
+  $('nOther').textContent = I.numFlows - 1; $('nAll').textContent = I.numFlows;
+  $('idleTbl').innerHTML = [['위성망', `${v.name} (위성 ${I.numSats}${v.polar ? ', 극지방' : ''}${!I.wrap[0] ? ', seam' : ''})`],
+    ['우리 흐름', `흐름 0: 시드마다 무작위 위성 → 끝점 (${I.dst[0]}, ${I.dst[1]}), 초당 ${I.genRate}개`],
+    ['다른 흐름', `다른 지상국 ${I.numFlows - 1}개 (짧은, 중간, 긴 경로), 화면에는 그리지 않음`],
+    ['혼잡 단계', `${I.levelRatio} (base : high : severe), 핫스팟 빈도 6x6의 ${I.hotRatio}배`],
+    ['학습', `${I.simTime}초 에피소드 ${I.trainEpisodes}번, ${I.evalEvery}번마다 검증`],
+    ['신경망', `${history.length ? '이어서 학습' : '새로 시작'} (관측 ${I.obsDim}개)`]].map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+  drawGrid(); showOverlay();
+}
+async function loadTopo(name) {
+  const v = await api('/api/topology' + (name ? '?topology=' + encodeURIComponent(name) : ''));
+  if (v.error) { showErr(v.error); return; } showInfo(v);
+}
+const STEPS = [['설정 읽기', 'config_isl.py, config_rl.py + 바꾼 값'], ['위성망 만들기', '끝점, 기한, 흐름 거리 계산'],
+  ['PyTorch, 신경망 불러오기', '처음 실행은 몇 초 걸림'], ['첫 에피소드 환경 만들기', '흐름 4개 뽑기, 지역 핫스팟 일정 (36 x 36은 약 40초)'], ['시뮬레이션 시작', '1 ms씩 진행, 0.1초마다 화면 갱신']];
+function showOverlay(step) {
+  $('idle').classList.toggle('on', status === 'idle' && !snap);
+  $('loading').classList.toggle('on', status === 'loading');
+  if (step != null) $('steps').innerHTML = STEPS.map(([a, b], k) => `<div class="${k < step ? 'done' : k === step ? 'now' : ''}"><i></i><span><b>${a}</b><small>${b}</small></span></div>`).join('');
+}
 
 // ---------- 타임라인, 그래프 ----------
 function drawTimeline(tl) {
@@ -62,7 +61,7 @@ function drawTimeline(tl) {
   for (let i = 0; i < tl.length;) { if (!isLoss(tl[i])) { i++; continue; } let j = i; while (j < tl.length && isLoss(tl[j])) j++; if (j - i >= grid.burstMinLen) for (let k = i; k < j; k++) burst[k] = true; i = j; }
   const w = c.width / 120;
   tl.forEach((s, i) => { const l = isLoss(s); g.fillStyle = s === 0 ? '#EFEFEF' : l ? (burst[i] ? OR : '#F8C88E') : '#CFCFCF';
-    g.fillRect(i * w, l ? 0 : 10, w - 1, l ? 26 : 6); });
+    g.fillRect(i * w, l ? 0 : 10, w - 2, l ? 26 : 6); });
 }
 function drawChart(id, key, max, color, unit) {
   const c = $(id), g = c.getContext('2d'), W = c.width, H = c.height; g.clearRect(0, 0, W, H);
@@ -91,46 +90,52 @@ function drawVal() {
   g.fillStyle = '#999'; g.font = '10px monospace'; g.textAlign = 'center'; g.fillText(maxEp, X(maxEp), H - 4);
 }
 function drawCharts() { drawChart('c1', 'onTimeRate', 100, BL, '%'); drawChart('c2', 'burstCount', 0, OR, ''); drawVal(); }
-function setFlows(f) {
-  flows = f || []; $('nFlows').textContent = flows.length;
-  $('flowLegend').innerHTML = flows.map((_, i) => `<span style="margin-right:10px"><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="${flowColor(i)}"/></svg> 흐름 ${i}</span>`).join('');
-}
 
 // ---------- 숫자 ----------
-const fmt = n => (n === null || n === undefined) ? '-' : Number(n).toLocaleString('ko-KR');
 function showSnap(s) {
   snap = s; const st = s.stats;
   $('sOn').textContent = st.onTimeRate + '%'; $('sLoss').textContent = st.lossRate + '%'; $('sMax').textContent = st.maxConsecLoss; $('sBurst').textContent = st.burstCount;
-  $('sAll').textContent = st.allOnTimeRate + '%'; $('sGen').textContent = fmt(st.generated); $('sArr').textContent = fmt(st.onTime); $('sLost').textContent = fmt(st.lost); $('sIn').textContent = fmt(st.inflight);
+  $('sAll').textContent = st.allOnTimeRate + '%'; $('sCnt').textContent = `${fmt(st.generated)} / ${fmt(st.onTime)} / ${fmt(st.lost)} / ${fmt(st.inflight)}`;
   $('cT').textContent = `${fmt(s.t)} / ${fmt(s.simTime)} ms`; $('prog').style.width = Math.min(100, s.t / s.simTime * 100) + '%';
   const L = s.learn; $('lEps').textContent = L.epsilon; $('lBuf').textContent = `${fmt(L.buffer)} / ${fmt(L.bufferSize)}`; $('lUpd').textContent = fmt(L.updates); $('lLoss').textContent = L.loss ?? '-';
-  const items = [['홉 (링크 지연)', L.rewardHop, '#9CB3C2'], ['도착, 단발 손실', L.rewardOutcome, BL], ['연속 손실 추가분', L.rewardBurst, OR]];
+  const items = [['홉 (링크 지연)', L.rewardHop, '#9CB3C2'], ['도착, 단발 손실', L.rewardOutcome, BL], ['연속 손실 추가분 (시작 벌점 포함)', L.rewardBurst, OR]];
   const mx = Math.max(1, ...items.map(i => Math.abs(i[1])));
   $('bars').innerHTML = items.map(([k, v, c]) => `<div><span>${k}</span><i style="width:${Math.abs(v) / mx * 100}%;background:${c}"></i><span class="mono">${v > 0 ? '+' : ''}${fmt(v)}</span></div>`).join('');
-  drawTimeline(s.timeline); drawGrid();
+  drawTimeline(s.timeline); drawGrid(); showOverlay();
 }
 function showState(state) {
   if (!state) return;
-  running = ['running', 'loading', 'validating'].includes(state.status);
-  validating = state.status === 'validating';
-  loading = state.status === 'loading';
-  if (state.error) { $('err').style.display = 'block'; $('err').textContent = '실행 중 오류: ' + state.error; }
+  status = state.status;
+  running = ['running', 'loading', 'validating'].includes(status);
+  validating = status === 'validating';
+  loading = status === 'loading';
+  if (state.error) showErr('실행 중 오류: ' + state.error);
   $('cEp').textContent = `${String(state.episode || 0).padStart(3, '0')} / ${String(state.totalEpisodes || 0).padStart(3, '0')}`;
-  $('epInfo').textContent = `EPISODE ${String(state.episode || 0).padStart(3, '0')}  ${state.levelNow || ''}  시드 ${state.seed ?? '-'}${state.status === 'validating' ? '  (검증 중)' : ''}`;
-  setPlayIcon();
+  const f0 = flows[0];
+  $('epInfo').textContent = `EPISODE ${String(state.episode || 0).padStart(3, '0')}  ${state.levelNow || ''}  시드 ${state.seed ?? '-'}` +
+    (f0 ? `   흐름 0: (${f0[0].join(', ')}) → (${f0[1].join(', ')}), 기한 ${grid.deadline} ms` : '') + (validating ? '  (검증 중)' : '');
+  $('sTopo').disabled = running;
+  showOverlay(state.loadStep); setPlayIcon(state.prep);
 }
-function setPlayIcon() {
+function setPlayIcon(prep) {
   const playing = running && !paused;
   $('playIcon').innerHTML = playing ? '<rect x="5" y="3" width="4" height="16"/><rect x="13" y="3" width="4" height="16"/>' : '<path d="M6 3 L19 11 L6 19 Z"/>';
-  $('cState').textContent = !running ? '대기' : loading ? '준비 중 (신경망 불러오는 중)' : paused ? '멈춤' : validating ? '검증 중 (ε 0)' : '실행 중';
+  $('cState').textContent = !running ? '대기' : loading ? '준비 중' : paused ? '멈춤' : validating ? '검증 중 (ε 0)' : prep ? '다음 에피소드 준비 중' : '실행 중';
+  $('cState').style.color = loading || prep ? BL : '';
   $('bPlay').setAttribute('aria-label', playing ? '멈춤' : '재생');
 }
 function addEvent(e) {
-  if (e.pos) recentLoss.push({ p: e.pos[0], s: e.pos[1], until: performance.now() + 1200 });
+  if (e.pos && view) recentLoss.push({ i: e.pos[0] * view.sats + e.pos[1], until: performance.now() + 1200 });
   while (recentLoss.length > 80) recentLoss.shift();
   const d = document.createElement('div'); d.className = 'ev';
   d.innerHTML = `<span class="mono sub">에피소드 ${e.episode}  t = ${fmt(e.t)} ms</span><span class="${e.cls}">${e.kind}</span><span>${e.text}</span>`;
   const list = $('evlist'); list.prepend(d); while (list.children.length > 80) list.lastChild.remove();
+}
+function showErr(m) { $('err').style.display = m ? 'block' : 'none'; $('err').textContent = m || ''; }
+function startEpisode(d) {
+  view = d.map; grid = d.grid; hotspots = d.hotspots; flows = d.flows || [];
+  $('qmax').textContent = grid.queueMax; $('bmin').textContent = grid.burstMinLen;
+  if (!selected) selected = grid.src;
 }
 
 // ---------- 서버 연결 ----------
@@ -138,31 +143,51 @@ function connect() {
   const es = new EventSource('/api/stream');
   es.onmessage = m => { const d = JSON.parse(m.data);
     if (d.type === 'hello') { history = d.history || []; valHist = d.val || []; (d.events || []).forEach(addEvent); drawCharts(); $('sSpeed').value = d.speed || 'normal';
-      if (d.start) { grid = d.start.grid; links = d.start.links; hotspots = d.start.hotspots; setFlows(d.start.flows); } showState(d.state); drawGrid(); }
-    else if (d.type === 'episode_start') { grid = d.grid; links = d.links; hotspots = d.hotspots; setFlows(d.flows); $('gridSize').textContent = `${grid.planes} x ${grid.sats}`;
-      $('qmax').textContent = grid.queueMax; $('bmin').textContent = grid.burstMinLen; showState(d.state); drawGrid(); }
+      if (d.start && d.start.map && d.state.status !== 'idle') startEpisode(d.start); showState(d.state); drawGrid(); }
+    else if (d.type === 'episode_start') { startEpisode(d); showState(d.state); drawGrid(); }
     else if (d.type === 'snap') { paused = d.paused; setPlayIcon(); showSnap(d); if (window.showQ) showQ(d); }
     else if (d.type === 'event') addEvent(d.event);
     else if (d.type === 'episode_end') { history.push(d.row); drawCharts(); showState(d.state); }
     else if (d.type === 'val') { valHist.push(d.row); drawVal(); }
-    else if (d.type === 'state') { showState(d.state); }
-    else if (d.type === 'reset') { history = []; valHist = []; snap = null; $('evlist').innerHTML = ''; drawCharts(); drawTimeline(null); drawGrid(); }
-    else if (d.type === 'error') { $('err').style.display = 'block'; $('err').textContent = '실행 중 오류: ' + d.message; }
+    else if (d.type === 'state') showState(d.state);
+    else if (d.type === 'reset') { history = []; valHist = []; snap = null; hotspots = []; flows = []; $('evlist').innerHTML = '';
+      ['sOn', 'sLoss', 'sMax', 'sBurst', 'sCnt', 'sAll', 'lEps', 'lBuf', 'lUpd', 'lLoss'].forEach(k => $(k).textContent = '-'); $('bars').innerHTML = ''; $('prog').style.width = 0; drawCharts(); drawTimeline(null); loadTopo(); }
+    else if (d.type === 'error') showErr('실행 중 오류: ' + d.message);
   };
   es.onerror = () => { $('cState').textContent = '서버 연결 끊김 (다시 연결 중)'; };
 }
 const opts = () => ({ mode: $('sMode').value, level: $('sLevel').value });
+async function start(mode) {
+  showErr('');
+  if (mode) $('sMode').value = mode;
+  paused = false; await api('/api/control', { action: 'start', ...opts() }); running = true; setPlayIcon();
+}
 $('bPlay').onclick = async () => {
-  $('err').style.display = 'none';
-  if (running && !paused) { paused = true; await api('/api/control', { action: 'pause' }); }
-  else { paused = false; await api('/api/control', { action: 'start', ...opts() }); running = true; }
-  setPlayIcon();
+  if (running && !paused) { paused = true; await api('/api/control', { action: 'pause' }); setPlayIcon(); }
+  else start();
 };
+$('bGo').onclick = () => start('train');
+$('bEval').onclick = () => start('eval');
+$('bCancel').onclick = () => api('/api/control', { action: 'stop' });
 $('bStep').onclick = () => api('/api/control', { action: 'step', ...opts() });
 $('bReset').onclick = async () => {
   if (running) { await api('/api/control', { action: 'stop' }); await new Promise(r => setTimeout(r, 600)); }
   const r = await api('/api/control', { action: 'reset' }); if (r.result === 'busy') alert('아직 멈추는 중입니다. 잠시 후 다시 눌러 주세요.');
 };
 $('sSpeed').onchange = () => api('/api/control', { action: 'speed', speed: $('sSpeed').value });
+// 망 구조 바꾸기: 저장된 설정에 망 구조만 바꿔 저장하고, 신경망과 기록을 처음으로 (실행 중에는 못 바꿈)
+$('sTopo').onchange = async () => {
+  const d = await api('/api/settings'), o = d.saved || {};
+  o.topology = $('sTopo').value;
+  const r = await api('/api/settings', { overrides: o });
+  if (!r.ok) { showErr('저장 안 됨: ' + r.error); return; }
+  selected = null; snap = null; view = null; drawGrid();
+  await api('/api/control', { action: 'reset' });
+};
+(async () => {
+  const d = await api('/api/settings'), f = d.fields.find(x => x.key === 'topology');
+  $('sTopo').innerHTML = f.options.map(o => `<option value="${o.value}" ${o.value === f.value ? 'selected' : ''}>${o.label}</option>`).join('');
+  await loadTopo();
+})();
 setInterval(() => { if (recentLoss.some(e => e.until > performance.now())) drawGrid(); }, 100);
-drawCharts(); drawGrid(); connect();
+drawCharts(); connect();

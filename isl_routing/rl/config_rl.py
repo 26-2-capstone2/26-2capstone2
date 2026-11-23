@@ -13,37 +13,46 @@ def config_rl(P):
     RL = SimpleNamespace()
 
     # ---- 관측 벡터 (rl_state.py) ----
-    RL.stateMode = 'coarseIn'              # 19개: coarse 15개 (큐 3단계 4 + 30 step 전 이웃 부하 4 + 링크 유무 4 + 남은 거리 2 + 남은 기한 1)
-                                           #   + 들어온 방향 4 (11/18, 이리듐 극지방에서 두 위성 사이를 맴도는 문제)
-                                           # 7차~이리듐 1차 모델은 'coarse' 15개 (그 모델을 평가하려면 여기를 'coarse'로)
+    RL.stateMode = 'coarseTrend'           # 23개 (11/20 4차): coarse 15개 + 큐 증가 속도 4 + 최근 큐 넘침 4 (막히기 전 징후)
+                                           # coarse 15개: 큐 3단계 4 + 30 step 전 이웃 부하 4 + 링크 유무 4 + 남은 거리 2 + 남은 기한 1
+                                           # 이리듐 3차(11/20) 모델은 'coarse', maskMode 'noBack'
+                                           #   11/20: 들어온 방향 4개 뺌 (되돌아가기는 maskMode 'noBack'이 막음)
+                                           # 이리듐 2차(11/19) 모델은 'coarseIn' 19개 (+ 들어온 방향 4), 평가하려면 여기를 'coarseIn', maskMode를 'link'로
                                            # 그 밖의 값 (이전 실험용, 코드로만 바꿈): 'full' 24개, 'noTrend' 16개
-    RL.obsDim = {'full': 24, 'noTrend': 16, 'coarse': 15, 'coarseIn': 19}[RL.stateMode]
+    RL.obsDim = {'full': 24, 'noTrend': 16, 'coarse': 15, 'coarseIn': 19, 'coarseTrend': 23}[RL.stateMode]
     RL.qLevelLow = 0.5 * P.queueMax        # coarse 큐 3단계: 100개 미만 여유 0, 100~150개 보통 0.5, 150개 이상 혼잡 1
     RL.qLevelHigh = 0.75 * P.queueMax
     RL.nbrDelay = 30                       # coarse 이웃 부하: 30 step 전 값
                                            # full 24개: 큐 4 + 이웃 부하 4 + 큐 증가 속도 4 + 최근 큐 넘침 4 + 링크 유무 4 + 남은 거리 2 + 남은 기한 1 + 남은 TTL 1
     RL.numActions = 4                      # 행동 4개 : 상, 하, 좌, 우
-    RL.maskMode = 'link'                   # 'link': 없는 방향만 막음 (꽉 찬 큐, 기한 초과는 손실 보상으로 직접 배움)
-                                           # 'full': 예전 방식, 꽉 찬 큐와 기한 안에 못 가는 방향도 막음 (비교용)
+    RL.maskMode = 'noBack'                 # 'noBack': 없는 방향 + 들어온 링크 (링크가 그것뿐이면 허용). 3차, 6차(11/23): 흐름 통째 손실 방지 (split horizon과 같은 루프 방지 규칙)
+                                           # 'link': 없는 방향만 (4차, 5차: 통째 손실 10건, 6건). 'deadline': noBack + 기한 안에 못 가는 방향 (극지방 긴 우회 차단)
+                                           # 꽉 찬 큐는 막지 않고 보상으로 배움
     RL.normQueue = P.queueMax              # 큐 길이, 이웃 부하 N ÷ 200
     RL.deltaWindow = 10                    # 큐 증가 속도: 현재 - 10 step 전 큐 길이
     RL.normDelta = 10 * P.linkCapacity     # 큐 증가 속도 ÷ 50 (10 step 동안 비울 수 있는 최대 개수), -1~1로 자름
     RL.overflowWindow = 300                # 최근 큐 넘침: min(지난 시간, 300) ÷ 300 (핫스팟 켜짐 평균 150~450의 가운데)
-    RL.normDist = max(P.numPlanes // 2 if getattr(P, 'wrapP', False) else P.numPlanes - 1,
-                      P.satsPerPlane // 2 if getattr(P, 'wrapS', False) else P.satsPerPlane - 1)   # 남은 거리 ÷ 한 축 최대 거리 (6x6: 5, 원형이면 절반)
+    RL.normDist = 5                        # 남은 거리 ÷ 5칸, -1~1로 자름 (11/23): 망 크기와 상관없이 1칸 = 0.2
+                                           #   이전: ÷ 한 축 최대 거리 (6x6, 이리듐 5라 값은 같음, 20x20 격자 19)
+                                           #   -> 이리듐에서 배운 모델이 20x20에서 1칸 = 0.05를 처음 보고 목적지 옆에서 맴돎 (흐름 통째 손실)
     RL.normDeadline = P.deadline           # 남은 기한 ÷ 가장 먼 흐름 0 기한 (6x6: 70)
     RL.normTtl = P.ttlInit                 # 남은 TTL ÷ 20
 
     # ---- 보상 (rl_reward.py) ----
-    RL.rewardHopScale = P.deadline         # 홉 보상 = -(링크 지연 + 큐 길이 ÷ 링크 용량) ÷ 70
-    RL.rewardHopQueue = False              # 홉 보상 = -링크 지연 ÷ 70 (큐 항목 없음, 7차 기준). True면 이전처럼 큐 항목 포함
+    RL.rewardHopScale = P.deadline         # 홉 보상 = -(링크 지연 + 큐 길이 ÷ 링크 용량) ÷ 기한 (이리듐 150)
+    RL.rewardHopQueue = False              # 홉 보상 = -링크 지연 ÷ 기한 (큐 항목 없음, 7차 기준). True면 이전처럼 큐 항목 포함
     RL.rewardOnTime = 0.5                  # 기한 내 도착 (끝)
     RL.rewardSingleLoss = -0.1            # 단발 손실 (1~2개): 오버플로, 기한 초과, TTL 만료 (끝)
+    RL.rewardRiskQueue = 0.5              # 위험 링크 진입 벌점 최대값: 고른 링크 큐가 100개에서 0, 200개에서 -0.5, 사이는 비례 (6차 11/23, 0이면 안 씀)
+                                           #   4차, 5차: 150개 이상이면 -0.2 고정 -> B(100개에서 우회)보다 늦게 피하고 150 근처에서 선택이 흔들림
+    RL.riskQueueLevel = 0.5 * P.queueMax  # 벌점 시작 큐 100개 = B의 우회 기준 (config_isl draThreshold 0.5)
     RL.burstEnabled = True                 # False면 연속 손실도 단발 손실과 같은 보상 (대조 실험)
-    RL.burstBase = 0.2                     # 연속 손실 (3개 이상) k번째 패킷: -min(1.0, 0.2 + 0.1 x max(0, k - 3))
-    RL.burstStep = 0.1                     #   구간 전체(처음 2개 포함)에 단발 손실 대신 적용
+    RL.burstBase = 0.3                     # 연속 손실 (3개 이상) k번째 패킷: -min(burstMax, burstBase + burstStep x max(0, k - 3))
+                                           #   5차(11/22): 0.3, 증가 0 -> 길이와 상관없이 패킷당 -0.3 (4차까지 0.2부터 0.1씩, 최대 1.0)
+                                           #   길수록 벌점이 커지면 긴 연속 손실을 짧게 쪼갤수록 이득이라 횟수가 늘었음
+    RL.burstStep = 0.0                     #   구간 전체(처음 2개 포함)에 단발 손실 대신 적용
     RL.burstMax = 1.0
-    RL.burstStartPenalty = 0.5             # 연속 손실 시작 벌점: 3번째 패킷(연속 손실이 되는 순간)에 -0.5 한 번 더 (11/19)
+    RL.burstStartPenalty = 2.0             # 연속 손실 시작 벌점: 3번째 패킷(연속 손실이 되는 순간)에 한 번 더 (11/19 0.5, 5차 11/22 2.0: 횟수를 직접 줄이게)
                                            #   같은 개수를 잃어도 쪼갤수록 벌점이 작던 문제 -> 횟수도 줄이게. 0이면 이전과 같음
                                            #   2.2를 넘기면 긴 손실 1번이 짧은 손실 2번보다 덜 나빠지므로 그보다 작게
 

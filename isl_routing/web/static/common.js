@@ -4,7 +4,7 @@ const MENU = [
   ['guide', '사용 설명', 'guide.html'],
   ['settings', '변수 설정', 'settings.html'],
   ['results', '결과 분석', 'results.html'],
-  ['compare', '라우팅 비교', '#'],
+  ['compare', '라우팅 비교', 'compare.html'],
 ];
 function renderTopbar() {
   const el = document.getElementById('topbar');

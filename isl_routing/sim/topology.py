@@ -71,8 +71,9 @@ def link_delay_steps(P, s, d):
     return max(1, int(round(km / LIGHT_KM_PER_MS)))
 
 
-def apply_topology(P, name='grid'):
+def apply_topology(P, name='grid', limits=True):
     # 구조 이름으로 P의 망 구조 값을 덮어쓰고, 흐름 0 끝점, 기한과 TTL을 그 구조에 맞게 다시 정함
+    # limits=False: 끝점, 기한 계산은 부르는 쪽이 나중에 한 번만 (웹 설정은 다른 값을 덮어쓴 뒤 계산, 큰 망에서 몇 초 걸림)
     base, a, b = parse_name(name)
     if base == 'grid':
         P.topology = 'grid'
@@ -92,7 +93,7 @@ def apply_topology(P, name='grid'):
         P.polarLatLimitDeg = c['polarLatLimitDeg']
     else:
         raise ValueError(f"구조 이름은 'grid', 'grid:NxM', {list(PRESETS)} (또는 'starlink:NxM'): {name}")
-    return update_limits(P)
+    return update_limits(P) if limits else P
 
 
 def update_limits(P):
@@ -141,3 +142,19 @@ def xy_path_delay(G, src, dst):
     if any(G.nextP[l] < 0 for l in links):
         return 0
     return int(sum(G.linkDelay[l] for l in links))
+
+
+def sat_lonlat(P):
+    # 지도용 위성 위치 [경도, 위도], 순서는 p x 궤도면당 위성 수 + s (한 순간의 배치, latitude_deg와 같은 식)
+    # 경도 = 궤도면 p의 승교점 경도(p x 궤도면 간격) + 궤도 위 위치에 따른 경도 차이. 지구 자전은 무시. 가상 격자는 None
+    if P.topology == 'grid':
+        return None
+    inc = math.radians(P.inclinationDeg)
+    out = []
+    for p in range(P.numPlanes):
+        for s in range(P.satsPerPlane):
+            u = 2 * math.pi * s / P.satsPerPlane
+            lat = math.degrees(math.asin(math.sin(inc) * math.sin(u)))
+            lon = (p * P.planeSpacingDeg + math.degrees(math.atan2(math.cos(inc) * math.sin(u), math.cos(u))) + 540) % 360 - 180
+            out.append([round(lon, 2), round(lat, 2)])
+    return out

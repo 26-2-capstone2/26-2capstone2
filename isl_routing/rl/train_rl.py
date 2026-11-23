@@ -37,7 +37,8 @@ from sim.build_grid import build_grid
 from sim.run_isl_sim import run_isl_sim
 
 EVAL_COLS = ['evalIndex', 'episode', 'decisions', 'epsilon', 'level', 'onTimeRate', 'burstCount', 'burstPerMin',
-             'burstLenP95', 'maxConsecLoss', 'avgLatency_ms', 'meanLoss', 'seconds']
+             'burstLenP95', 'maxConsecLoss', 'avgLatency_ms',
+             'mainOnTimeRate', 'mainBurstPerMin', 'mainBurstLenP95', 'mainMaxConsecLoss', 'meanLoss', 'seconds']   # main: 흐름 0 (우리 GSL)만
 
 
 def make_save_dir(RL, topology='grid'):
@@ -61,7 +62,7 @@ def validate(agent, RL, P, collector):
     for level in RL.valLevels:
         apply_bg_level(P, level)
         G = build_grid(P)
-        status, runs, latency = [], [], []
+        status, runs, latency, mainSt, mainRuns = [], [], [], [], []
         for seed in RL.valSeeds:
             sample_hotspots(P, G, seed)
             R = run_isl_sim(P, P.genRate, 0, seed, False)
@@ -69,7 +70,11 @@ def validate(agent, RL, P, collector):
             runs.append(loss_run_lengths(R.status, R.packetFlow))       # 에피소드, 주 흐름마다 끊어서 셈
             arr = (R.status == 1) | (R.status == 2)       # 평균 지연은 compute_metrics와 같게 목적지 도착 패킷 전체
             latency.append(R.endTime[arr] - R.genTime[arr])
+            mainSt.append(R.status[R.packetFlow == 0])
+            mainRuns.append(loss_run_lengths(mainSt[-1]))
         status, runs, latency = np.concatenate(status), np.concatenate(runs), np.concatenate(latency)
+        mainSt, mainRuns = np.concatenate(mainSt), np.concatenate(mainRuns)
+        mainRate = burst_rate_stats(mainRuns, P.burstMinLen, len(RL.valSeeds) * P.simTime * P.stepTime / 60)   # 흐름 0 하나의 1분당
         minutes = len(RL.valSeeds) * P.simTime * P.stepTime / 60 * P.numFlows   # 흐름 하나 기준 1분당
         rate = burst_rate_stats(runs, P.burstMinLen, minutes)
         bursts = runs[runs >= P.burstMinLen]
@@ -79,7 +84,11 @@ def validate(agent, RL, P, collector):
                          burstPerMin=round(rate.burstPerMin, 3),
                          burstLenP95=round(rate.burstLenP95, 1),
                          maxConsecLoss=int(runs.max()) if len(runs) else 0,
-                         avgLatency_ms=round(float(latency.mean()) * P.stepTime * 1000, 2) if len(latency) else ''))
+                         avgLatency_ms=round(float(latency.mean()) * P.stepTime * 1000, 2) if len(latency) else '',
+                         mainOnTimeRate=round(float((mainSt == 1).mean()) * 100, 2),
+                         mainBurstPerMin=round(mainRate.burstPerMin, 3),
+                         mainBurstLenP95=round(mainRate.burstLenP95, 1),
+                         mainMaxConsecLoss=int(mainRuns.max(initial=0))))
     set_agent(agent, RL, explore=True, collector=collector)
     return rows
 

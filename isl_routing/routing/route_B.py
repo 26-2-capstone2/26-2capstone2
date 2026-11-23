@@ -1,4 +1,4 @@
-# B 라우팅 결정 - DRA (Datagram Routing Algorithm, Ekici·Akyildiz·Bender 2001)를 이 6x6 Grid에 맞게 옮긴 것
+# B 라우팅 결정 - DRA (Datagram Routing Algorithm, Ekici, Akyildiz, Bender 2001)를 이 6x6 Grid에 맞게 옮긴 것
 #
 # DRA: 극궤도 격자형 LEO 위성망(이리듐형)을 위한 분산 라우팅
 #   - 각 위성이 패킷마다 따로 결정, 위성끼리 상태 정보를 주고받지 않음 (자기 송신 큐만 봄)

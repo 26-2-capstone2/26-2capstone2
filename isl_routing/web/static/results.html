@@ -13,10 +13,9 @@
   .bar { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-end; background: #F7F9FA; border: 1px solid var(--line); padding: 14px 20px; }
   .bar label { display: block; font-size: 11px; color: var(--sub); margin-bottom: 6px; }
   .bar select { font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid #bbb; background: #fff; min-width: 220px; }
-  .chips { display: flex; gap: 6px; }
-  .chip { font: inherit; font-size: 12.5px; padding: 5px 12px; border: 1px solid #bbb; background: #fff; color: #444; cursor: pointer; border-radius: 2px; }
-  .chip.on { background: var(--dk); border-color: var(--dk); color: #fff; font-weight: 500; }
-  .chip.lv.on { background: var(--orange); border-color: var(--orange); }
+  .bar select.sm { min-width: 140px; }
+  .seeds-ck { display: flex; gap: 14px; font-size: 13px; padding: 6px 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 30px; }
   .basis { font-size: 13px; }
   section { border-top: 1px solid var(--line); margin-top: 40px; padding-top: 28px; }
   section:first-of-type { border-top: none; margin-top: 30px; padding-top: 0; }
@@ -59,12 +58,13 @@
   <h1>결과 분석</h1>
   <p class="lead">저장된 학습 기록(eval_log.csv, train_log.csv)과 최종 평가 기록(per_seed.csv, summary.csv)을 읽어 그립니다.</p>
   <div class="bar">
+    <div><label for="selTopo">망 구조</label><select id="selTopo" class="sm"><option value="iridium">이리듐 6 x 11</option><option value="starlink20x20">스타링크 20 x 20</option><option value="starlink36x36">스타링크 36 x 36</option><option value="starlink">스타링크 72 x 22</option><option value="grid">6 x 6 (이전 기록)</option></select></div>
+    <div><label for="selLv">혼잡 단계</label><select id="selLv" class="sm"></select></div>
     <div><label for="selTrain">학습 폴더</label><select id="selTrain"></select></div>
-    <div><label>학습 시드</label><div class="chips" id="seedChips"></div></div>
+    <div><label>학습 시드</label><div class="seeds-ck" id="seedChips"></div></div>
     <div><label for="selEval">평가 폴더</label><select id="selEval"></select></div>
-    <div><label>혼잡 단계</label><div class="chips" id="lvChips"></div></div>
-    <div><label>기준</label><div class="basis">최종 평가 도착률, 최대 연속 손실은 흐름 0</div></div>
   </div>
+  <p class="cap" style="margin-top:8px">기준: 최종 평가 도착률, 최대 연속 손실은 흐름 0. 1분당 연속 손실, 흐름 통째 손실은 흐름 전체</p>
   <div id="err"></div>
 
   <section>
@@ -73,30 +73,52 @@
     <div class="two">
       <div>
         <div class="cap" id="curveCap">기한 내 도착률 (%)</div>
-        <canvas class="chart" id="curve" width="860" height="360"></canvas>
+        <canvas class="chart" id="curve" width="860" height="320"></canvas>
         <div class="legend"><span><i style="background:var(--orange)"></i>첫 학습 시드 (굵게)</span><span><i style="background:var(--orange-soft)"></i>나머지 학습 시드</span><span><i style="background:#999"></i>점선: ε 끝, T50, T90 (첫 학습 시드)</span></div>
+        <div class="cap" id="curveBCap" style="margin-top:24px">1분당 연속 손실 (흐름 전체, 낮을수록 좋음)</div>
+        <canvas class="chart" id="curveB" width="860" height="240"></canvas>
       </div>
       <div class="sum" id="curveSum"></div>
     </div>
   </section>
 
   <section>
-    <h2 class="sec-h">최종 평가: B vs C</h2>
+    <h2 class="sec-h">최종 평가: DRA vs RL</h2>
     <p class="sec-en" id="evalEn">FINAL EVALUATION</p>
     <div class="cards" id="cards"></div>
     <div class="two">
       <div>
         <div class="cap">단계별 기한 내 도착률 (%, 흐름 0)</div>
         <canvas class="chart" id="bars" width="860" height="320"></canvas>
-        <div class="legend"><span><i class="sq" style="background:#9CB3C2"></i>B (DRA)</span><span><i class="sq" style="background:var(--blue)"></i>C (DQN)</span></div>
+        <div class="legend"><span><i class="sq" style="background:#9CB3C2"></i>DRA</span><span><i class="sq" style="background:var(--blue)"></i>RL</span></div>
       </div>
       <div class="sum" id="evalSum"></div>
     </div>
+    <div class="grid2">
+      <div><div class="cap">1분당 연속 손실 (흐름 전체, 낮을수록 좋음)</div><canvas class="chart" id="barsB" width="620" height="260"></canvas></div>
+      <div><div class="cap">최대 연속 손실 (흐름 0, 시드 평균, 낮을수록 좋음)</div><canvas class="chart" id="barsM" width="620" height="260"></canvas></div>
+    </div>
+    <div class="legend"><span><i class="sq" style="background:#9CB3C2"></i>DRA</span><span><i class="sq" style="background:var(--blue)"></i>RL, 모델 평균</span><span>고른 혼잡 단계는 진하게</span></div>
+  </section>
+
+  <section>
+    <h2 class="sec-h">연속 손실 자세히</h2>
+    <p class="sec-en" id="burstEn">BURST LOSS DETAIL</p>
+    <div class="grid2" style="margin-top:0">
+      <div><div class="cap">연속 손실 길이 분포 (흐름 전체, 평가 시드 전체 합, RL은 모델 평균)</div><canvas class="chart" id="lenDist" width="620" height="220"></canvas>
+        <div class="note" id="lenNote"></div></div>
+      <div><div class="cap">모델별 흐름 0 1분당 연속 손실 </div><canvas class="chart" id="modelBars" width="620" height="240"></canvas></div>
+    </div>
+    <div class="grid2">
+      <div><div class="cap">평가 시드별 흐름 0 최대 연속 손실 (점선 y = x 아래면 RL이 짧음)</div><canvas class="chart" id="scatterMax" width="620" height="380"></canvas></div>
+      <div><div class="cap">평가 시드별 흐름 0 1분당 연속 손실 (회색 DRA, 파랑 RL)</div><canvas class="chart" id="dumbbell" width="620" height="380"></canvas></div>
+    </div>
+    <div style="margin-top:30px"><div class="cap" id="curveMCap">학습 곡선: 흐름 0 최대 연속 손실</div><canvas class="chart" id="curveM" width="1300" height="240"></canvas></div>
   </section>
 
   <section>
     <h2 class="sec-h" id="seedH">평가 시드별 비교</h2>
-    <p class="sec-en">PER SEED   C는 모델 평균. 결과: 흐름 0 최대 연속 손실이 더 짧은 쪽</p>
+    <p class="sec-en">PER SEED   RL은 모델 평균. 결과: 흐름 0 최대 연속 손실이 더 짧은 쪽. 흐름 통째 손실: 어떤 흐름이든 에피소드 패킷 전부(최대 연속 손실 = 흐름당 패킷 수)를 잃은 RL 모델 수</p>
     <div id="seedTbl"></div>
   </section>
 
@@ -105,7 +127,7 @@
     최종 평가: isl_saved_runs/평가폴더/per_seed.csv, summary.csv. 도착률과 최대 연속 손실은 흐름 0, 1분당 연속 손실, 95번째 백분위 길이, 평균 지연, 에피소드 비교는 흐름 전체 (analysis/compare_runs.py와 같은 계산)<br>
     T50, T90, 오르기 시작은 첫 학습 시드의 검증 곡선에서 에피소드 기준으로 계산합니다 (시작값에서 마지막 3점 평균까지 오른 폭의 50%, 90%, 10%).</div>
 </main>
-<script src="common.js"></script>
+<script src="common.js?v=1124"></script>
 <script>
 const $ = id => document.getElementById(id);
 const BL = '#0877BD', OR = '#F59322', ORS = '#F8C88E', BG = '#9CB3C2';
@@ -115,14 +137,22 @@ function hiDPI(c) { if (!c.dataset.w) { c.dataset.w = c.getAttribute('width'); c
   if (c.width !== w * r) { c.width = w * r; c.height = h * r; } const g = c.getContext('2d'); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h); return [g, w, h]; }
 function showErr(m) { $('err').style.display = m ? 'block' : 'none'; $('err').textContent = m || ''; }
 
+function fillLists() {
+  // 고른 망 구조의 기록만 (폴더 이름으로 판단)
+  const t = $('selTopo').value, tr = runs.train.filter(x => x.topo === t), ev = runs.eval.filter(x => x.topo === t);
+  $('selTrain').innerHTML = tr.map(x => `<option>${x.name}</option>`).join('') || '<option value="">(학습 기록 없음)</option>';
+  $('selEval').innerHTML = ev.map(x => `<option>${x.name}</option>`).join('') || '<option value="">(평가 기록 없음)</option>';
+}
 async function init() {
   runs = await api('/api/results/list');
-  $('selTrain').innerHTML = runs.train.map(t => `<option>${t.name}</option>`).join('') || '<option value="">(학습 기록 없음)</option>';
-  $('selEval').innerHTML = runs.eval.map(e => `<option>${e.name}</option>`).join('') || '<option value="">(평가 기록 없음)</option>';
-  const qs = new URLSearchParams(location.search);   // ?train=test7_f4&eval=...로 바로 열 수 있음
+  const qs = new URLSearchParams(location.search);   // ?topo=iridium&train=...&eval=...로 바로 열 수 있음
+  if (qs.get('topo')) $('selTopo').value = qs.get('topo');
+  fillLists();
   if (qs.get('train')) $('selTrain').value = qs.get('train');
   if (qs.get('eval')) $('selEval').value = qs.get('eval');
+  $('selTopo').onchange = () => { fillLists(); loadTrain(); loadEval(); };
   $('selTrain').onchange = loadTrain; $('selEval').onchange = loadEval;
+  $('selLv').onchange = () => { level = $('selLv').value; renderAll(); };
   await Promise.all([loadTrain(), loadEval()]);
 }
 async function loadTrain() {
@@ -130,8 +160,9 @@ async function loadTrain() {
   train = await api('/api/results/train?name=' + encodeURIComponent(n));
   if (train.error) { showErr(train.error); train = null; } else showErr('');
   seedOn = new Set((train ? train.seeds : []).map(s => s.name));
-  $('seedChips').innerHTML = (train ? train.seeds : []).map(s => `<button class="chip on" data-s="${s.name}">s${s.seed}</button>`).join('');
-  $('seedChips').querySelectorAll('.chip').forEach(b => b.onclick = () => { const s = b.dataset.s; if (seedOn.has(s) && seedOn.size > 1) seedOn.delete(s); else seedOn.add(s); b.classList.toggle('on', seedOn.has(s)); renderCurve(); });
+  $('seedChips').innerHTML = (train ? train.seeds : []).map(s => `<label><input type="checkbox" checked data-s="${s.name}"> s${s.seed}</label>`).join('');
+  $('seedChips').querySelectorAll('input').forEach(b => b.onchange = () => { const s = b.dataset.s;
+    if (b.checked) seedOn.add(s); else if (seedOn.size > 1) seedOn.delete(s); else b.checked = true; renderCurve(); drawCurveM(); });
   setLevels(); renderAll();
 }
 async function loadEval() {
@@ -144,10 +175,9 @@ function setLevels() {
   const have = new Set([...(train ? train.seeds.flatMap(s => s.levels) : []), ...(ev ? Object.keys(ev.levels) : [])]);
   const lvs = ['base', 'high', 'severe'].filter(l => have.has(l));
   if (!lvs.includes(level)) level = lvs.includes('severe') ? 'severe' : lvs[0];
-  $('lvChips').innerHTML = lvs.map(l => `<button class="chip lv ${l === level ? 'on' : ''}" data-l="${l}">${l}</button>`).join('');
-  $('lvChips').querySelectorAll('.chip').forEach(b => b.onclick = () => { level = b.dataset.l; setLevels(); renderAll(); });
+  $('selLv').innerHTML = lvs.map(l => `<option ${l === level ? 'selected' : ''}>${l}</option>`).join('');
 }
-function renderAll() { renderCurve(); renderEval(); }
+function renderAll() { renderCurve(); renderEval(); renderBurst(); }
 
 // ---------- 학습 곡선 ----------
 function curveStats(pts) {
@@ -164,6 +194,7 @@ function renderCurve() {
   const [g, W, H] = hiDPI($('curve'));
   const seeds = train ? train.seeds.filter(s => seedOn.has(s.name) && s.curves[level]) : [];
   $('curveCap').textContent = `기한 내 도착률 (%, ${level || '-'}, 흐름 전체)`;
+  drawBurstCurve(seeds);
   if (!seeds.length) { g.fillStyle = '#999'; g.font = '13px sans-serif'; g.textAlign = 'center'; g.fillText('이 단계의 검증 기록이 없습니다', W / 2, H / 2); $('curveSum').innerHTML = ''; return; }
   const maxEp = Math.max(...seeds.flatMap(s => s.curves[level].map(p => p.episode)), 1);
   const px = 46, py = 24, pw = W - px - 14, ph = H - py - 40, X = e => px + e / maxEp * pw, Y = v => py + (100 - v) / 100 * ph;
@@ -195,14 +226,30 @@ function renderCurve() {
   $('curveSum').innerHTML = `<h3>학습 곡선 요약</h3><div class="s">학습 시드 ${first.seed}, ${level} 검증 (시드별 값은 고른 시드 전체)</div><p>${lead}</p><table>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>`;
 }
 
+function drawBurstCurve(seeds) {
+  // 검증 1분당 연속 손실 (흐름 전체), 시드마다 선 하나
+  const [g, W, H] = hiDPI($('curveB'));
+  $('curveBCap').textContent = `1분당 연속 손실 (${level || '-'}, 흐름 전체, 낮을수록 좋음)`;
+  const ss = seeds.filter(s => s.curves[level].some(p => p.burstPerMin != null));
+  if (!ss.length) { g.fillStyle = '#999'; g.font = '13px sans-serif'; g.textAlign = 'center'; g.fillText('연속 손실 검증 기록이 없습니다', W / 2, H / 2); return; }
+  const maxEp = Math.max(...ss.flatMap(s => s.curves[level].map(p => p.episode)), 1), top = Math.max(1, ...ss.flatMap(s => s.curves[level].map(p => p.burstPerMin || 0))) * 1.1;
+  const px = 46, py = 14, pw = W - px - 14, ph = H - py - 34, X = e => px + e / maxEp * pw, Y = v => py + (top - v) / top * ph;
+  g.font = '10px sans-serif'; g.fillStyle = '#999'; g.textAlign = 'right';
+  for (const k of [0, 0.5, 1]) { g.strokeStyle = '#EEE'; g.beginPath(); g.moveTo(px, Y(top * k)); g.lineTo(px + pw, Y(top * k)); g.stroke(); g.fillText((top * k).toFixed(0), px - 8, Y(top * k) + 4); }
+  g.textAlign = 'center'; const step = maxEp > 40 ? 20 : 10; for (let e = 0; e <= maxEp; e += step) g.fillText(e, X(e), py + ph + 16);
+  [...ss.slice(1), ss[0]].forEach(s => { const pts = s.curves[level].filter(p => p.burstPerMin != null), main = s === ss[0];
+    g.strokeStyle = main ? OR : ORS; g.lineWidth = main ? 2.5 : 1.5; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(X(p.episode), Y(p.burstPerMin)) : g.moveTo(X(p.episode), Y(p.burstPerMin))); g.stroke();
+    if (main) { g.fillStyle = OR; pts.forEach(p => { g.beginPath(); g.arc(X(p.episode), Y(p.burstPerMin), 3, 0, 7); g.fill(); }); } });
+}
+
 // ---------- 최종 평가 ----------
 function renderEval() {
   const L = ev && ev.levels[level];
   $('seedH').textContent = `평가 시드별 비교 (${level || '-'})`;
-  if (!L) { $('cards').innerHTML = `<div class="empty" style="grid-column:1/-1">이 단계의 최종 평가 기록이 없습니다.</div>`; $('evalSum').innerHTML = ''; $('seedTbl').innerHTML = ''; drawBars(); return; }
-  $('evalEn').textContent = `FINAL EVALUATION   평가 시드 ${L.nSeeds}개, C 모델 ${L.nModels}개 평균, ε 0` + (ev.flowZero ? '' : '   (흐름 1개 시절 기록: 흐름 0 = 전체)');
+  if (!L) { $('cards').innerHTML = `<div class="empty" style="grid-column:1/-1">이 단계의 최종 평가 기록이 없습니다.</div>`; $('evalSum').innerHTML = ''; $('seedTbl').innerHTML = ''; drawAllBars(); return; }
+  $('evalEn').textContent = `FINAL EVALUATION   평가 시드 ${L.nSeeds}개, RL 모델 ${L.nModels}개 평균, ε 0` + (ev.flowZero ? '' : '   (흐름 1개 시절 기록: 흐름 0 = 전체)');
   const c = L.cards, pct = (b, x) => b ? (b - x) / b * 100 : null;
-  const card = (k, b, x, unit, delta, worse) => `<div class="card"><div class="k">${k}</div><div class="v">${f1(x)}${unit}</div><div class="b">B ${f1(b)}${unit}에서</div><span class="d ${worse ? 'up' : ''}">${delta}</span></div>`;
+  const card = (k, b, x, unit, delta, worse) => `<div class="card"><div class="k">${k}</div><div class="v">${f1(x)}${unit}</div><div class="b">DRA ${f1(b)}${unit}에서</div><span class="d ${worse ? 'up' : ''}">${delta}</span></div>`;
   const dOn = c.onTime[1] - c.onTime[0], dMx = pct(c.maxConsec[0], c.maxConsec[1]), dB = pct(c.burstPerMin[0], c.burstPerMin[1]), dP = pct(c.burstLenP95[0], c.burstLenP95[1]), dL = c.latency[1] - c.latency[0];
   const red = v => v == null ? '-' : v >= 0 ? `${f1(v)}% 감소` : `${f1(-v)}% 증가`;
   $('cards').innerHTML = card('기한 내 도착률 (흐름 0)', c.onTime[0], c.onTime[1], '%', `${dOn >= 0 ? '+' : ''}${f1(dOn)}%p`, dOn < 0) +
@@ -211,28 +258,118 @@ function renderEval() {
     card('연속 손실 길이 95번째 백분위', c.burstLenP95[0], c.burstLenP95[1], '개', red(dP), dP < 0) +
     card('평균 지연', c.latency[0], c.latency[1], ' ms', `${dL >= 0 ? '+' : ''}${f1(dL)} ms`, dL > 0);
   const S = L.summary, ci = S.burstCutLo != null ? ` (95% 신뢰구간 ${f1(S.burstCutLo)} ~ ${f1(S.burstCutHi)}%)` : '';
-  const lead = `C의 흐름 0 도착률은 B보다 ${f1(Math.abs(dOn))}%p ${dOn >= 0 ? '높고' : '낮고'}, 긴 연속 손실(95번째 백분위)은 ${f1(Math.abs(S.p95Cut))}% ${S.p95Cut >= 0 ? '짧아졌습니다' : '길어졌습니다'}. 1분당 연속 손실은 ${f1(Math.abs(S.burstCut))}% ${S.burstCut >= 0 ? '줄었습니다' : '늘었습니다'}. 에피소드마다 비교하면 C가 ${f1(S.winRate)}%의 에피소드에서 낫습니다.`;
+  const lead = `RL의 흐름 0 도착률은 DRA보다 ${f1(Math.abs(dOn))}%p ${dOn >= 0 ? '높고' : '낮고'}, 긴 연속 손실(95번째 백분위)은 ${f1(Math.abs(S.p95Cut))}% ${S.p95Cut >= 0 ? '짧아졌습니다' : '길어졌습니다'}. 1분당 연속 손실은 ${f1(Math.abs(S.burstCut))}% ${S.burstCut >= 0 ? '줄었습니다' : '늘었습니다'}. 에피소드마다 비교하면 RL이 ${f1(S.winRate)}%의 에피소드에서 낫습니다.`;
   const rows = [['1분당 연속 손실 감소', `${f1(S.burstCut)}%${ci}`], ['긴 연속 손실 (95번째 백분위)', `${f1(Math.abs(S.p95Cut))}% ${S.p95Cut >= 0 ? '짧아짐' : '길어짐'}`],
-    ['C가 나은 에피소드', `${f1(S.winRate)}%`], ['가장 나쁜 에피소드 도착률', `C ${f1(S.worstC)}%, B ${f1(S.worstB)}%`],
-    ['평균 지연', S.latencyDiff <= 0 ? `C가 ${f1(-S.latencyDiff)} ms 짧음` : `C가 ${f1(S.latencyDiff)} ms 김`]];
-  $('evalSum').innerHTML = `<h3>최종 결과 요약 (${level})</h3><div class="s">평가 시드 ${L.nSeeds}개, C 모델 ${L.nModels}개, B 대비</div><p>${lead}</p><table>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>`;
+    ['RL이 나은 에피소드', `${f1(S.winRate)}%`], ['가장 나쁜 에피소드 도착률', `RL ${f1(S.worstC)}%, DRA ${f1(S.worstB)}%`],
+    ['평균 지연', S.latencyDiff <= 0 ? `RL이 ${f1(-S.latencyDiff)} ms 짧음` : `RL이 ${f1(S.latencyDiff)} ms 김`]];
+  $('evalSum').innerHTML = `<h3>최종 결과 요약 (${level})</h3><div class="s">평가 시드 ${L.nSeeds}개, RL 모델 ${L.nModels}개, DRA 대비</div><p>${lead}</p><table>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>`;
   const ps = L.perSeed; let cw = 0;
-  $('seedTbl').innerHTML = `<table class="seeds"><tr><th>평가 시드</th><th>B 도착률</th><th>C 도착률</th><th>차이</th><th>B 최대 연속 손실</th><th>C 최대 연속 손실</th><th>결과</th></tr>` +
-    ps.map(r => { const d = r.cOn - r.bOn, win = r.cMax < r.bMax; if (win) cw++; return `<tr><td>${r.seed}</td><td>${f1(r.bOn)}%</td><td class="c">${f1(r.cOn)}%</td><td class="${d >= 0 ? 'good' : 'bad'}">${d >= 0 ? '+' : ''}${f1(d)}%p</td><td>${Math.round(r.bMax)}</td><td>${f1(r.cMax)}</td><td class="${win ? 'good' : 'bad'}" style="font-weight:500">${win ? 'C 승' : r.cMax === r.bMax ? '같음' : 'B 승'}</td></tr>`; }).join('') + '</table>' +
-    `<p class="note">C 승 ${cw}번, B 승 ${ps.length - cw}번${ps.filter(r => r.cMax > r.bMax).length ? ` (B가 이긴 시드: ${ps.filter(r => r.cMax > r.bMax).map(r => r.seed).join(', ')})` : ''}.</p>`;
-  drawBars();
+  $('seedTbl').innerHTML = `<table class="seeds"><tr><th>평가 시드</th><th>DRA 도착률</th><th>RL 도착률</th><th>차이</th><th>DRA 최대 연속 손실</th><th>RL 최대 연속 손실</th><th>결과</th><th>흐름 통째 손실 (RL)</th></tr>` +
+    ps.map(r => { const d = r.cOn - r.bOn, win = r.cMax < r.bMax; if (win) cw++; return `<tr><td>${r.seed}</td><td>${f1(r.bOn)}%</td><td class="c">${f1(r.cOn)}%</td><td class="${d >= 0 ? 'good' : 'bad'}">${d >= 0 ? '+' : ''}${f1(d)}%p</td><td>${Math.round(r.bMax)}</td><td>${f1(r.cMax)}</td><td class="${win ? 'good' : 'bad'}" style="font-weight:500">${win ? 'RL 승' : r.cMax === r.bMax ? '같음' : 'DRA 승'}</td><td class="${r.cWhole ? 'bad' : 'sub'}">${r.cWhole ? `있음 (모델 ${r.cWhole}/${r.nC}, ${ev.perFlow}개)` : '-'}${r.bWhole ? ' (DRA도)' : ''}</td></tr>`; }).join('') + '</table>' +
+    `<p class="note">흐름 통째 손실이 있는 평가 시드: ${ps.filter(r => r.cWhole).map(r => r.seed).join(', ') || '없음'}. RL 승 ${cw}번, DRA 승 ${ps.length - cw}번${ps.filter(r => r.cMax > r.bMax).length ? ` (DRA가 이긴 시드: ${ps.filter(r => r.cMax > r.bMax).map(r => r.seed).join(', ')})` : ''}.</p>`;
+  drawAllBars();
 }
-function drawBars() {
-  const [g, W, H] = hiDPI($('bars')), lvs = ev ? ['base', 'high', 'severe'].filter(l => ev.levels[l]) : [];
+function drawAllBars() { drawBars('bars', 'onTime', 100); drawBars('barsB', 'burstPerMin'); drawBars('barsM', 'maxConsec'); }
+function drawBars(id, key, max) {
+  // 단계별 DRA, RL 막대 (cards[key] = [DRA, RL])
+  const [g, W, H] = hiDPI($(id)), lvs = ev ? ['base', 'high', 'severe'].filter(l => ev.levels[l]) : [];
   if (!lvs.length) { g.fillStyle = '#999'; g.font = '13px sans-serif'; g.textAlign = 'center'; g.fillText('최종 평가 기록이 없습니다', W / 2, H / 2); return; }
-  const px = 46, py = 30, ph = H - py - 40, Y = v => py + (100 - v) / 100 * ph, gw = (W - px - 20) / lvs.length;
+  const top = max || Math.max(1, ...lvs.flatMap(l => ev.levels[l].cards[key])) * 1.15;
+  const px = 46, py = 30, ph = H - py - 40, Y = v => py + (top - v) / top * ph, gw = (W - px - 20) / lvs.length;
   g.font = '10px sans-serif'; g.fillStyle = '#999'; g.textAlign = 'right';
-  for (const v of [0, 50, 100]) { g.strokeStyle = '#EEE'; g.beginPath(); g.moveTo(px, Y(v)); g.lineTo(W - 10, Y(v)); g.stroke(); g.fillText(v, px - 8, Y(v) + 4); }
-  lvs.forEach((l, i) => { const [b, c] = ev.levels[l].cards.onTime, bw = Math.min(110, gw / 2 - 20), x0 = px + i * gw + gw / 2 - bw - 7;
+  for (const v of [0, top / 2, top].map(x => +x.toFixed(0))) { g.strokeStyle = '#EEE'; g.beginPath(); g.moveTo(px, Y(v)); g.lineTo(W - 10, Y(v)); g.stroke(); g.fillText(v, px - 8, Y(v) + 4); }
+  lvs.forEach((l, i) => { const [b, c] = ev.levels[l].cards[key], bw = Math.min(110, gw / 2 - 20), x0 = px + i * gw + gw / 2 - bw - 7;
     [[b, BG, x0], [c, BL, x0 + bw + 14]].forEach(([v, col, x], k) => { g.globalAlpha = l === level ? 1 : 0.45; g.fillStyle = col; g.fillRect(x, Y(v), bw, Y(0) - Y(v)); g.globalAlpha = 1;
       g.fillStyle = k ? BL : '#777'; g.font = (k ? '500 ' : '') + '12px sans-serif'; g.textAlign = 'center'; g.fillText(f1(v), x + bw / 2, Y(v) - 6); });
     g.fillStyle = '#212121'; g.font = '500 12.5px sans-serif'; g.fillText(l, px + i * gw + gw / 2, Y(0) + 20); });
   g.strokeStyle = '#BBB'; g.beginPath(); g.moveTo(px, Y(0)); g.lineTo(W - 10, Y(0)); g.stroke();
+}
+// ---------- 연속 손실 자세히 (matplotlib 기본 모양: 검은 축 상자, 바깥 눈금, tab10 색, 그래프 안 범례) ----------
+const MC = { C0: '#1f77b4', C1: '#ff7f0e', C2: '#2ca02c', C3: '#d62728', C7: '#7f7f7f' }, MF = '"DejaVu Sans", Arial, sans-serif';
+function noData(id, msg) { const [g, W, H] = hiDPI($(id)); g.fillStyle = '#999'; g.font = '13px sans-serif'; g.textAlign = 'center'; g.fillText(msg, W / 2, H / 2); }
+function niceTicks(lo, hi, n = 5) {
+  const raw = (hi - lo) / n, p = Math.pow(10, Math.floor(Math.log10(raw || 1))), step = [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw) || p;
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(6)); return out;
+}
+// 축 상자 그리기 -> {X, Y, x0, y0, w, h}
+function mplAxes(g, W, H, o) {
+  const m = Object.assign({ l: 56, r: 14, t: 12, b: 42 }, o.m || {}), x0 = m.l, y0 = m.t, w = W - m.l - m.r, h = H - m.t - m.b;
+  const X = v => x0 + (v - o.xlim[0]) / (o.xlim[1] - o.xlim[0]) * w, Y = v => y0 + h - (v - o.ylim[0]) / (o.ylim[1] - o.ylim[0]) * h;
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  g.font = `10px ${MF}`; g.fillStyle = '#000'; g.strokeStyle = '#000'; g.lineWidth = 0.8;
+  const xt = o.xticks || niceTicks(o.xlim[0], o.xlim[1]), yt = o.yticks || niceTicks(o.ylim[0], o.ylim[1]);
+  if (o.grid) { g.strokeStyle = 'rgba(176,176,176,0.5)'; g.lineWidth = 0.6; for (const v of (o.grid === 'x' ? [] : yt)) { g.beginPath(); g.moveTo(x0, Y(v)); g.lineTo(x0 + w, Y(v)); g.stroke(); } for (const v of (o.grid === 'y' ? [] : xt)) { g.beginPath(); g.moveTo(X(v), y0); g.lineTo(X(v), y0 + h); g.stroke(); } g.strokeStyle = '#000'; g.lineWidth = 0.8; }
+  g.textAlign = 'center'; for (const v of xt) { if (o.xtickLabels && o.xtickLabels[v] == null) continue; g.beginPath(); g.moveTo(X(v), y0 + h); g.lineTo(X(v), y0 + h + 3.5); g.stroke(); g.fillText(o.xtickLabels ? o.xtickLabels[v] : v, X(v), y0 + h + 15); }
+  g.textAlign = 'right'; for (const v of yt) { if (o.ytickLabels && o.ytickLabels[v] == null) continue; g.beginPath(); g.moveTo(x0, Y(v)); g.lineTo(x0 - 3.5, Y(v)); g.stroke(); g.fillText(o.ytickLabels ? o.ytickLabels[v] : v, x0 - 6, Y(v) + 3.5); }
+  g.font = `11px ${MF}`; g.textAlign = 'center';
+  if (o.xlabel) g.fillText(o.xlabel, x0 + w / 2, H - 6);
+  if (o.ylabel) { g.save(); g.translate(13, y0 + h / 2); g.rotate(-Math.PI / 2); g.fillText(o.ylabel, 0, 0); g.restore(); }
+  return { X, Y, x0, y0, w, h, box: () => { g.strokeStyle = '#000'; g.lineWidth = 0.8; g.strokeRect(x0, y0, w, h); } };
+}
+// 그래프 안 범례 (테두리 상자). items: [[색, 이름, 'line'|'marker'|'patch', dash]]
+function mplLegend(g, A, items, where = 'ur') {
+  g.font = `10px ${MF}`; const pw = Math.max(...items.map(i => g.measureText(i[1]).width)) + 40, ph = items.length * 15 + 8;
+  const x = where.includes('l') ? A.x0 + 8 : A.x0 + A.w - pw - 8, y = where.includes('u') ? A.y0 + 8 : A.y0 + A.h - ph - 8;
+  g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(x, y, pw, ph); g.strokeStyle = '#ccc'; g.lineWidth = 0.8; g.strokeRect(x, y, pw, ph);
+  items.forEach(([c, name, kind, dash], i) => { const yy = y + 12 + i * 15;
+    if (kind === 'patch') { g.fillStyle = c; g.fillRect(x + 8, yy - 6, 18, 9); }
+    else if (kind === 'marker') { g.fillStyle = c; g.beginPath(); g.arc(x + 17, yy - 1.5, 3.5, 0, 7); g.fill(); }
+    else { g.strokeStyle = c; g.lineWidth = 1.5; g.setLineDash(dash || []); g.beginPath(); g.moveTo(x + 6, yy - 1.5); g.lineTo(x + 28, yy - 1.5); g.stroke(); g.setLineDash([]); }
+    g.fillStyle = '#000'; g.textAlign = 'left'; g.fillText(name, x + 34, yy + 2); });
+}
+function renderBurst() {
+  const L = ev && ev.levels[level], D = L && L.detail;
+  drawCurveM();
+  if (!D) { ['lenDist', 'modelBars', 'scatterMax', 'dumbbell'].forEach(id => noData(id, '이 단계의 최종 평가 기록이 없습니다')); $('lenNote').textContent = ''; return; }
+  $('burstEn').textContent = `BURST LOSS DETAIL   ${level}, 평가 시드 ${L.nSeeds}개, RL 모델 ${L.nModels}개`;
+  // 1. 길이 분포: 가로 누적 막대 (Oranges)
+  { const [g, W, H] = hiDPI($('lenDist')), cols = ['#fdae6b', '#fd8d3c', '#d94801'], rows = [['DRA', D.lenDist[0]], ['RL', D.lenDist[1]]];
+    const top = Math.max(...rows.map(r => r[1].reduce((a, b) => a + b, 0)), 1) * 1.05;
+    const A = mplAxes(g, W, H, { xlim: [0, top], ylim: [-0.6, 1.6], yticks: [1, 0], ytickLabels: { 1: 'DRA', 0: 'RL' }, xlabel: '연속 손실 횟수 (번)', grid: 'x', m: { l: 44, r: 14 } });
+    rows.forEach(([, v], i) => { const yc = 1 - i; let x = 0; v.forEach((n, k) => { g.fillStyle = cols[k]; g.fillRect(A.X(x), A.Y(yc + 0.3), A.X(x + n) - A.X(x), A.Y(yc - 0.3) - A.Y(yc + 0.3)); x += n; });
+      g.fillStyle = '#000'; g.font = `10px ${MF}`; g.textAlign = 'left'; g.fillText(Math.round(x), A.X(x) + 4, A.Y(yc) + 3.5); });
+    A.box(); mplLegend(g, A, [[cols[0], '3~4개', 'patch'], [cols[1], '5~9개', 'patch'], [cols[2], '10개 이상', 'patch']], 'ur'); }
+  $('lenNote').textContent = `평균 길이 DRA ${f1(D.avgLen[0])}개, RL ${f1(D.avgLen[1])}개. 전체 손실 중 연속 손실에 속한 비율 DRA ${f1(D.share[0])}%, RL ${f1(D.share[1])}%.`;
+  // 2. 모델별 흐름 0 1분당 연속 손실
+  { const ms = D.models.filter(m => m.burst0 != null), b0 = D.base0.burst0;
+    if (!ms.length || b0 == null) noData('modelBars', '흐름 0 기록이 없는 평가입니다');
+    else { const [g, W, H] = hiDPI($('modelBars')), top = Math.max(b0, ...ms.map(m => m.burst0)) * 1.25, xt = ms.map((_, i) => i), lab = {}; ms.forEach((m, i) => lab[i] = `RL s${m.cRun}`);
+      const A = mplAxes(g, W, H, { xlim: [-0.6, ms.length - 0.4], ylim: [0, top], xticks: xt, xtickLabels: lab, ylabel: '1분당 연속 손실', grid: 'y' });
+      ms.forEach((m, i) => { const bw = A.X(0.4) - A.X(0); g.fillStyle = MC.C0; g.fillRect(A.X(i) - bw / 2, A.Y(m.burst0), bw, A.Y(0) - A.Y(m.burst0));
+        g.fillStyle = '#000'; g.font = `10px ${MF}`; g.textAlign = 'center'; g.fillText(f1(m.burst0), A.X(i), A.Y(m.burst0) - 4); });
+      g.strokeStyle = MC.C7; g.lineWidth = 1.5; g.setLineDash([6, 4]); g.beginPath(); g.moveTo(A.x0, A.Y(b0)); g.lineTo(A.x0 + A.w, A.Y(b0)); g.stroke(); g.setLineDash([]);
+      A.box(); mplLegend(g, A, [[MC.C0, 'RL (모델별)', 'patch'], [MC.C7, `DRA (${f1(b0)})`, 'line', [6, 4]]], 'ur'); } }
+  // 3. 시드별 최대 연속 손실 산점도
+  { const ps = L.perSeed, [g, W, H] = hiDPI($('scatterMax')), top = Math.max(1, ...ps.flatMap(r => [r.bMax, r.cMax])) * 1.08;
+    const A = mplAxes(g, W, H, { xlim: [0, top], ylim: [0, top], xlabel: 'DRA 최대 연속 손실 (개)', ylabel: 'RL 최대 연속 손실 (개, 모델 평균)', grid: true });
+    g.strokeStyle = '#000'; g.lineWidth = 1; g.setLineDash([5, 4]); g.beginPath(); g.moveTo(A.X(0), A.Y(0)); g.lineTo(A.X(top), A.Y(top)); g.stroke(); g.setLineDash([]);
+    ps.forEach(r => { g.fillStyle = r.cMax < r.bMax ? MC.C0 : MC.C1; g.globalAlpha = 0.85; g.beginPath(); g.arc(A.X(r.bMax), A.Y(r.cMax), 4.5, 0, 7); g.fill(); g.globalAlpha = 1;
+      g.fillStyle = '#444'; g.font = `9px ${MF}`; g.textAlign = 'left'; g.fillText(r.seed, A.X(r.bMax) + 6, A.Y(r.cMax) - 4); });
+    A.box(); const w = ps.filter(r => r.cMax < r.bMax).length;
+    mplLegend(g, A, [[MC.C0, `RL이 짧음 (${w}/${ps.length})`, 'marker'], [MC.C1, `DRA가 짧거나 같음 (${ps.length - w}/${ps.length})`, 'marker'], ['#000', 'y = x', 'line', [5, 4]]], 'ul'); }
+  // 4. 시드별 흐름 0 1분당 연속 손실 (덤벨)
+  { const ps = L.perSeed.filter(r => r.bBurst0 != null && r.cBurst0 != null);
+    if (!ps.length) noData('dumbbell', '흐름 0 기록이 없는 평가입니다');
+    else { const [g, W, H] = hiDPI($('dumbbell')), top = Math.max(1, ...ps.flatMap(r => [r.bBurst0, r.cBurst0])) * 1.08, lab = {};
+      ps.forEach((r, i) => lab[i] = r.seed);
+      const A = mplAxes(g, W, H, { xlim: [0, top], ylim: [ps.length - 0.4, -0.6], yticks: ps.map((_, i) => i), ytickLabels: lab, xlabel: '흐름 0 1분당 연속 손실', ylabel: '평가 시드', grid: 'x', m: { l: 48 } });
+      ps.forEach((r, i) => { g.strokeStyle = '#b0b0b0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(A.X(r.bBurst0), A.Y(i)); g.lineTo(A.X(r.cBurst0), A.Y(i)); g.stroke();
+        for (const [v, c] of [[r.bBurst0, MC.C7], [r.cBurst0, MC.C0]]) { g.fillStyle = c; g.beginPath(); g.arc(A.X(v), A.Y(i), 4, 0, 7); g.fill(); } });
+      A.box(); const n = ps.filter(r => r.cBurst0 < r.bBurst0).length; mplLegend(g, A, [[MC.C7, 'DRA', 'marker'], [MC.C0, `RL (적은 시드 ${n}/${ps.length})`, 'marker']], 'ur'); } }
+}
+function drawCurveM() {
+  // 검증 흐름 0 최대 연속 손실 (4차 이후 기록만), 학습 시드마다 선 하나
+  const seeds = train ? train.seeds.filter(s => seedOn.has(s.name) && s.curves[level] && s.curves[level].some(p => p.maxConsec0 != null)) : [];
+  $('curveMCap').textContent = `학습 곡선: 흐름 0 최대 연속 손실 (${level || '-'}, 검증, 낮을수록 좋음)`;
+  if (!seeds.length) { noData('curveM', '흐름 0 최대 연속 손실 검증 기록이 없습니다 (4차 이후 학습만 있음)'); return; }
+  const [g, W, H] = hiDPI($('curveM')), all = seeds.flatMap(s => s.curves[level].filter(p => p.maxConsec0 != null));
+  const maxEp = Math.max(...all.map(p => p.episode), 1), top = Math.max(1, ...all.map(p => p.maxConsec0)) * 1.08;
+  const A = mplAxes(g, W, H, { xlim: [0, maxEp], ylim: [0, top], xlabel: '학습 에피소드', ylabel: '최대 연속 손실 (개)', grid: true });
+  const cols = [MC.C0, MC.C1, MC.C2, MC.C3];
+  seeds.forEach((s, k) => { const pts = s.curves[level].filter(p => p.maxConsec0 != null); g.strokeStyle = g.fillStyle = cols[k % 4]; g.lineWidth = 1.5; g.beginPath();
+    pts.forEach((p, i) => i ? g.lineTo(A.X(p.episode), A.Y(p.maxConsec0)) : g.moveTo(A.X(p.episode), A.Y(p.maxConsec0))); g.stroke();
+    pts.forEach(p => { g.beginPath(); g.arc(A.X(p.episode), A.Y(p.maxConsec0), 2.5, 0, 7); g.fill(); }); });
+  A.box(); mplLegend(g, A, seeds.map((s, k) => [cols[k % 4], `학습 시드 s${s.seed}`, 'line']), 'ur');
 }
 init().catch(e => showErr('불러오기 실패: ' + e));
 </script>

@@ -8,11 +8,14 @@
 #   /                    화면 (web/static)
 #   GET  /api/settings   변수 설정 칸 목록 (기본값, 지금 값)
 #   POST /api/settings   바꾼 값 저장 -> web/user_settings.json (설정 파일 원본은 안 바꿈)
+#   POST /api/settings/preview   저장하지 않고 칸 목록만 다시 계산
 #   POST /api/control    start, pause, step, stop, reset, speed
 #   GET  /api/state      지금 상태, 에피소드 기록, 이벤트
+#   GET  /api/topology   지도 미리보기와 실행 조건 요약 (?topology=이름이면 그 망 구조로)
 #   GET  /api/stream     실시간 상태 (Server-Sent Events, 약 0.1초마다)
 #   GET  /api/results    저장된 학습 기록(train_log.csv)과 평가 결과(summary.csv) 중 가장 최근 것
 #   GET  /api/results/list, /api/results/train?name=, /api/results/eval?name=   결과 분석 화면 (web/results.py)
+#   GET  /api/compare/models, POST /api/compare   라우팅 비교 화면: 같은 시드로 DRA, RL 재생 기록 (web/compare.py)
 import csv
 import glob
 import json
@@ -25,7 +28,7 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(BASE))   # isl_routing
 
 from web.live import LiveRunner
-from web.schema import build_config, describe
+from web.schema import build_config, describe, topology_view
 
 STATIC = os.path.join(BASE, 'static')
 SAVED = os.path.join(BASE, 'user_settings.json')
@@ -72,6 +75,16 @@ class Handler(SimpleHTTPRequestHandler):
         if path == '/api/settings':
             saved = load_saved()
             return self._json(dict(fields=describe(saved), saved=saved))
+        if path == '/api/topology':
+            from urllib.parse import parse_qs, urlparse
+            o = load_saved()
+            name = parse_qs(urlparse(self.path).query).get('topology')
+            if name:
+                o['topology'] = name[0]
+            try:
+                return self._json(topology_view(o))
+            except Exception as e:
+                return self._json(dict(error=f'{type(e).__name__}: {e}'), 400)
         if path == '/api/state':
             return self._json(runner.info())
         if path == '/api/results':
@@ -92,6 +105,9 @@ class Handler(SimpleHTTPRequestHandler):
                     return self._json(RES.load_eval(q.get('name', '')))
             except Exception as e:
                 return self._json(dict(error=f'{type(e).__name__}: {e}'), 400)
+        if path == '/api/compare/models':
+            from web.compare import list_models
+            return self._json(list_models())
         if path == '/api/stream':
             return self._stream()
         return super().do_GET()
@@ -107,6 +123,20 @@ class Handler(SimpleHTTPRequestHandler):
             with open(SAVED, 'w', encoding='utf-8') as f:
                 json.dump(overrides, f, ensure_ascii=False, indent=1)
             return self._json(dict(ok=True))
+        if path == '/api/settings/preview':   # 저장하지 않고 칸 목록만 다시 계산 (망 구조를 바꿨을 때 자동 계산 값)
+            try:
+                return self._json(dict(fields=describe(self._body().get('overrides', {}))))
+            except Exception as e:
+                return self._json(dict(error=f'{type(e).__name__}: {e}'), 400)
+        if path == '/api/compare':   # 같은 시나리오를 DRA, RL로 돌림 (이리듐 약 1분, 같은 조건은 다시 계산 안 함)
+            if runner.info()['state'].get('status') not in (None, 'idle'):
+                return self._json(dict(error='시뮬레이터가 실행 중입니다. 멈춘 뒤 비교하세요.'), 409)
+            b = self._body()
+            try:
+                from web.compare import run_compare
+                return self._json(run_compare(b['topology'], b['level'], int(b['seed']), b['model'], load_saved()))
+            except Exception as e:
+                return self._json(dict(error=f'{type(e).__name__}: {e}'), 400)
         if path == '/api/control':
             opts = self._body()
             opts.setdefault('overrides', load_saved())

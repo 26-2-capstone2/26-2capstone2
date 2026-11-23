@@ -61,16 +61,18 @@ class ObjectiveTests(unittest.TestCase):
         rewards = {int(t[0][0]): t[2] - hop for t in agent.transitions}
         return P, RL, collector, rewards
 
-    def test_burst_reward_covers_whole_run_and_grows_with_length(self):
+    def test_burst_reward_covers_whole_run_and_counts_bursts(self):
         P = config_isl()
         RL = config_rl(P)
         self.assertEqual([round(burst_reward(k, P, RL), 2) for k in (1, 3, 4, 5, 10, 13, 20)],
-                         [-0.2, -0.7, -0.3, -0.4, -0.9, -1.0, -1.0])   # k = 3: 시작 벌점 -0.5 포함
+                         [-0.3, -2.3, -0.3, -0.3, -0.3, -0.3, -0.3])   # 5차: 패킷당 -0.3, k = 3에 시작 벌점 -2.0
+        total = lambda n: sum(burst_reward(k, P, RL) for k in range(1, n + 1))
+        self.assertLess(2 * total(10), total(20))                      # 같은 20개 손실이면 둘로 쪼갠 쪽이 더 나쁨
         results = [1, 4, 4, 1] + [4] * 5 + [1]           # 단발 2개, 연속 5개
         _, RL, collector, rewards = self._run_collector(results, order=list(range(len(results)))[::-1])
         self.assertEqual(collector.numBurstPenalties, 5)
-        for packet_id, expected in [(0, 0.5), (1, -0.1), (2, -0.1), (3, 0.5), (4, -0.2), (5, -0.2), (6, -0.7),
-                                    (7, -0.3), (8, -0.4), (9, 0.5)]:
+        for packet_id, expected in [(0, 0.5), (1, -0.1), (2, -0.1), (3, 0.5), (4, -0.3), (5, -0.3), (6, -2.3),
+                                    (7, -0.3), (8, -0.3), (9, 0.5)]:
             self.assertAlmostEqual(rewards[packet_id], expected, msg=f'패킷 {packet_id}')
 
     def test_burst_at_episode_end_is_judged_at_finish(self):
@@ -91,12 +93,15 @@ class ObjectiveTests(unittest.TestCase):
         queue = np.zeros(G.numLinks, dtype=int)
         observed = obs_from_sim(1, 0, queue, G, P, RL, 43, 20)
         self.assertEqual(observed.values.shape, (24,))
-        np.testing.assert_array_equal(observed.mask, [0, 1, 1, 1])   # 'link': 없는 방향(상)만 막음
-        RL.maskMode = 'full'
+        np.testing.assert_array_equal(observed.mask, [0, 1, 1, 1])   # 들어온 링크 없음: 없는 방향(상)만 막음
+        RL.maskMode = 'noBack'
+        observed = obs_from_sim(1, 0, queue, G, P, RL, 43, 20, backDir=3)
+        np.testing.assert_array_equal(observed.mask, [0, 1, 0, 1])   # 'noBack': 들어온 링크(좌)도 막음
+        RL.maskMode = 'deadline'
         observed = obs_from_sim(1, 0, queue, G, P, RL, 43, 20)
-        np.testing.assert_array_equal(observed.mask, [0, 1, 0, 1])
+        np.testing.assert_array_equal(observed.mask, [0, 1, 0, 1])   # 기한 안에 못 가는 방향(좌)도 막음
         self.assertFalse(observed.deadlineFallback)
-        fallback = action_mask(observed.queueLengths, P, G, 1, 0, 1)
+        fallback = action_mask(observed.queueLengths, P, G, 1, 0, 1, 'deadline')
         self.assertTrue(fallback.deadlineFallback)
         self.assertGreater(fallback.values.sum(), 0)
 
@@ -137,10 +142,12 @@ class ObjectiveTests(unittest.TestCase):
             agent.learn()
 
     def test_coarse_observation(self):
-        # 기본 State (coarseIn 19개): 큐 3단계, 이웃 부하, 링크 유무, 남은 거리, 남은 기한 + 들어온 방향
+        # 기본 State (coarse 15개, 11/20): 큐 3단계, 이웃 부하, 링크 유무, 남은 거리, 남은 기한
         P = config_isl()
         RL = config_rl(P)
-        self.assertEqual((RL.stateMode, RL.obsDim), ('coarseIn', 19))
+        self.assertEqual((RL.stateMode, RL.obsDim, RL.maskMode, RL.rewardRiskQueue, RL.riskQueueLevel),
+                         ('coarseTrend', 23, 'noBack', 0.5, 100))   # 기본값 (11/23 6차)
+        RL.stateMode, RL.obsDim = 'coarseIn', 19                 # 이리듐 2차 모델 (+ 들어온 방향 4)
         G = build_grid(P)
         queue = np.zeros(G.numLinks, dtype=int)
         queue[G.linkId[1, 0, 3]] = 160                    # (1, 0) 우 방향 큐 160개 -> 혼잡 1
@@ -153,8 +160,20 @@ class ObjectiveTests(unittest.TestCase):
         self.assertEqual(list(o[15:]), [0, 0, 0, 0])             # 막 생성된 패킷: 들어온 방향 없음
         o = obs_from_sim(1, 0, queue, G, P, RL, 43, 20, backDir=3).values
         self.assertEqual(list(o[15:]), [0, 0, 1, 0])             # 왼쪽 위성에서 들어옴
-        RL.stateMode, RL.obsDim = 'coarse', 15                   # 이전 모델 (15개)도 그대로 계산됨
+        RL.stateMode, RL.obsDim = 'coarse', 15
         self.assertEqual(obs_from_sim(1, 0, queue, G, P, RL, 43, 20, backDir=3).values.shape, (15,))
+        RL.stateMode, RL.obsDim = 'coarseTrend', 23              # + 큐 증가 속도 4, 최근 큐 넘침 4
+        o = obs_from_sim(1, 0, queue, G, P, RL, 43, 20).values
+        self.assertEqual(o.shape, (23,))
+        self.assertEqual(list(o[19:]), [1.0, 1.0, 1.0, 1.0])     # 기록 없음: 넘친 적 없음
+        G.dstSat = [5, 5]                                        # 남은 거리: 1칸 = 0.2, 5칸 넘으면 1로 자름 (망 크기와 상관없이)
+        RL.normDist = 2                                          #   자르기 확인용 (기본 5)
+        self.assertEqual(list(obs_from_sim(1, 0, queue, G, P, RL, 43, 20).values[12:14]), [1.0, 1.0])
+        RL.normDist = 5
+        from rl.rl_reward import hop_reward                       # 위험 링크 진입 벌점: 100개에서 0, 200개에서 0.5, 사이는 비례
+        RL.rewardHopQueue = False
+        for q, risk in [(50, 0), (100, 0), (150, 0.25), (200, 0.5)]:
+            self.assertAlmostEqual(hop_reward(10, q, P, RL), -10 / RL.rewardHopScale - risk)
 
     def test_back_direction_in_sim(self):
         # 시뮬레이터가 패킷마다 들어온 방향을 넘겨 줌: 직전에 고른 방향의 반대
