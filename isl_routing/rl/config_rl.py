@@ -64,13 +64,21 @@ def config_rl(P):
 
     # ---- 학습 실행 (train_rl.py) ----
     RL.trainLevels = ['high', 'severe']    # 학습에 쓰는 혼잡 단계
-    RL.flowZeroRandomTrain = True          # 학습 에피소드마다 흐름 0의 출발, 도착도 무작위 (검증, 평가는 항상 (0,0) -> (5,5))
+    RL.flowZeroRandomTrain = True          # 학습 때 측정 흐름(흐름 0)을 가장 먼 거리 근처 쌍 중 무작위로 (검증, 평가는 항상 srcSat -> dstSat, 6x6이면 (0,0) -> (5,5))
     RL.trainLevelMode = 'weighted'         # 'weighted': 아래 비율로 에피소드마다 무작위로 고름, 'cycle': base, high, severe 차례로 돌아가며 (이전 방식)
     RL.trainLevelWeights = {'high': 1, 'severe': 2}   # severe 강조 혼합, 순서는 trainSeedStart로 고정
     RL.trainSeedStart = 1001               # 학습용 시드 시작 (평가용 시드 1~20은 학습에 절대 안 씀)
     RL.trainEpisodes = 80                  # 학습 에피소드 수 (10초짜리)
     RL.evalSeeds = list(range(1, 21))      # 평가용 시드 1~20 (A, B와 같은 조건)
     RL.torchSeed = 0                       # 신경망 초기값, 버퍼 샘플링 난수 시드
+
+    # ---- 적응 (rl/adapt_rl.py): 다른 격자로 학습한 모델을 새 격자에서 짧게 추가 학습 (학습 -> 적응 -> 평가) ----
+    RL.trainGrid = 'grid:10x10'            # run.py "C 학습"의 기본 학습 격자 (학습 전용, 평가는 다른 격자로)
+    RL.adaptEpisodes = 5                   # 적응 에피소드 수 (10초짜리)
+    RL.adaptSeedStart = 2001               # 적응 전용 시드 (학습 1001~, 검증 501~503, 최종 평가 1~20과 겹치지 않음)
+    RL.adaptEps = 0.05                     # 적응 중 ε (처음부터 끝까지 고정, 학습 끝의 값과 같음)
+    RL.adaptLr = 1e-5                      # 적응 학습률 (학습 1e-4의 1/10, 배운 것을 크게 흔들지 않게)
+    RL.adaptLearnStart = 10000 * P.numFlows   # 적응: 버퍼가 비어서 시작 -> 이만큼 쌓이면 학습 시작 (에피소드 1개 안쪽)
 
     # ---- 저장 ----
     RL.modelDir = 'rl_models'              # 학습된 신경망 저장 폴더

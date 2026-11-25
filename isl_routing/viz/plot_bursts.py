@@ -101,7 +101,7 @@ def plot_bursts(Rs, P, pngPath):
     ax.set_title(f'에피소드별 연속 손실 (≥{m}개) 횟수')
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), ncol=4, frameon=False)
 
-    fig.suptitle(f'연속 손실 분석 (패킷 번호 순서로 {m}개 이상 연달아 손실, 1초마다 {P.genRate}개 생성, '
+    fig.suptitle((f'[{P.resultScope}] ' if getattr(P, 'resultScope', '') else '') + f'연속 손실 분석 (패킷 번호 순서로 {m}개 이상 연달아 손실, 1초마다 {P.genRate}개 생성, '
                  f'{P.simTime * P.stepTime:.0f}초)', fontsize=15, color=C.text)
     fig.savefig(pngPath, dpi=120, facecolor='w')
     plt.close(fig)

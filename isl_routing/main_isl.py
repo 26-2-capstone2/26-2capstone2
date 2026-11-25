@@ -2,10 +2,10 @@
 
 # ISL 2D Grid 라우팅 시뮬레이션 실행
 # 실행 목록 (config_isl.py)
-#   ε = 0   : P.routeName의 라우팅마다 1번씩 (기본 B) -> 성능 지표, 애니메이션
-#   ε > 0   : P.collectRoute 라우팅으로만 -> 강화학습용 결정 기록 (decision_log)
-#   기본값이면 A(ε=0), B(ε=0), B(ε=0.1) 3번. 같은 에피소드는 라우팅이 달라도 같은 핫스팟 시나리오
-#   결과 파일 이름: <종류>_<라우팅>_rate60pps_eps0.0.csv  (예: packet_log_routeA_rate60pps_eps0.0.csv)
+# ε = 0   : P.routeName의 라우팅마다 1번씩 (기본 B) -> 성능 지표, 애니메이션
+# ε > 0   : P.collectRoute 라우팅으로만 -> 강화학습용 결정 기록 (decision_log)
+# 기본값이면 A(ε=0), B(ε=0), B(ε=0.1) 3번. 같은 에피소드는 라우팅이 달라도 같은 핫스팟 시나리오
+# 결과 파일 이름: <종류>_<라우팅>_rate60pps_eps0.0.csv  (예: packet_log_routeA_rate60pps_eps0.0.csv)
 # 노드 기록(P.nodeLogEnable)이 켜져 있으면 node_log CSV + 노드 요약 지도 / 손실 많은 노드 시간 변화 PNG도 저장
 import copy
 import csv
@@ -22,6 +22,7 @@ import numpy as np
 
 from analysis.burst_loss import BURST_COLUMNS, burst_info
 from analysis.compute_metrics import compute_metrics
+from analysis.measured import measured_view, scope_text
 from analysis.save_results import save_results
 from config_isl import apply_bg_level, config_isl
 from sim.bg_traffic import describe_hotspots, sample_hotspots
@@ -44,12 +45,12 @@ for old in glob.glob(os.path.join(outDir, '*')):   # 지난 실행 결과 지우
         os.remove(old)
 
 # 배경 트래픽 시나리오: 에피소드마다 시드를 하나씩 써서 핫스팟 위치를 새로 뽑음 (에피소드 e의 시드 = 시작 시드 + e)
-#   시작 시드 우선순위: 실행 인자 (python main_isl.py 7) > config의 bgScenarioSeed > (None이면) 무작위
-#   같은 시작 시드면 모든 에피소드의 시나리오가 똑같이 재현됨. 무작위로 정했다면 아래에 출력/저장되니 그 값을 다시 넣으면 됨
+# 시작 시드 우선순위: 실행 인자 (python main_isl.py 7) > config의 bgScenarioSeed > (None이면) 무작위
+# 같은 시작 시드면 모든 에피소드의 시나리오가 똑같이 재현됨. 무작위로 정했다면 아래에 출력/저장되니 그 값을 다시 넣으면 됨
 # 실행 인자 (모두 생략 가능, 순서대로): 시작 시드, 혼잡 단계, 라우팅, (routeC일 때) 모델 경로
-#   예) python main_isl.py 1001 high routeB
-#   예) python main_isl.py 1 severe routeC C:/Users/eun/rl_models/routeC_2026-10-30/model_final.pt
-#   라우팅을 실행 인자로 주면 그 라우팅 하나만 실행 (ε > 0 데이터 수집도 그 라우팅으로)
+# 예) python main_isl.py 1001 high routeB
+# 예) python main_isl.py 1 severe routeC C:/Users/eun/rl_models/routeC_2026-10-30/model_final.pt
+# 라우팅을 실행 인자로 주면 그 라우팅 하나만 실행 (ε > 0 데이터 수집도 그 라우팅으로)
 if len(sys.argv) > 2:
     apply_bg_level(P, sys.argv[2])
 if len(sys.argv) > 3:
@@ -87,8 +88,8 @@ elif P.bgScenarioSeed is None:
     P.bgScenarioSeed = random.randrange(100000)
 seeds = [P.bgScenarioSeed + e for e in range(numEp)]
 runName = '-'.join(dict.fromkeys(r for r, _, _ in runPlan)) + f'_{P.bgLevel}'   # 저장 폴더 이름 (라우팅_혼잡단계, 시작 시드는 run_info.txt에 기록)
-if P.topology != 'grid':   # 실제 위성군이나 크기를 바꾼 격자는 구조 이름도 붙임 (예: routeA-routeB_high_iridium)
-    runName += '_' + P.topology.replace(':', '')
+if P.topologyName != 'grid':   # 크기를 바꾼 격자는 구조 이름도 붙임 (예: routeA-routeB_high_grid10x10)
+    runName += '_' + P.topologyName.replace(':', '')
 print(f'[실행] {runName} (혼잡 {P.bgLevel}, 시작 시드 {P.bgScenarioSeed}, 기한 {P.deadline})')
 if P.bgEnable:
     print(f'[배경 시나리오] 시작 시드 {P.bgScenarioSeed}, 에피소드 {numEp}개 x {P.simTime * P.stepTime:.0f}초')
@@ -123,6 +124,7 @@ def writetable(rows, columns, path, fmt):
 
 
 Pt = total_params(P)   # 후처리용: simTime을 전체 길이(에피소드 길이 x 개수)로 바꾼 복사본
+Pt.resultScope = scope_text(P)   # 결과 지표, 그래프는 측정 흐름(흐름 0) 기준 (다른 GSL 흐름은 flow_analysis, flow_summary에만)
 results = []
 runs = []   # 실행 분석 그래프용 (실행 결과 전체)
 for routeName, epsilon, genRate in runPlan:
@@ -135,9 +137,11 @@ for routeName, epsilon, genRate in runPlan:
             sample_hotspots(Pr, G, seeds[e])   # 같은 시드면 같은 시나리오 -> 라우팅/ε가 달라도 에피소드 e의 환경은 동일
         eps_runs.append(run_isl_sim(Pr, int(genRate), epsilon, P.randomSeed + e, epsilon == 0 and e == 0))
     R = merge_episodes(eps_runs, Pr)
-    M = compute_metrics(R, Pt)
+    RM = measured_view(R)                 # 측정 흐름(흐름 0)만 남긴 결과 -> 지표, 그래프
+    M = compute_metrics(RM, Pt)
+    M.allFlowsOnTimeRate = float((R.status == 1).mean())   # 참고: 측정 흐름 + 다른 GSL 흐름 전체의 기한 내 도착률
     results.append(M)
-    runs.append(R)
+    runs.append(RM)
     tag = f'{routeName}_rate{int(genRate)}pps_eps{epsilon:.1f}'
 
     B = burst_info(R, Pt)   # 연속 손실 (burst_loss.py)
@@ -145,6 +149,15 @@ for routeName, epsilon, genRate in runPlan:
                                 B.pktRunLen, B.pktBurstId, R.packetFlow]),
                pktColumns, os.path.join(outDir, f'packet_log_{tag}.csv'), '%d')
     writetable(B.table, BURST_COLUMNS, os.path.join(outDir, f'burst_log_{tag}.csv'), '%d')
+    try:   # 흐름별 결과 그림 + 표 (viz/plot_flows.py). 그림이 실패해도 시뮬레이션 결과는 그대로
+        from viz.plot_flows import plot_flows
+        plot_flows(R.status, R.packetFlow, R.packetEpisode, R.genTime, R.endTime,
+                   [getattr(r, 'flows', None) or [] for r in eps_runs], seeds,
+                   f'흐름별 결과: {tag} (grid 구조 {P.topologyName})',
+                   os.path.join(outDir, f'flow_analysis_{tag}.png'), os.path.join(outDir, f'flow_summary_{tag}.csv'),
+                   P.burstMinLen, P.simTime, P.stepTime)
+    except Exception as ex:
+        print(f'    흐름별 그래프 저장 실패 ({ex}), 나중에: python viz/plot_flows.py 결과폴더')
     if R.nodeLog is not None:
         writetable(R.nodeLog, NODE_LOG_COLUMNS, os.path.join(outDir, f'node_log_{tag}.csv'), '%d')
         nodeP, nodeS = save_node_plots(node_columns(R.nodeLog, NODE_LOG_COLUMNS),
@@ -156,8 +169,8 @@ for routeName, epsilon, genRate in runPlan:
     else:
         animate_run(eps_runs[0], Pr, os.path.join(outDir, f'anim_{tag}.gif'))   # 애니메이션은 첫 에피소드만
 
-    print(f'[{tag}] episodes={numEp} steps={R.endStep} gen={R.numPackets} onTime={M.onTimeRate:.3f} loss={M.lossRate:.3f} '
-          f'lat={M.avgLatency_ms:.1f}ms hops={M.avgHops:.2f} decisions={R.decisionLog.shape[0]} '
+    print(f'[{tag}] (측정 흐름) episodes={numEp} steps={R.endStep} gen={R.numPackets} onTime={M.onTimeRate:.3f} loss={M.lossRate:.3f} '
+          f'lat={M.avgLatency_ms:.1f}ms hops={M.avgHops:.2f} 전체 흐름 onTime={M.allFlowsOnTimeRate:.3f} '
           f'({time.time() - tic:.1f}s)')
     print(f'    연속 손실(≥{M.burstMinLen}개): {M.burstCount}번, 평균 길이 {M.avgBurstLen:.2f}, 최대 {M.maxConsecLoss}, '
           f'속한 패킷 {M.burstLossPackets}개 (전체 손실의 {M.burstShareOfLoss * 100:.1f}%)')
@@ -188,7 +201,12 @@ with open(os.path.join(outDir, 'run_info.txt'), 'w', encoding='utf-8') as f:
              if getattr(P, 'bgMode', 'hotspot') == 'event' else
              f'핫스팟 개수: {P.bgNumMin} ~ {P.bgNumMax}, 세기: {P.bgLoadMin} ~ {P.bgLoadMax}배, ON/OFF 평균: {P.bgOnMean} / {P.bgOffMean} step'),
             f'기한: {P.deadline} step, TTL: {P.ttlInit}, 큐: {P.queueMax}, 링크 용량: {P.linkCapacity}, 연속 손실 기준: {P.burstMinLen}개',
-            f'생성률: {P.genRate}개/초, ε 시드: {P.randomSeed} ~ {P.randomSeed + numEp - 1}']
+            f'생성률: {P.genRate}개/초, ε 시드: {P.randomSeed} ~ {P.randomSeed + numEp - 1}',
+            f'결과 지표: {scope_text(P) or "흐름 1개"} (metrics_summary, run_analysis, burst_analysis). '
+            f'다른 GSL 흐름 {P.numFlows - 1}개를 포함한 흐름별 결과는 flow_analysis, flow_summary']
+    if modelPath:
+        from rl.model_info import model_grid
+        info.append(f'C 모델 학습 격자: {model_grid(modelPath)} -> 이번 실행 격자: {P.topologyName} ({P.numPlanes} x {P.satsPerPlane})')
     f.write('\n'.join(info) + '\n')
 
 # 결과 자동 저장 (코드 .py + 이미지 + CSV + run_info) - 폴더 이름: 라우팅_혼잡단계_날짜 (예: routeA-routeB_base_2026-10-31)

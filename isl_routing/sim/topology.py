@@ -2,6 +2,11 @@
 #
 # 좌표: p = 궤도면 번호 (좌/우 = 옆 궤도면으로 가는 링크), s = 궤도 안 위성 번호 (상/하 = 같은 궤도 앞뒤 위성)
 #
+# [변경] 모든 구조를 직사각형/정사각형 가상 격자로 씀: 끝은 막힘 (원형 연결 없음), 극지방 링크 끊김 없음,
+#        링크 지연은 궤도 안(상하) 7, 궤도 사이(좌우) 2 step 고정
+#   'iridium', 'starlink'는 그 크기의 가상 격자로 바꿔 씀: iridium -> grid:6x11, starlink -> grid:72x22,
+#   'starlink:12x12' -> grid:12x12. 아래 실제 위성군 설명과 거리 계산 코드는 이전 방식 기록용으로만 남김
+#
 # 구조 이름 (apply_topology의 name)
 #   'grid'      가상 격자. 크기 자유 (예: 'grid:8x8'), 끝은 막힘, 링크 지연 고정 (상하 7, 좌우 2 step)
 #   'iridium'   6 x 11, 극궤도 (고도 780 km, 경사각 86.4도)
@@ -75,6 +80,10 @@ def apply_topology(P, name='grid'):
     # 구조 이름으로 P의 망 구조 값을 덮어쓰고, 기한과 TTL을 그 구조에 맞게 다시 정함
     from sim.build_grid import build_grid   # build_grid가 이 파일을 쓰므로 여기서 불러옴
     base, a, b = parse_name(name)
+    if base in PRESETS:   # 실제 위성군 이름은 같은 크기의 가상 격자로 (원형 연결, 극지방 없음)
+        a = a or PRESETS[base]['numPlanes']
+        b = b or PRESETS[base]['satsPerPlane']
+        base = 'grid'
     if base == 'grid':
         P.topology = 'grid'
         P.numPlanes = a or 6
@@ -106,6 +115,8 @@ def apply_topology(P, name='grid'):
     P.deadline = int(max(minDelay, xy_path_delay(G))) + DEADLINE_MARGIN
     P.ttlInit = int(minHops) + TTL_MARGIN
     P.bgTtl = max(getattr(P, 'bgTtl', 20), P.ttlInit)
+    if P.topology == 'grid':   # 표시용 이름: 6x6은 'grid', 그 밖의 크기는 'grid:10x10'처럼
+        P.topologyName = 'grid' if (P.numPlanes, P.satsPerPlane) == (6, 6) else f'grid:{P.numPlanes}x{P.satsPerPlane}'
     return P
 
 

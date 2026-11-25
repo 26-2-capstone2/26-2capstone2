@@ -23,17 +23,26 @@ class MultiFlowTest(unittest.TestCase):
         self.G = build_grid(self.P)
 
     def test_flows(self):
-        # 흐름 0은 기존 주 흐름, 나머지는 최소 지연 조건을 만족하고 서로 다름, 같은 시드면 같은 흐름
+        # 흐름 0은 측정 흐름 (시험 땐 고정), 나머지는 거리 조건을 만족하고 서로 다름, 같은 시드면 같은 흐름
         flows = make_flows(self.P, self.G, 11)
         self.assertEqual(len(flows), 3)
         self.assertEqual(flows[0], ((0, 0), (5, 5)))
         self.assertEqual(len(set(flows)), 3)
+        far = max(_dist_to(self.G, (p, s)).max() for p in range(self.P.numPlanes) for s in range(self.P.satsPerPlane))
         for src, dst in flows[1:]:
             d = _dist_to(self.G, dst)[src]
-            self.assertTrue(self.P.flowDelayMin <= d <= self.P.flowDelayMax)
+            self.assertTrue(far * self.P.otherFlowFracMin <= d <= far)
         self.assertEqual(flows, make_flows(self.P, self.G, 11))
         self.P.numFlows = 1
         self.assertEqual(make_flows(self.P, self.G, 11), [((0, 0), (5, 5))])
+
+    def test_train_main_flow_is_far(self):
+        # 학습 때 측정 흐름은 가장 먼 거리 x mainFarFrac 이상인 쌍 중 무작위
+        self.P.flowZeroRandom = True
+        far = max(_dist_to(self.G, (p, s)).max() for p in range(self.P.numPlanes) for s in range(self.P.satsPerPlane))
+        for seed in range(20):
+            src, dst = make_flows(self.P, self.G, seed)[0]
+            self.assertGreaterEqual(_dist_to(self.G, dst)[src], far * self.P.mainFarFrac)
 
     def test_burst_split_by_flow(self):
         # 흐름 0의 마지막 손실 2개와 흐름 1의 첫 손실 2개는 이어지지 않음 (각각 길이 2)
