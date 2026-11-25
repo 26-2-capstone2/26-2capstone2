@@ -1,0 +1,52 @@
+{
+  "allEligible": {
+    "cases": 92,
+    "stayHigher60sReturn": 54,
+    "switchHigher60sReturn": 38,
+    "returnTies": 0,
+    "stayHigherImmediateReward": 70,
+    "switchHigherImmediateReward": 22,
+    "switchLessWindowLoss": 48,
+    "stayLessWindowLoss": 29,
+    "sameWindowLoss": 15,
+    "meanSwitchMinusStayReturn": -0.07465267032410565
+  },
+  "full60SecondsOnly": {
+    "cases": 57,
+    "stayHigher60sReturn": 31,
+    "switchHigher60sReturn": 26,
+    "returnTies": 0,
+    "stayHigherImmediateReward": 43,
+    "switchHigherImmediateReward": 14,
+    "switchLessWindowLoss": 29,
+    "stayLessWindowLoss": 19,
+    "sameWindowLoss": 9,
+    "meanSwitchMinusStayReturn": -0.08557109530336278
+  },
+  "shorterNearEnd": {
+    "cases": 35,
+    "stayHigher60sReturn": 23,
+    "switchHigher60sReturn": 12,
+    "returnTies": 0,
+    "stayHigherImmediateReward": 27,
+    "switchHigherImmediateReward": 8,
+    "switchLessWindowLoss": 19,
+    "stayLessWindowLoss": 10,
+    "sameWindowLoss": 6,
+    "meanSwitchMinusStayReturn": -0.056871235357886886
+  },
+  "trainingSeedCount": 49,
+  "allPoorTimePoints": 95,
+  "noValidStayCases": 3,
+  "note": "Conditional on fixed parent follow-up policy and this realized channel. Nearby times are correlated; cases are not independent trials.",
+  "burstComparison": {
+    "staySmallerWindowMaxRun": 20,
+    "switchSmallerWindowMaxRun": 41,
+    "same": 31
+  },
+  "objectiveDisagreements": {
+    "higherRewardHasMoreWindowLoss": 12,
+    "higherRewardHasLongerWindowBurst": 13,
+    "note": "Compared up to 60 seconds; reward is discounted and also penalizes handovers, so this is a tradeoff, not an arithmetic error."
+  }
+}

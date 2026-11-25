@@ -1,0 +1,117 @@
+{
+  "trainingEpisodes": 100,
+  "change": "one additional candidate-set context input; original reward and uniform replay",
+  "original10": {
+    "uniform": {
+      "loss_pct": 4.094166666666666,
+      "maxLossRun": 64.3,
+      "onTime_pct": 95.90583333333333,
+      "handovers": 131.0,
+      "worstRunAcrossTen": 145
+    },
+    "context": {
+      "loss_pct": 4.238333333333334,
+      "maxLossRun": 56.8,
+      "onTime_pct": 95.76166666666666,
+      "handovers": 124.4,
+      "worstRunAcrossTen": 145
+    }
+  },
+  "fresh10": {
+    "uniform": {
+      "loss_pct": 4.291388888888889,
+      "maxLossRun": 65.8,
+      "onTime_pct": 95.7086111111111,
+      "handovers": 139.1,
+      "worstRunAcrossTen": 187
+    },
+    "context": {
+      "loss_pct": 4.435555555555555,
+      "maxLossRun": 51.1,
+      "onTime_pct": 95.56444444444445,
+      "handovers": 130.0,
+      "worstRunAcrossTen": 195
+    }
+  },
+  "pairedDifferences": [
+    {
+      "cohort": "original10",
+      "metric": "loss_pct",
+      "contextMinusOriginal": 0.1441666666666678,
+      "lower95": 0.08231097437080437,
+      "upper95": 0.20602235896253124
+    },
+    {
+      "cohort": "original10",
+      "metric": "maxLossRun",
+      "contextMinusOriginal": -7.5,
+      "lower95": -18.991570366874242,
+      "upper95": 3.9915703668742424
+    },
+    {
+      "cohort": "original10",
+      "metric": "onTime_pct",
+      "contextMinusOriginal": -0.1441666666666805,
+      "lower95": -0.20602235896255733,
+      "upper95": -0.08231097437080366
+    },
+    {
+      "cohort": "original10",
+      "metric": "handovers",
+      "contextMinusOriginal": -6.6,
+      "lower95": -10.140033032454886,
+      "upper95": -3.059966967545113
+    },
+    {
+      "cohort": "fresh10",
+      "metric": "loss_pct",
+      "contextMinusOriginal": 0.14416666666666628,
+      "lower95": 0.08555968010382378,
+      "upper95": 0.20277365322950877
+    },
+    {
+      "cohort": "fresh10",
+      "metric": "maxLossRun",
+      "contextMinusOriginal": -14.7,
+      "lower95": -30.635501698601065,
+      "upper95": 1.235501698601066
+    },
+    {
+      "cohort": "fresh10",
+      "metric": "onTime_pct",
+      "contextMinusOriginal": -0.1441666666666464,
+      "lower95": -0.2027736532294772,
+      "upper95": -0.08555968010381561
+    },
+    {
+      "cohort": "fresh10",
+      "metric": "handovers",
+      "contextMinusOriginal": -9.1,
+      "lower95": -12.180560112003707,
+      "upper95": -6.019439887996291
+    }
+  ],
+  "QReturnDiagnostics": {
+    "uniform": {
+      "sampledReturnNotExactExpectedQ": true,
+      "maeExcludingFinal120s": 0.4617523705117452,
+      "highPERsamples": 6,
+      "highPERmae": 1.8669761921552215,
+      "unitPERChoicesWithBetterAlternative": 8
+    },
+    "context": {
+      "sampledReturnNotExactExpectedQ": true,
+      "maeExcludingFinal120s": 0.4759425402949665,
+      "highPERsamples": 4,
+      "highPERmae": 1.416294445150015,
+      "unitPERChoicesWithBetterAlternative": 2
+    }
+  },
+  "originalFilesUnchanged": true,
+  "trainingCandidateSetCensus": {
+    "allCandidatesPER1_seconds": 5,
+    "bestSuccess0to0_1_seconds": 90,
+    "bestSuccess0_1to0_9_seconds": 2337,
+    "bestSuccessAtLeast0_9_seconds": 57568
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "scope": "GS to first satellite",
+  "episodes": 100,
+  "normalDecisions": 60000,
+  "featureDim": 12,
+  "trainingSeeds": [
+    20269101,
+    20269200
+  ],
+  "evaluationSeeds": [
+    20269301,
+    20269310
+  ],
+  "freshSeeds": [
+    20276001,
+    20276010
+  ],
+  "change": "exact stay/switch one-step simulator transitions in a separate rare replay buffer; quota 8 of 64",
+  "rareReplayCapacity": 2048,
+  "rareBatchQuota": 8,
+  "criticalBestSuccessThreshold": 0.1,
+  "thresholdRole": "classify training states only; no PHY probability or action masking changes",
+  "rewardWeights": {
+    "onTime": 1,
+    "burst": 0.3,
+    "handover": 0.1
+  },
+  "unmodified": [
+    "PHY",
+    "geometry",
+    "power",
+    "6 dB attenuation",
+    "handover 100ms",
+    "12-input context state",
+    "11 original features plus best visible success",
+    "gamma .95",
+    "learning rate .0003",
+    "epsilon decay 48000",
+    "7437 optimizer updates",
+    "Q margin .02"
+  ],
+  "diagnosticPolicy": "frozen 100-episode context model; first action changed once then same frozen policy",
+  "diagnosticHorizon": "min(60,600-current_time) seconds",
+  "futureLeakageProtection": [
+    "diagnostic returns never used as targets",
+    "learner uses immediate one-second reward and next state only",
+    "no forks/replay/learning during evaluation",
+    "training seeds only for augmented transitions"
+  ],
+  "budgetCaveat": "additional simulator queries produce paired data, so environment-interaction budget is not identical; optimizer steps and primary episodes are identical",
+  "samplingCaveat": "fixed rare quota intentionally changes training-state weighting; no importance correction, not a PHY or reward change",
+  "seedCaveat": "one initialization per method; 92 diagnostic decision times from correlated trajectories are not 92 independent trials",
+  "preservedSHA256": {
+    "C:/Users/succe/Desktop/codex/1123/gsl/q_context_1126/results_context/20261126_003447_332/agent.mat": "4f6e5c838144b6a957e7e062ab4f24581e8a5d7c3ed58eeee352a88c069067fd",
+    "C:/Users/succe/Desktop/codex/1123/gsl/three_constellations/GSLSelectionEpisode.m": "8c09a67e0088f519724a3b0188492e58b1ecca1f61acc57204640f034bf1d9da",
+    "C:/Users/succe/Desktop/codex/1123/gsl/ddqn_6x11/results_ddqn_6x11/20261123_160855_135/agent.mat": "58b27bd0a7b4a0f9ad0909e5b93ca279b36726e0cddfa17c40e38a7787559869"
+  }
+}

@@ -1,0 +1,11 @@
+root=fileparts(fileparts(mfilename('fullpath')));
+addpath(root,fullfile(root,'three_constellations'),fullfile(root,'ddqn_6x11'));
+here=fileparts(mfilename('fullpath'));addpath(here);
+ddqnRoot=fullfile(root,'ddqn_1000','results_ddqn_1000','20261125_184805_356');
+oldRoot=fullfile(root,'ddqn_6x11','results_ddqn_6x11','20261123_160855_135');
+maxRoot=fullfile(root,'maxsnr_comparison','results_maxsnr','20261125_181004_310');
+originalHash=dir(fullfile(ddqnRoot,'agent.mat'));
+R=run_gsl_1000_burst_audit(ddqnRoot,maxRoot);
+T=probe_gsl_1000_rewards(ddqnRoot,oldRoot,R.outputDir);
+assert(isequal(dir(fullfile(ddqnRoot,'agent.mat')),originalHash));
+disp('1000 EPISODE AUDIT FINISHED; NO TRAINING OR POLICY MODIFICATION.');

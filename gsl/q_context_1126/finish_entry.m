@@ -1,0 +1,12 @@
+root=fileparts(fileparts(mfilename('fullpath')));
+addpath(root,fullfile(root,'three_constellations'),fullfile(root,'ddqn_6x11'));
+addpath(fileparts(mfilename('fullpath')));R=open_saved_gsl_q_context(false);
+assert(height(R.training)==100&&height(R.runs)==10);
+assert(numel(R.options.featureNames)==12);
+S=load(fullfile(R.outputDir,'agent.mat'),'checkpoint');
+parameters=S.checkpoint.onlineNetwork.Learnables;
+index=find(cellfun(@(x)isequal(size(x),[64 12]),parameters.Value),1);
+assert(~isempty(index));W=parameters.Value{index};
+assert(size(W,2)==12&&norm(double(extractdata(W(:,12))))>1e-6);
+fprintf('Added context input weights learned: norm %.6f\n',norm(double(extractdata(W(:,12)))));
+fprintf('SAVED CONTEXT RESULT REOPEN PASS: no training.\n');

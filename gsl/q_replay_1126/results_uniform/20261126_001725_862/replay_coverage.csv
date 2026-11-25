@@ -1,0 +1,4 @@
+regime,seenTransitions,sampledTransitions
+PER_lt_0.1,33727,208563
+PER_0.1_to_0.9,4398,36655
+PER_ge_0.9,21875,230750

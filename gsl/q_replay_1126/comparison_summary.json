@@ -1,0 +1,142 @@
+{
+  "method": "TD-prioritized replay pilot; reward unchanged",
+  "trainingEpisodesPerMethod": 100,
+  "originalPairedEvaluation": {
+    "uniform": {
+      "loss_pct": 4.094166666666666,
+      "maxLossRun": 64.3,
+      "onTime_pct": 95.90583333333333,
+      "handovers": 131.0
+    },
+    "prioritized": {
+      "loss_pct": 4.186944444444446,
+      "maxLossRun": 75.7,
+      "onTime_pct": 95.81305555555555,
+      "handovers": 118.0
+    }
+  },
+  "newPairedValidation": {
+    "uniform": {
+      "loss_pct": 3.9958333333333345,
+      "maxLossRun": 28.1,
+      "onTime_pct": 96.00416666666666,
+      "handovers": 136.6
+    },
+    "prioritized": {
+      "loss_pct": 4.075,
+      "maxLossRun": 34.7,
+      "onTime_pct": 95.92500000000001,
+      "handovers": 120.7
+    }
+  },
+  "trainingCoverage": {
+    "uniform": [
+      {
+        "regime": "PER_lt_0.1",
+        "seenTransitions": "33727",
+        "sampledTransitions": "208563"
+      },
+      {
+        "regime": "PER_0.1_to_0.9",
+        "seenTransitions": "4398",
+        "sampledTransitions": "36655"
+      },
+      {
+        "regime": "PER_ge_0.9",
+        "seenTransitions": "21875",
+        "sampledTransitions": "230750"
+      }
+    ],
+    "prioritized": [
+      {
+        "regime": "PER_lt_0.1",
+        "seenTransitions": "33681",
+        "sampledTransitions": "203253"
+      },
+      {
+        "regime": "PER_0.1_to_0.9",
+        "seenTransitions": "4448",
+        "sampledTransitions": "42663"
+      },
+      {
+        "regime": "PER_ge_0.9",
+        "seenTransitions": "21871",
+        "sampledTransitions": "230052"
+      }
+    ]
+  },
+  "QRealizedReturnDiagnostics": {
+    "uniform": {
+      "scope": "on-policy sampled return residual, NOT exact expected Q error; final 120s excluded",
+      "meanAbsResidual": 0.4812813621967495,
+      "highPERsampleCount": 7,
+      "highPERmeanAbsResidual": 0.8154256009417954,
+      "unitPERChoicesWithNonunitAlternative": 1
+    },
+    "prioritized": {
+      "scope": "on-policy sampled return residual, NOT exact expected Q error; final 120s excluded",
+      "meanAbsResidual": 0.6087493424108824,
+      "highPERsampleCount": 9,
+      "highPERmeanAbsResidual": 0.7493545986961004,
+      "unitPERChoicesWithNonunitAlternative": 4
+    }
+  },
+  "pairedDifferences": [
+    {
+      "cohort": "original",
+      "metric": "loss_pct",
+      "prioritizedMinusUniform": 0.09277777777777993,
+      "lower95": 0.053667794965665074,
+      "upper95": 0.1318877605898948
+    },
+    {
+      "cohort": "original",
+      "metric": "maxLossRun",
+      "prioritizedMinusUniform": 11.4,
+      "lower95": -13.643622588334368,
+      "upper95": 36.44362258833437
+    },
+    {
+      "cohort": "original",
+      "metric": "onTime_pct",
+      "prioritizedMinusUniform": -0.09277777777778909,
+      "lower95": -0.1318877605899107,
+      "upper95": -0.05366779496566749
+    },
+    {
+      "cohort": "original",
+      "metric": "handovers",
+      "prioritizedMinusUniform": -13.0,
+      "lower95": -16.389043975069526,
+      "upper95": -9.610956024930475
+    },
+    {
+      "cohort": "new",
+      "metric": "loss_pct",
+      "prioritizedMinusUniform": 0.07916666666666598,
+      "lower95": 0.028261235202618695,
+      "upper95": 0.13007209813071327
+    },
+    {
+      "cohort": "new",
+      "metric": "maxLossRun",
+      "prioritizedMinusUniform": 6.6,
+      "lower95": -8.16557035921702,
+      "upper95": 21.365570359217017
+    },
+    {
+      "cohort": "new",
+      "metric": "onTime_pct",
+      "prioritizedMinusUniform": -0.07916666666665009,
+      "lower95": -0.13007209813069873,
+      "upper95": -0.028261235202601452
+    },
+    {
+      "cohort": "new",
+      "metric": "handovers",
+      "prioritizedMinusUniform": -15.9,
+      "lower95": -18.730459961792032,
+      "upper95": -13.069540038207968
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "decisions": 6000,
+  "worsePERthanBestSNR": 869,
+  "chosenPER1_with_betterPER_available": 13,
+  "marginBlocks": 59,
+  "meanMaxRun": 81.5,
+  "noMarginMeanMaxRun": 77.8,
+  "meanPLR": 4.155555555555556,
+  "noMarginMeanPLR": 4.182777777777777,
+  "longestBurstsWithMarginBlock": 1
+}

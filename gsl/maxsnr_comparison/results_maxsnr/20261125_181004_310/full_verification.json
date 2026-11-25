@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "maxSNRTrainingEpisodes": 0,
+  "newEvaluationRuns": 10,
+  "newVerifiedPacketRecords": 360000,
+  "greedyChoicesChecked": 6000,
+  "samePacketDraws": true,
+  "sameChannelAndPHY": true,
+  "existingResultsReused": true
+}

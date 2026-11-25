@@ -1,0 +1,8 @@
+scoring,cases,preferLongerFullMax,preferMoreFullLoss,dominatedOnLossAndMax,preferStay,preferSwitch,ties
+original,92,8,12,10,54,38,0
+no_extra_HO,92,1,6,2,27,52,13
+no_discount,92,8,11,9,51,39,2
+no_extra_HO_no_discount,92,1,5,1,27,52,13
+onTime_only_no_discount,92,5,0,0,29,48,15
+burst_only_no_discount,92,0,9,4,29,50,13
+no_burst,92,20,22,22,66,25,1
