@@ -67,4 +67,3 @@
 - `python tools/show_results.py`: 표, 그래프, 노드 그림, 애니메이션 창
 - `python tools/show_node.py p s`: 노드 (p,s)의 시간 변화
 - `python viz/plot_rl.py 학습폴더 [평가summary.csv]`: 학습 곡선, 라우팅 비교 그래프
-- 웹 결과 분석 (`python web/server.py` 후 http://localhost:8000/results.html): 검증 학습 곡선, B vs C 최종 평가, 평가 시드별 비교

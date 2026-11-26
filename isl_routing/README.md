@@ -36,7 +36,6 @@ torch는 강화학습(routeC)을 학습하거나 평가할 때만 필요함.
 | 최종 성능 목표 판정 | `python analysis/compare_runs.py 평가폴더` |
 | 여러 세트 한 번에 실행 | `python tools/run_batch.py high routeB 1001 5` |
 | 테스트 | `python -m unittest discover -s tests` |
-| 웹 시뮬레이터, 결과 분석 | `python web/server.py` 후 http://localhost:8000 |
 
 학습 시드 3개를 동시에 돌리려면 터미널 3개에서 마지막 숫자만 0, 1, 2로 바꿔 실행.
 
@@ -74,7 +73,6 @@ rl/         강화학습 설정, State 19개, 보상, DQN, 경험 연결, 학습
 viz/        그래프, 애니메이션, 학습 곡선
 docs/       사용법, 시뮬레이션 설명, 변수 설명
 tests/      강화학습 계산 확인 테스트
-web/        웹 대시보드 (시뮬레이터, 사용 설명, 변수 설정, 결과 분석)
 ```
 
 ## 주요 정의

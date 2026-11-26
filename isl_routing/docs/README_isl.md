@@ -34,7 +34,6 @@ python run.py
 | 최종 성능 목표 판정 | `python analysis/compare_runs.py 평가폴더` |
 | 여러 세트 한 번에 | `python tools/run_batch.py high routeB 1001 5` |
 | 테스트 | `python -m unittest discover -s tests` |
-| 웹 시뮬레이터, 결과 분석 | `python web/server.py` 후 http://localhost:8000 (결과 분석: `/results.html`) |
 
 망 구조는 환경 변수 `ISL_TOPOLOGY`로 고름: `grid` (기본 6x6), `grid:8x8`, `iridium`, `starlink`, `starlink:12x12`
 - PowerShell: `$env:ISL_TOPOLOGY="iridium"; python rl/train_rl.py`

@@ -97,7 +97,7 @@ def config_rl(P):
     return RL
 
 
-# 혼잡 단계 비율 -> 에피소드별 단계 (터미널 학습 train_rl.py와 웹 web/live.py, web/schema.py가 함께 씀)
+# 혼잡 단계 비율 -> 에피소드별 단계 (train_rl.py가 씀)
 # PyTorch 없이 불러올 수 있게 이 파일에 둠
 def apply_level_ratio(RL, ratio):
     # 'b:h:s' (예 '1:1:2') -> 학습 단계 비율. 0인 단계는 학습과 검증에서 뺌
