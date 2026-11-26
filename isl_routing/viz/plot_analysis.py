@@ -80,15 +80,23 @@ def plot_analysis(Rs, P, pngPath):
     # ---- 4. 홉 수 분포 ----
     ax = axs[3]
     reachedHops = [R.hops[(R.status == 1) | (R.status == 2)] for R in Rs]
-    hopVals = np.arange(min(h.min() for h in reachedHops), max(h.max() for h in reachedHops) + 1)
+    hasHops = [h for h in reachedHops if len(h)]          # 도착한 패킷이 하나도 없는 실행은 빼고 그림
+    hopVals = (np.arange(min(h.min() for h in hasHops), max(h.max() for h in hasHops) + 1)
+               if hasHops else np.zeros(0, dtype=int))
     width = 0.8 / nRun
     for r in range(nRun):
+        if not len(reachedHops[r]):
+            continue
         counts = np.array([(reachedHops[r] == h).sum() for h in hopVals]) / len(reachedHops[r])
         ax.bar(hopVals + (r - (nRun - 1) / 2) * width, counts, width, color=C.series[r], label=labels[r])
+    if not hasHops:
+        ax.text(0.5, 0.5, '도착한 패킷 없음', transform=ax.transAxes, ha='center', color=C.muted, fontsize=12)
     style_axes(ax, C)
     ax.grid(axis='x', visible=False)
-    ax.set_xticks(hopVals)
-    ax.set_xlabel('홉 수 (최소 경로 = 10)'); ax.set_ylabel('도착 패킷 비율')
+    if len(hopVals) <= 25:
+        ax.set_xticks(hopVals)
+    minHops = int(np.abs(np.asarray(P.dstSat) - np.asarray(P.srcSat)).sum()) if P.topology == 'grid' else None
+    ax.set_xlabel('홉 수' + (f' (측정 흐름 최소 경로 = {minHops})' if minHops else '')); ax.set_ylabel('도착 패킷 비율')
     ax.set_title('홉 수 분포')
     ax.legend(loc='upper right', frameon=False)
 
@@ -143,7 +151,7 @@ def plot_analysis(Rs, P, pngPath):
     ax.set_title('손실 원인')
     ax.legend(loc='upper center', ncol=4, frameon=False)
 
-    fig.suptitle(f'실행 분석 (1초마다 {P.genRate}개 생성, {P.simTime * P.stepTime:.0f}초)', fontsize=15, color=C.text)
+    fig.suptitle((f'[{P.resultScope}] ' if getattr(P, 'resultScope', '') else '') + f'실행 분석 (1초마다 {P.genRate}개 생성, {P.simTime * P.stepTime:.0f}초)', fontsize=15, color=C.text)
     fig.savefig(pngPath, dpi=120, facecolor='w')
     plt.close(fig)
 

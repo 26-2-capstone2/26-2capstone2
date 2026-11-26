@@ -77,7 +77,7 @@ def sample_hotspots(P, G, seed, maxTry=500):
     #   같은 시드면 항상 같은 시나리오. 한 번 실행(에피소드)을 시작하기 전에 한 번만 호출
     #   반환: 뽑힌 핫스팟 목록 [(p, s, 방향, 다음 p, 다음 s, 주 흐름과 관련 있는 큐인지)], 세기 목록(packets/step)
     from sim.flows import make_flows, set_flow_limits
-    P.mainFlows = make_flows(P, G, seed)   # 이 에피소드의 주 흐름 목록 (흐름 0: 무작위 출발 -> 끝점)
+    P.mainFlows = make_flows(P, G, seed)   # 이 에피소드의 주 흐름 목록 (흐름 0: 측정 흐름)
     set_flow_limits(P, G)                  # 흐름마다 기한, TTL (P.mainDeadlines, P.mainTtls)
     if getattr(P, 'bgMode', 'hotspot') == 'event':   # 혼잡 사건 방식은 sim/bg_event.py
         from sim.bg_event import sample_events

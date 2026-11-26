@@ -13,8 +13,10 @@
 #       C는 탐험 없이 Q값이 가장 큰 방향만 고름, 학습도 안 함
 # 저장: 홈 폴더 isl_saved_runs/eval_날짜/ (같은 날 또 돌리면 _2, _3)
 #   summary.csv   단계 x 라우팅(x C 모델)별 합계 (1분당 연속 손실, 연속 손실 길이 95번째 백분위 포함)
+#   지표는 모두 측정 흐름(흐름 0) 기준. allFlowsOnTimeRate만 다른 GSL 흐름까지 포함한 참고값
 #   per_seed.csv  평가 시드(에피소드)별 결과 -> 짝지은 승률, 최악 에피소드 비교용
 #   run_info.txt
+#   라우팅별 막대 비교 그림이 필요하면: python viz/plot_eval.py 평가폴더 (자동 저장은 안 함)
 # 최종 성능 목표 판정: python analysis/compare_runs.py 평가폴더
 import csv
 import os
@@ -25,6 +27,7 @@ import numpy as np
 
 from analysis.burst_summary import burst_rate_stats, loss_run_lengths
 from analysis.compute_metrics import compute_metrics
+from analysis.measured import measured_view, scope_text
 from config_isl import BG_LEVELS, EVENT_LEVELS, apply_bg_level, config_isl
 from sim.bg_traffic import sample_hotspots
 from sim.build_grid import build_grid
@@ -36,8 +39,8 @@ DEFAULT_ROUTES = ['routeB', 'routeC']   # 기본 비교 대상 (A는 routeA,rout
 
 
 def loss_runs(Rs):
-    # 에피소드별 연속 손실 구간 길이 (에피소드 경계에서 끊음)
-    return np.concatenate([loss_run_lengths(r.status, r.packetFlow) for r in Rs])   # 주 흐름마다 끊어서 셈
+    # 측정 흐름(흐름 0)의 에피소드별 손실 구간 길이 (에피소드 경계에서 끊음)
+    return np.concatenate([loss_run_lengths(r.status[r.packetFlow == 0]) for r in Rs])
 
 
 def evaluate(level, route, modelPath=None, numEpisodes=None, cRun=''):
@@ -63,47 +66,39 @@ def evaluate(level, route, modelPath=None, numEpisodes=None, cRun=''):
     for e in range(P.numEpisodes):
         sample_hotspots(P, G, P.bgScenarioSeed + e)
         Rs.append(run_isl_sim(P, P.genRate, 0, P.randomSeed + e, False))
-    M = compute_metrics(merge_episodes(Rs, P), total_params(P))
+    R = merge_episodes(Rs, P)
+    M = compute_metrics(measured_view(R), total_params(P))   # 지표는 측정 흐름(흐름 0) 기준
     runs = loss_runs(Rs)
-    minutes = P.numEpisodes * P.simTime * P.stepTime / 60 * P.numFlows   # 흐름 하나 기준 1분당 (흐름 수로 나눔)
+    minutes = P.numEpisodes * P.simTime * P.stepTime / 60     # 측정 흐름 하나 기준 1분당
     rate = burst_rate_stats(runs, P.burstMinLen, minutes)
-    epMin = P.simTime * P.stepTime / 60
-    mainRuns = [loss_run_lengths(r.status[r.packetFlow == 0]) for r in Rs]   # 흐름 0 (우리 GSL)만, 에피소드별
-    mainRate = burst_rate_stats(np.concatenate(mainRuns), P.burstMinLen, P.numEpisodes * epMin)
     perSeed = []
-    for e, (r, mr) in enumerate(zip(Rs, mainRuns)):
-        er = loss_run_lengths(r.status, r.packetFlow)
-        ok = r.status == 1
-        main = r.packetFlow == 0                         # 흐름 0 (기존 주 흐름, GSL 연결 흐름)
-        arr = (r.status == 1) | (r.status == 2)          # 평균 지연은 compute_metrics와 같게 목적지 도착 패킷 전체
-        eRate = burst_rate_stats(er, P.burstMinLen, epMin * P.numFlows)
-        mRate = burst_rate_stats(mr, P.burstMinLen, epMin)
+    for e, r in enumerate(Rs):
+        main = r.packetFlow == 0                         # 측정 흐름
+        st = r.status[main]
+        er = loss_run_lengths(st)
+        arr = (st == 1) | (st == 2)                      # 평균 지연은 compute_metrics와 같게 목적지 도착 패킷
+        eRate = burst_rate_stats(er, P.burstMinLen, P.simTime * P.stepTime / 60)
+        lat = (r.endTime[main] - r.genTime[main])[arr]
         perSeed.append(dict(level=level, route=route, cRun=cRun, seed=P.randomSeed + e,
-                            onTimeRate=round(float(ok.mean()) * 100, 2),
-                            mainOnTimeRate=round(float(ok[main].mean()) * 100, 2),
-                            mainMaxConsecLoss=int(mr.max(initial=0)),
-                            mainBurstCount=int((mr >= P.burstMinLen).sum()),
-                            mainBurstPerMin=round(mRate.burstPerMin, 3),
+                            onTimeRate=round(float((st == 1).mean()) * 100, 2),
                             burstCount=int((er >= P.burstMinLen).sum()),
                             burstPerMin=round(eRate.burstPerMin, 3),
                             burstLenP95=round(eRate.burstLenP95, 1),
                             maxConsecLoss=int(er.max()) if len(er) else 0,
-                            avgLatency_ms=round(float((r.endTime[arr] - r.genTime[arr]).mean()) * P.stepTime * 1000, 2)
-                            if arr.any() else ''))
+                            avgLatency_ms=round(float(lat.mean()) * P.stepTime * 1000, 2) if len(lat) else '',
+                            allFlowsOnTimeRate=round(float((r.status == 1).mean()) * 100, 2)))
     return dict(level=level, route=route, cRun=cRun,
                 onTimeRate=round(M.onTimeRate * 100, 2), lossRate=round(M.lossRate * 100, 2),
-                 burstMinLen=M.burstMinLen, burstCount=M.burstCount,
-                 burstPackets=M.burstLossPackets, burstPacketRate=round(M.burstLossRate * 100, 2),
-                 burstShareOfLoss=round(M.burstShareOfLoss * 100, 1), avgBurstLen=round(M.avgBurstLen, 2),
-                 maxConsecLoss=M.maxConsecLoss, lossRuns=len(runs),
-                 infeasibleMasks=C_STATE.infeasibleMasks if C_STATE is not None else 0,
+                burstMinLen=M.burstMinLen, burstCount=M.burstCount,
+                burstPackets=M.burstLossPackets, burstPacketRate=round(M.burstLossRate * 100, 2),
+                burstShareOfLoss=round(M.burstShareOfLoss * 100, 1), avgBurstLen=round(M.avgBurstLen, 2),
+                maxConsecLoss=M.maxConsecLoss, lossRuns=len(runs),
+                infeasibleMasks=C_STATE.infeasibleMasks if C_STATE is not None else 0,
                 runs_ge5=int((runs >= 5).sum()), runs_ge10=int((runs >= 10).sum()),
                 avgLatency_ms=round(M.avgLatency_ms, 2),
-                worstEpisodeOnTime=round(min(float((r.status == 1).mean()) for r in Rs) * 100, 1),
+                worstEpisodeOnTime=round(min(float((r.status[r.packetFlow == 0] == 1).mean()) for r in Rs) * 100, 1),
                 burstPerMin=round(rate.burstPerMin, 3), burstLenP95=round(rate.burstLenP95, 1),
-                mainOnTimeRate=round(float(np.mean(np.concatenate([r.status[r.packetFlow == 0] for r in Rs]) == 1)) * 100, 2),
-                mainBurstPerMin=round(mainRate.burstPerMin, 3), mainBurstLenP95=round(mainRate.burstLenP95, 1),
-                mainMaxConsecLoss=int(max(m.max(initial=0) for m in mainRuns))), perSeed   # main: 흐름 0만
+                allFlowsOnTimeRate=round(float((R.status == 1).mean()) * 100, 2)), perSeed
 
 
 def main():
@@ -120,7 +115,7 @@ def main():
         print('모델 경로가 없어서 route_C는 빼고 평가')
 
     root = os.environ.get('ISL_SAVE_ROOT', os.path.join(os.path.expanduser('~'), 'isl_saved_runs'))   # main_isl.py와 같은 환경 변수
-    topo = config_isl().topology
+    topo = config_isl().topologyName
     base = f'eval_{datetime.now():%Y-%m-%d}' if topo == 'grid' else f"eval_{topo.replace(':', '')}_{datetime.now():%Y-%m-%d}"
     i = 1
     while os.path.exists(os.path.join(root, base if i == 1 else f'{base}_{i}')):
@@ -137,8 +132,7 @@ def main():
                 seedRows += perSeed
                 name = route + (f' #{k}' if route == 'routeC' and len(models) > 1 else '')
                 print(f"{level:6s} {name:14s} 도착률 {row['onTimeRate']:6.2f}%  손실률 {row['lossRate']:5.2f}%  "
-                      f"연속 손실 {row['burstPerMin']:.2f}/분  최대 연속 손실 {row['maxConsecLoss']:4d}  평균 지연 {row['avgLatency_ms']} ms  "
-                      f"| 흐름 0: 도착률 {row['mainOnTimeRate']:6.2f}%  연속 손실 {row['mainBurstPerMin']:.2f}/분  최대 {row['mainMaxConsecLoss']}")
+                      f"연속 손실 {row['burstPerMin']:.2f}/분  최대 연속 손실 {row['maxConsecLoss']:4d}  평균 지연 {row['avgLatency_ms']} ms")
 
     with open(os.path.join(saveDir, 'summary.csv'), 'w', newline='', encoding='utf-8-sig') as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
@@ -154,6 +148,10 @@ def main():
     with open(os.path.join(saveDir, 'run_info.txt'), 'w', encoding='utf-8') as f:
         f.write(f'라우팅 비교 평가 ({datetime.now():%Y-%m-%d %H:%M})\n')
         f.write(f'C 모델: {models}\n')
+        if models:
+            from rl.model_info import model_grid
+            f.write(f'C 모델 학습 격자: {sorted(set(model_grid(m) for m in models))} -> 평가 격자: {P.topologyName} ({P.numPlanes} x {P.satsPerPlane})\n')
+        f.write(f'지표: {scope_text(P) or "흐름 1개"} (allFlowsOnTimeRate만 전체 흐름 참고값)\n')
         f.write(f'조건: 기한 {P.deadline}, TTL {P.ttlInit}, 큐 {P.queueMax}, 링크 용량 {P.linkCapacity}, 초당 {P.genRate}개, '
                 f'평가 시드 {P.randomSeed}~{P.randomSeed + P.numEpisodes - 1} (에피소드 {P.numEpisodes}개 x {P.simTime} step), ε 0\n')
         table = EVENT_LEVELS if getattr(P, 'bgMode', 'hotspot') == 'event' else BG_LEVELS

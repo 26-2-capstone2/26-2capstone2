@@ -22,8 +22,6 @@ ROUTE_LABELS = {'routeA': 'A 정적 최단 경로', 'routeB': 'B DRA', 'routeC':
 
 
 
-OPPOSITE = {1: 2, 2: 1, 3: 4, 4: 3}   # 상 <-> 하, 좌 <-> 우
-
 def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     # 2D Grid ISL 시뮬레이션 1회 실행 (매 step = 1 ms)
     # genRate: 1초마다 생성하는 패킷 수 (일정 간격), epsilon: 무작위 선택 확률 ε
@@ -71,7 +69,6 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
     total = maxPackets + bgPool
     genTime = np.zeros(total, dtype=np.int64)
     pktDl = np.zeros(total, dtype=np.int64)   # 주 흐름 패킷의 기한 (흐름마다 다름)
-    backDir = np.zeros(total, dtype=np.int64)  # 주 흐름 패킷이 들어온 방향 (직전 위성 쪽, 1 상 2 하 3 좌 4 우, 0 = 막 생성)
     ttl = np.zeros(total, dtype=np.int64)
     hops = np.zeros(total, dtype=np.int64)
     curP = np.zeros(total, dtype=np.int64)
@@ -99,7 +96,6 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
         raise ValueError(f'P.routeName은 {list(ROUTE_FUNCS)} 중 하나여야 함 (지금: {routeName!r})')
     route = ROUTE_FUNCS[routeName]
     collector = C_STATE.collector if routeName == 'routeC' else None   # 강화학습 경험 연결 장치 (학습 때만)
-    stepHook = getattr(P, 'stepHook', None)   # 웹 화면용: 매 step 끝에 상태를 넘겨받는 함수 (없으면 아무 일도 안 함)
 
     # 노드 기록 (node_log.py). 패킷 id < maxPackets 이면 주 흐름, 이상이면 배경
     nlog = NodeLog(P, G, maxPackets) if getattr(P, 'nodeLogEnable', False) else None
@@ -193,7 +189,6 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             genTime[newIds] = t
             ttl[newIds] = flowTtl[fOf]
             pktDl[newIds] = flowDl[fOf]
-            backDir[newIds] = 0
             hops[newIds] = 0
             curP[newIds] = flowSrc[fOf, 0]
             curS[newIds] = flowSrc[fOf, 1]
@@ -260,15 +255,13 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             if numFlows > 1:   # 라우팅(A, B, C)과 결정 기록은 G.dstSat 기준 -> 이 패킷의 도착 위성으로 바꿔 둠
                 G.dstSat = np.array([dstP[packet_id], dstS[packet_id]])
             nextDir, choiceType, L, N = route(p, s, queueLen, G, P, t=t, remDeadline=pktDl[packet_id] - (t - genTime[packet_id]),
-                                              ttl=int(ttl[packet_id]), hops=int(hops[packet_id]), hist=hist,
-                                              backDir=int(backDir[packet_id]))   # 패킷 정보와 링크 기록은 route_C만 씀
+                                              ttl=int(ttl[packet_id]), hops=int(hops[packet_id]), hist=hist)   # 패킷 정보와 링크 기록은 route_C만 씀
             if epsilon > 0 and rng.random_sample() < epsilon:
                 dirs = G.validDirs[p][s]
                 nextDir = dirs[math.ceil(rng.random_sample() * len(dirs)) - 1]
                 choiceType = 4   # 무작위
 
             link = G.linkId[p, s, nextDir - 1]
-            backDir[packet_id] = OPPOSITE[nextDir]   # 다음 위성에서 보면 지금 위성 쪽이 들어온 방향
             enqueued = queueLen[link] < queueMax
             qAtLink = int(queueLen[link])   # 넣기 전 큐 길이 (강화학습 홉 보상용)
 
@@ -329,9 +322,6 @@ def run_isl_sim(P, genRate, epsilon, randomSeed, recordAnim):
             animQueue[:, t - 1] = queueLen
             animInFlight[:, t - 1] = np.bincount(onLink[onLink >= 0], minlength=numLinks)
         hist.record(t, queueLen)
-        if stepHook is not None:
-            stepHook(t, queueLen, status, curP, curS, onLink, numPackets)
-
         if t >= P.simTime and numPackets == statusCount.sum():   # 진행 중인 패킷 없음
             break
 

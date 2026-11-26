@@ -2,6 +2,11 @@
 #
 # 좌표: p = 궤도면 번호 (좌/우 = 옆 궤도면으로 가는 링크), s = 궤도 안 위성 번호 (상/하 = 같은 궤도 앞뒤 위성)
 #
+# [변경] 모든 구조를 직사각형/정사각형 가상 격자로 씀: 끝은 막힘 (원형 연결 없음), 극지방 링크 끊김 없음,
+#        링크 지연은 궤도 안(상하) 7, 궤도 사이(좌우) 2 step 고정
+#   'iridium', 'starlink'는 그 크기의 가상 격자로 바꿔 씀: iridium -> grid:6x11, starlink -> grid:72x22,
+#   'starlink:12x12' -> grid:12x12. 아래 실제 위성군 설명과 거리 계산 코드는 이전 방식 기록용으로만 남김
+#
 # 구조 이름 (apply_topology의 name)
 #   'grid'      가상 격자. 크기 자유 (예: 'grid:8x8'), 끝은 막힘, 링크 지연 고정 (상하 7, 좌우 2 step)
 #   'iridium'   6 x 11, 극궤도 (고도 780 km, 경사각 86.4도)
@@ -71,10 +76,13 @@ def link_delay_steps(P, s, d):
     return max(1, int(round(km / LIGHT_KM_PER_MS)))
 
 
-def apply_topology(P, name='grid', limits=True):
+def apply_topology(P, name='grid'):
     # 구조 이름으로 P의 망 구조 값을 덮어쓰고, 흐름 0 끝점, 기한과 TTL을 그 구조에 맞게 다시 정함
-    # limits=False: 끝점, 기한 계산은 부르는 쪽이 나중에 한 번만 (웹 설정은 다른 값을 덮어쓴 뒤 계산, 큰 망에서 몇 초 걸림)
     base, a, b = parse_name(name)
+    if base in PRESETS:   # 실제 위성군 이름은 같은 크기의 가상 격자로 (원형 연결, 극지방 없음)
+        a = a or PRESETS[base]['numPlanes']
+        b = b or PRESETS[base]['satsPerPlane']
+        base = 'grid'
     if base == 'grid':
         P.topology = 'grid'
         P.numPlanes = a or 6
@@ -93,12 +101,12 @@ def apply_topology(P, name='grid', limits=True):
         P.polarLatLimitDeg = c['polarLatLimitDeg']
     else:
         raise ValueError(f"구조 이름은 'grid', 'grid:NxM', {list(PRESETS)} (또는 'starlink:NxM'): {name}")
-    return update_limits(P) if limits else P
+    return update_limits(P)
 
 
 def update_limits(P):
     # 지금 망 크기에 맞춰 흐름 0 끝점과 기한, TTL 상한을 다시 계산 (격자 크기를 바꾼 뒤에도 부름)
-    #   흐름 0 도착 = 격자 맨 끝 모서리 (회의 결정, 출발은 sim/flows.py에서 시드로 무작위)
+    #   측정 흐름(흐름 0) = (0,0) -> 격자 맨 끝 모서리 (시험 때 고정, 학습 때는 sim/flows.py가 그 거리 근처 쌍 중 무작위)
     #   P.deadline, P.ttlInit = 끝점까지 가장 먼 출발 위성의 기한, TTL (관측 정규화, 홉 보상의 기준값)
     #   흐름마다 실제 기한, TTL은 flow_limits로 그 흐름 거리에 맞춰 정함
     from sim.build_grid import build_grid   # build_grid가 이 파일을 쓰므로 여기서 불러옴
@@ -115,6 +123,8 @@ def update_limits(P):
     P.deadline = max(d for d, _ in limits)
     P.ttlInit = max(t for _, t in limits)
     P.bgTtl = max(getattr(P, 'bgTtl', 20), P.ttlInit)
+    if P.topology == 'grid':   # 표시용 이름: 6x6은 'grid', 그 밖의 크기는 'grid:10x10'처럼
+        P.topologyName = 'grid' if (P.numPlanes, P.satsPerPlane) == (6, 6) else f'grid:{P.numPlanes}x{P.satsPerPlane}'
     return P
 
 

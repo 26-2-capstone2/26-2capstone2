@@ -20,7 +20,7 @@ BG_LEVELS = {
 # 혼잡 사건 방식(P.bgMode = 'event', sim/bg_event.py)의 단계별 값 (step): 지역 핫스팟 발생 간격 평균, 지속 시간 평균
 # 지속 평균 1초 (7차 기준, Back-Pressure 논문의 버스트 평균 1초). 이전 2.5초 값을 0.4배로 줄이고 간격도 같은 비율로 줄여
 # 동시에 걸린 지역 수(base 약 1개, high 약 2개, severe 약 4개)는 그대로, 혼잡이 바뀌는 속도만 2.5배 빨라짐
-# 아래 간격은 6x6(위성 36개, P.evRefSats) 기준. 망이 크면 위성 수에 비례해 더 자주 생김 (이리듐 66개: 1.8배 자주, severe 동시 약 4 -> 7개)
+# 아래 간격은 6x6(위성 36개, P.evRefSats) 기준. 망이 크면 위성 수에 비례해 더 자주 생김 (6x11 66개: 1.8배 자주, severe 동시 약 4 -> 7개)
 EVENT_LEVELS = {
     'base':   dict(evIntervalMean=1000, evDurationMean=1000),   # 동시 약 1개 지역
     'high':   dict(evIntervalMean=500, evDurationMean=1000),    # 동시 약 2개
@@ -47,12 +47,14 @@ def config_isl():
     # ---- 네트워크 구조 ----
     P.numPlanes = 6                        # 궤도면 수 (좌/우)
     P.satsPerPlane = 6                     # 궤도면당 위성 수 (상/하)
-    # 흐름 0 도착 = 격자 맨 끝 모서리 (numPlanes-1, satsPerPlane-1), 출발 = 에피소드 시드로 무작위 (sim/flows.py)
-    #   P.srcSat (0,0), P.dstSat (끝점)은 config 끝(update_limits)에서 크기에 맞춰 자동으로 정함
-    # 망 구조: 'grid' (지금 6x6), 'grid:8x8' (크기 지정), 'iridium', 'starlink', 'starlink:12x12' (축소판) - sim/topology.py
+    # 측정 흐름(흐름 0): 시험(검증, 최종 평가) 때 P.srcSat -> P.dstSat 고정, 학습 때는 그 거리 근처 쌍 중 무작위 (sim/flows.py)
+    #   P.srcSat (0,0), P.dstSat (끝 모서리)은 config 끝(update_limits)에서 격자 크기에 맞춰 자동으로 정함
+    # 망 구조: 'grid' (지금 6x6), 'grid:8x8' (크기 지정). 모두 직사각형 가상 격자 (원형 연결, 극지방 없음) - sim/topology.py
+    #   'iridium', 'starlink'를 주면 같은 크기의 가상 격자로 바뀜 (grid:6x11, grid:72x22). 위성 수만 실제와 같음 (11/26 회의)
     #   실행할 때 환경 변수로 바꿈: ISL_TOPOLOGY=iridium python main_isl.py  (기본은 'grid' = 아래 6x6 값 그대로)
     #   grid가 아니면 크기, 원형 연결, 링크 지연을 그 구조에 맞게 덮어씀 (config 끝에서 적용)
     P.topology = os.environ.get('ISL_TOPOLOGY', 'grid')
+    P.topologyName = P.topology.strip()          # 이름 표시용 (예: 'grid:10x10'). P.topology는 apply_topology가 기본 이름(grid 등)으로 바꿈
     P.queueMax = 200                       # 링크별 큐 최대 용량 (packets)
     P.linkCapacity = 5                    # ISL 대역폭 (packets/step)
     P.linkDelay = np.array([7, 7, 2, 2])   # 링크 지연 [상 하 좌 우] (step)
@@ -82,10 +84,10 @@ def config_isl():
 
     # ---- 실험 ----
     P.genRate = 60                         # 1초마다 생성하는 패킷 수 (일정 간격)
-    P.numFlows = 4                         # 주 흐름 수 (흐름마다 초당 genRate개): 흐름 0 (무작위 -> 끝점) + 무작위 3개 (sim/flows.py)
-    # 흐름 1~ 의 거리 구간: D(끝점까지 가장 먼 위성의 최소 지연, 6x6: 45)에 대한 비율. 흐름 k는 (k-1)번째 구간 (구간보다 흐름이 많으면 다시 처음부터)
-    #   6x6: 흐름 1 0~15 ms (짧은 경로), 흐름 2 15~30 ms (중간), 흐름 3 30~45 ms (긴 경로). 격자가 커지면 같은 비율로 길어짐
-    P.flowDistBands = [(0, 1 / 3), (1 / 3, 2 / 3), (2 / 3, 1.0)]
+    P.numFlows = 4                         # 주 흐름 수 (흐름마다 초당 genRate개): 흐름 0 = 측정 흐름 + 다른 GSL 흐름 3개 (sim/flows.py)
+    P.mainFarFrac = 0.9                    # 학습 때 측정 흐름: 최소 지연이 (시험 측정 흐름 srcSat -> dstSat의 최소 지연 x 이 값) 이상인 쌍 중 무작위 (시험 때는 srcSat -> dstSat 고정)
+    P.otherFlowFracMin = 0.25              # 다른 GSL 흐름: 최소 지연 (가장 먼 거리 x 이 값) ~ 가장 먼 거리
+    P.otherFlowBands = 3                   # 다른 GSL 흐름 거리 구간 수 (흐름마다 구간을 고르게 뽑아 짧은, 중간, 먼 흐름이 섞이게)
     P.epsilonList = [0, 0.1]               # 무작위 선택 확률 (0: 성능 측정용, 0.1: 데이터 수집용)
     P.simTime = 10000                      # 에피소드 1개의 길이 (step = 10초). 에피소드마다 큐가 비어 있는 상태로 시작
                                            #   학습 안정화 계획: 에피소드당 결정 약 7천~8천 번으로 줄여 학습 곡선을 촘촘하게 봄

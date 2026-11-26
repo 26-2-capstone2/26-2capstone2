@@ -1,8 +1,9 @@
 # 코드 흐름
 
 ISL 라우팅 시뮬레이터(`isl_routing/`)가 **어떤 순서로, 어떤 파일을 거쳐** 돌아가는지 정리한 문서.
-실행은 세 가지로 나뉨: ① A, B 시뮬레이션, ② C(강화학습) 학습, ③ B, C 최종 평가와 목표 판정.
+실행은 네 가지로 나뉨: ① 시뮬레이션, ② C(강화학습) 학습, ③ C 적응, ④ B, C 최종 평가와 목표 판정.
 모두 같은 시뮬레이터(`sim/run_isl_sim.py`)와 같은 배경 트래픽 규칙을 쓰고, 시드만 다름.
+망은 모두 끝이 막힌 직사각형 가상 격자 (11/26 회의). 성능 지표는 모두 측정 흐름(흐름 0) 기준.
 
 ---
 
@@ -10,11 +11,15 @@ ISL 라우팅 시뮬레이터(`isl_routing/`)가 **어떤 순서로, 어떤 파�
 
 ```mermaid
 flowchart TD
-    R["run.py<br/>(번호로 골라 실행)"] --> M["① main_isl.py<br/>A, B 시뮬레이션"]
-    R --> T["② rl/train_rl.py<br/>C 학습 + 검증 평가"]
-    R --> E["③ eval_routes.py<br/>B, C 최종 평가"]
+    R["run.py<br/>(번호로 골라 실행)"] --> M["① main_isl.py<br/>시뮬레이션 (기본 B)"]
+    R --> T["② rl/train_rl.py<br/>C 학습 + 검증 평가 (기본 10x10)"]
+    R --> AD["③ rl/adapt_rl.py<br/>C 적응 (평가할 격자에서 5 에피소드)"]
+    R --> E["④ eval_routes.py<br/>B, C 최종 평가"]
+    T --> AD
+    AD --> E
     M --> SIM["sim/run_isl_sim.py<br/>에피소드 1개 실행 (1 ms마다 반복)"]
     T --> SIM
+    AD --> SIM
     E --> SIM
     SIM --> RT["routing/<br/>route_A, route_B, route_C"]
     RT -.-> RL["rl/<br/>State, 보상, DQN (C만)"]
@@ -25,22 +30,23 @@ flowchart TD
 | 실행 | 시드 | 결과 |
 | --- | --- | --- |
 | ① `main_isl.py` | 시작 시드부터 에피소드 수만큼 (기본 1~20) | `~/isl_saved_runs/라우팅_혼잡단계_날짜/` |
-| ② `rl/train_rl.py` | 학습 1001부터, 검증 501~503 | `~/rl_models/routeC_날짜_s학습시드/` |
-| ③ `eval_routes.py` | 평가 1~20 | `~/isl_saved_runs/eval_날짜/` |
+| ② `rl/train_rl.py` | 학습 1001부터, 검증 501~503 | `~/rl_models/routeC_격자_날짜_s학습시드/` |
+| ③ `rl/adapt_rl.py` | 적응 2001부터, 검증 501~503 | `~/rl_models/routeC_adapt_원래폴더_to_격자_날짜/` |
+| ④ `eval_routes.py` | 평가 1~20 | `~/isl_saved_runs/eval_날짜/` |
 
 ---
 
-## 2. ① A, B 시뮬레이션 (`main_isl.py`)
+## 2. ① 시뮬레이션 (`main_isl.py`)
 
 ```mermaid
 flowchart TD
     A["main_isl<br/>(실행 시작)"] --> B["config_isl<br/>설정값 P"]
     B --> S["sample_hotspots<br/>에피소드마다 배경 트래픽 뽑기<br/>bg_scenario.csv"]
-    S --> C{"라우팅 x ε<br/>(A ε 0, B ε 0, B ε 0.1)"}
+    S --> C{"라우팅 x ε<br/>(고른 라우팅 ε 0, 데이터 수집용 B ε 0.1)"}
     C --> E1["에피소드 e = 0 ~ N-1<br/>run_isl_sim (10초)"]
     E1 --> MG["merge_episodes<br/>에피소드 결과를 하나로"]
     MG --> D["compute_metrics<br/>지표 계산"]
-    D --> F["packet_log, burst_log, node_log CSV<br/>decision_log (ε 0.1만), 애니메이션 (ε 0만)"]
+    D --> F["packet_log, burst_log, node_log CSV<br/>decision_log (ε 0.1만), 애니메이션 (ε 0만)<br/>흐름별 결과 flow_analysis"]
     F --> C
     C -- "반복 끝" --> I["metrics_summary.csv + 그래프"]
     I --> L["save_results<br/>홈 폴더 isl_saved_runs로 복사"]
@@ -64,7 +70,7 @@ flowchart TD
     S3 -- "기한 초과" --> L3["중간 기한 초과 (result 3)"]
     S3 -- "TTL 0" --> L5["TTL 만료 (result 5)"]
     S3 -- "통과" --> S5
-    S4["4. 생성<br/>주 흐름 (출발 위성, 초당 60개)<br/>배경 패킷 (스케줄대로, XY 고정 경로로 큐에 넣음)"] --> S5
+    S4["4. 생성<br/>주 흐름 4개 (흐름마다 초당 60개, 흐름별 기한, TTL)<br/>배경 패킷 (스케줄대로, XY 고정 경로로 큐에 넣음)"] --> S5
     S5["5. 라우팅 결정<br/>route_A / B / C가 방향 선택"] --> Q{"그 링크 큐가<br/>꽉 찼나? (200개)"}
     Q -- "예" --> L4["큐 오버플로 (result 4)"]
     Q -- "아니오" --> S6["큐 맨 뒤에 넣기"]
@@ -118,8 +124,8 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["config_isl + config_rl"] --> V0["검증 0<br/>학습 전 성능 (ε 0, 검증 시드 501~503, high, severe)"]
-    V0 --> EP["에피소드 1개 학습<br/>혼잡 단계 high : severe = 1 : 2 무작위, 시드 1001 + e<br/>흐름 4개 (흐름 0: 무작위 → 끝점)"]
+    A["config_isl + config_rl"] --> V0["검증 0<br/>학습 전 성능 (ε 0, 검증 시드 501~503, high, severe, 측정 흐름 고정)"]
+    V0 --> EP["에피소드 1개 학습<br/>혼잡 단계 high : severe = 1 : 2 무작위, 시드 1001 + e<br/>흐름 4개 (측정 흐름도 먼 쌍 중 무작위)"]
     EP --> X["결정마다: 관측 → 행동 (ε-greedy)<br/>→ 경험 저장 → 결정 16번마다 학습"]
     X --> EP2{"5 에피소드마다?"}
     EP2 -- "예" --> V["검증 평가<br/>eval_log.csv에 기록"]
@@ -129,16 +135,30 @@ flowchart TD
     F --> LT["analysis/learning_targets.py<br/>T50, T90, 수렴, 안정성 판정"]
 ```
 
-- 자세한 State, Action, Reward와 설정값은 [`isl_routing/rl/README.md`](isl_routing/rl/README.md)
+- 학습 격자는 기본 10x10 (`RL.trainGrid`, run.py "C 학습"). 직접 실행하면 `ISL_TOPOLOGY`로 고름
+- 검증 지표(`eval_log.csv`)는 측정 흐름 기준
+- 자세한 State, Action, Reward와 설정값은 [`rl/README.md`](../rl/README.md)
 - 학습 시드(신경망 초기값)를 바꿔 여러 번 돌림: `python rl/train_rl.py 80 0 0`, `... 0 1`, `... 0 2`
+
+### ③ C 적응 (`rl/adapt_rl.py`)
+
+다른 격자로 학습한 모델을 평가할 격자에서 짧게 추가 학습함 (학습 → 적응 → 평가 중 적응).
+
+| 항목 | 값 |
+| --- | --- |
+| 격자 | 환경 변수 `ISL_TOPOLOGY` (평가할 격자) |
+| 에피소드 | 5개, 시드 2001부터 (학습, 검증, 평가 시드와 겹치지 않음) |
+| 탐험, 학습률 | ε 0.05 고정, 학습률 0.00001 (학습의 1/10) |
+| 버퍼 | 비어서 시작, 경험 4만 개 쌓이면 학습 |
+| 검증 | 적응 전과 뒤에 이 격자의 검증 시드 501~503으로 ε 0 평가 |
 
 ---
 
-## 7. ③ 최종 평가와 목표 판정
+## 7. ④ 최종 평가와 목표 판정
 
 ```mermaid
 flowchart LR
-    M["학습된 모델<br/>(학습 시드별)"] --> E["eval_routes.py<br/>평가 시드 1~20, ε 0<br/>A, B는 한 번, C는 모델마다"]
+    M["학습(또는 적응)한 모델<br/>(학습 시드별)"] --> E["eval_routes.py<br/>평가할 격자, 평가 시드 1~20, ε 0<br/>측정 흐름 고정, A, B는 한 번, C는 모델마다"]
     E --> S["summary.csv<br/>per_seed.csv"]
     S --> C["analysis/compare_runs.py<br/>B 대비 개선, 신뢰구간, 승률"]
     C --> R["targets_report.md"]
@@ -153,7 +173,7 @@ flowchart LR
 
 ## 8. 지표 계산 (`analysis/compute_metrics.py`, `burst_summary.py`)
 
-모두 **주 흐름 패킷**만으로 계산.
+모두 **측정 흐름(흐름 0) 패킷**만으로 계산 (`analysis/measured.py`). 다른 GSL 흐름은 흐름별 결과(`viz/plot_flows.py`)에서만 봄.
 
 | 지표 | 계산 |
 | --- | --- |
@@ -173,11 +193,11 @@ flowchart LR
 
 | 바꿀 것 | 위치 |
 | --- | --- |
-| 망, 큐, 링크, 기한 여유, 생성률, 흐름 | `config_isl.py` (`P.queueMax`, `P.linkCapacity`, `P.deadlineMargin`, `P.genRate`, `P.numFlows`, `P.flowDistBands` 등) |
+| 망, 큐, 링크, 기한 여유, 생성률, 흐름 | `config_isl.py` (`P.queueMax`, `P.linkCapacity`, `P.deadlineMargin`, `P.genRate`, `P.numFlows`, `P.mainFarFrac`, `P.otherFlowFracMin` 등) |
 | 에피소드 길이, 평가 에피소드 수 | `config_isl.py` (`P.simTime`, `P.numEpisodes`) |
 | 배경 트래픽 방식, 혼잡 단계 | `config_isl.py` (`P.bgMode`, `EVENT_LEVELS`, `P.bgBaseMin`, `P.evLoadMin` 등) |
-| 망 구조 | 환경 변수 `ISL_TOPOLOGY` (`grid`, `grid:8x8`, `iridium`, `starlink`) |
-| 강화학습 (학습률, ε, 버퍼, 검증 주기) | `rl/config_rl.py` |
+| 망 구조 | 환경 변수 `ISL_TOPOLOGY` (`grid`, `grid:10x10`, `iridium` = 6x11, `starlink` = 72x22, 모두 가상 격자) |
+| 강화학습 (학습률, ε, 버퍼, 검증 주기, 학습 격자, 적응) | `rl/config_rl.py` |
 | 결과 저장 경로 | 환경 변수 `ISL_SAVE_ROOT`, `RL_SAVE_ROOT` |
 
 CSV 각 열의 의미는 [`csv.md`](csv.md) 참고.

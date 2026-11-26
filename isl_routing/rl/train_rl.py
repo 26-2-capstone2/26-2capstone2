@@ -12,8 +12,8 @@
 # 검증 평가: 학습 시작 전 1번, 그 뒤 evalEvery 에피소드마다 학습을 멈추고 검증 시드(valSeeds)로 ε 0 평가 -> 학습 곡선
 # 저장: 홈 폴더 rl_models/routeC_날짜_s학습시드 (같은 날 또 돌리면 _2, _3)
 #   model_epN.pt   saveEvery마다 체크포인트, model_final.pt 마지막
-#   train_log.csv  에피소드별 기한 내 도착률, 3개 이상 연속 손실, 보상 성분, ε, 학습 손실, 경험 수, 누적 결정 수 (학습 중 값)
-#   eval_log.csv   검증 평가 (단계별, 검증 시드 합계): 누적 결정 수, 도착률, 1분당 연속 손실, 연속 손실 길이 95번째 백분위 등
+#   train_log.csv  에피소드별 기한 내 도착률 (전체 흐름, measuredOnTimeRate는 측정 흐름), 3개 이상 연속 손실, 보상 성분, ε, 학습 손실, 경험 수, 누적 결정 수 (학습 중 값)
+#   eval_log.csv   검증 평가 (단계별, 검증 시드 합계, 측정 흐름 기준): 누적 결정 수, 도착률, 1분당 연속 손실, 연속 손실 길이 95번째 백분위 등
 #   run_info.txt   학습 조건
 # 학습 곡선 목표 판정: python analysis/learning_targets.py 학습폴더 [학습폴더 ...]
 import csv
@@ -38,7 +38,7 @@ from sim.run_isl_sim import run_isl_sim
 
 EVAL_COLS = ['evalIndex', 'episode', 'decisions', 'epsilon', 'level', 'onTimeRate', 'burstCount', 'burstPerMin',
              'burstLenP95', 'maxConsecLoss', 'avgLatency_ms',
-             'mainOnTimeRate', 'mainBurstPerMin', 'mainBurstLenP95', 'mainMaxConsecLoss', 'meanLoss', 'seconds']   # main: 흐름 0 (우리 GSL)만
+             'meanLoss', 'seconds']   # 검증 지표는 모두 측정 흐름(흐름 0) 기준
 
 
 def make_save_dir(RL, topology='grid'):
@@ -62,20 +62,19 @@ def validate(agent, RL, P, collector):
     for level in RL.valLevels:
         apply_bg_level(P, level)
         G = build_grid(P)
-        status, runs, latency, mainSt, mainRuns = [], [], [], [], []
+        status, runs, latency = [], [], []
         for seed in RL.valSeeds:
+            P.flowZeroRandom = False   # 검증은 측정 흐름(흐름 0)을 srcSat -> dstSat로 고정
             sample_hotspots(P, G, seed)
             R = run_isl_sim(P, P.genRate, 0, seed, False)
-            status.append(R.status)
-            runs.append(loss_run_lengths(R.status, R.packetFlow))       # 에피소드, 주 흐름마다 끊어서 셈
-            arr = (R.status == 1) | (R.status == 2)       # 평균 지연은 compute_metrics와 같게 목적지 도착 패킷 전체
-            latency.append(R.endTime[arr] - R.genTime[arr])
-            mainSt.append(R.status[R.packetFlow == 0])
-            mainRuns.append(loss_run_lengths(mainSt[-1]))
+            main = R.packetFlow == 0                     # 측정 흐름 (검증 지표는 측정 흐름 기준)
+            st = R.status[main]
+            status.append(st)
+            runs.append(loss_run_lengths(st))
+            arr = (st == 1) | (st == 2)                  # 평균 지연은 compute_metrics와 같게 목적지 도착 패킷
+            latency.append((R.endTime[main] - R.genTime[main])[arr])
         status, runs, latency = np.concatenate(status), np.concatenate(runs), np.concatenate(latency)
-        mainSt, mainRuns = np.concatenate(mainSt), np.concatenate(mainRuns)
-        mainRate = burst_rate_stats(mainRuns, P.burstMinLen, len(RL.valSeeds) * P.simTime * P.stepTime / 60)   # 흐름 0 하나의 1분당
-        minutes = len(RL.valSeeds) * P.simTime * P.stepTime / 60 * P.numFlows   # 흐름 하나 기준 1분당
+        minutes = len(RL.valSeeds) * P.simTime * P.stepTime / 60   # 측정 흐름 하나 기준 1분당
         rate = burst_rate_stats(runs, P.burstMinLen, minutes)
         bursts = runs[runs >= P.burstMinLen]
         rows.append(dict(level=level,
@@ -84,11 +83,7 @@ def validate(agent, RL, P, collector):
                          burstPerMin=round(rate.burstPerMin, 3),
                          burstLenP95=round(rate.burstLenP95, 1),
                          maxConsecLoss=int(runs.max()) if len(runs) else 0,
-                         avgLatency_ms=round(float(latency.mean()) * P.stepTime * 1000, 2) if len(latency) else '',
-                         mainOnTimeRate=round(float((mainSt == 1).mean()) * 100, 2),
-                         mainBurstPerMin=round(mainRate.burstPerMin, 3),
-                         mainBurstLenP95=round(mainRate.burstLenP95, 1),
-                         mainMaxConsecLoss=int(mainRuns.max(initial=0))))
+                         avgLatency_ms=round(float(latency.mean()) * P.stepTime * 1000, 2) if len(latency) else ''))
     set_agent(agent, RL, explore=True, collector=collector)
     return rows
 
@@ -109,20 +104,20 @@ def train(numEpisodes=None, simTime=None, torchSeed=None, levelRatio=None):
     agent = DQNAgent(RL)
     collector = Collector(agent, P, RL, learn=True)
     set_agent(agent, RL, explore=True, collector=collector)
-    saveDir = make_save_dir(RL, P.topology)
+    saveDir = make_save_dir(RL, P.topologyName)
 
     with open(os.path.join(saveDir, 'run_info.txt'), 'w', encoding='utf-8') as f:
         f.write(f'route_C 온라인 DQN 학습 ({datetime.now():%Y-%m-%d %H:%M})\n')
         f.write(f'에피소드 {numEpisodes}개 x {P.simTime} step, 혼잡 단계 {RL.trainLevelMode} {RL.trainLevelWeights if RL.trainLevelMode == "weighted" else RL.trainLevels}, 시드 {RL.trainSeedStart}부터, '
                 f'학습 시드(신경망 초기값) {RL.torchSeed}\n')
         f.write(f'검증 평가: {RL.evalEvery} 에피소드마다, 검증 시드 {RL.valSeeds}, 단계 {RL.valLevels}, ε 0\n')
-        f.write(f'망 구조 {P.topology} ({P.numPlanes} x {P.satsPerPlane}), 흐름 {P.numFlows}개, 흐름 0: 무작위 출발 -> 끝점 {P.dstSat.tolist()}\n')
-        f.write(f'기한, TTL: 흐름마다 최소 지연 + {P.deadlineMargin}, 최소 홉 + {P.ttlMargin} (가장 먼 흐름 0: {P.deadline}, {P.ttlInit}), 큐 {P.queueMax}, 링크 용량 {P.linkCapacity}, 초당 {P.genRate}개, '
+        f.write(f'망 구조 {P.topologyName} ({P.numPlanes} x {P.satsPerPlane}), 흐름 {P.numFlows}개, 측정 흐름 {P.srcSat.tolist()} -> {P.dstSat.tolist()}\n')
+        f.write(f'기한, TTL: 흐름마다 최소 지연 + {P.deadlineMargin}, 최소 홉 + {P.ttlMargin} (측정 흐름: {P.deadline}, {P.ttlInit}), 큐 {P.queueMax}, 링크 용량 {P.linkCapacity}, 초당 {P.genRate}개, '
                 f'배경 트래픽 {getattr(P, "bgMode", "hotspot")}\n')
         f.write('강화학습 설정: ' + ', '.join(f'{k}={v}' for k, v in vars(RL).items()) + '\n')
 
     logPath = os.path.join(saveDir, 'train_log.csv')
-    cols = ['episode', 'level', 'seed', 'onTimeRate', 'lossRate', 'burstCount', 'burstPackets',
+    cols = ['episode', 'level', 'seed', 'onTimeRate', 'measuredOnTimeRate', 'lossRate', 'burstCount', 'burstPackets',
             'burstPacketRate', 'maxConsecLoss', 'epsilon', 'decisions', 'burstPenalties',
             'rewardHopSum', 'rewardOutcomeSum', 'rewardBurstSum', 'infeasibleMasks',
             'meanLoss', 'transitions', 'unfinished', 'bufferSize', 'seconds']
@@ -157,6 +152,7 @@ def train(numEpisodes=None, simTime=None, torchSeed=None, levelRatio=None):
         seed = RL.trainSeedStart + ep
         apply_bg_level(P, level)
         G = build_grid(P)
+        P.flowZeroRandom = bool(getattr(RL, 'flowZeroRandomTrain', False))   # 학습 때만 측정 흐름도 먼 쌍 중 무작위
         sample_hotspots(P, G, seed)
         collector.reset_stats()
         maskFallbackStart = C_STATE.infeasibleMasks
@@ -170,6 +166,7 @@ def train(numEpisodes=None, simTime=None, torchSeed=None, levelRatio=None):
 
         row = dict(episode=ep + 1, level=level, seed=seed,
                    onTimeRate=round(float((R.status == 1).mean()) * 100, 2),
+                   measuredOnTimeRate=round(float((R.status[R.packetFlow == 0] == 1).mean()) * 100, 2),
                    lossRate=round(float((R.status != 1).mean()) * 100, 2),
                    burstCount=burst.burstCount, burstPackets=burst.burstPackets,
                    burstPacketRate=round(burst.burstPacketRate * 100, 2),

@@ -1,11 +1,12 @@
 # 결과 CSV 설명
 
-결과 파일은 실행 종류에 따라 세 곳에 생김. 모든 지표는 **주 흐름 패킷**만으로 계산하고, 배경 트래픽 패킷은 개수만 따로 기록.
+결과 파일은 실행 종류에 따라 생김. 모든 지표는 **측정 흐름(흐름 0) 패킷**만으로 계산하고 (`analysis/measured.py`), 다른 GSL 흐름은 흐름별 결과(`flow_summary`)에서만, 배경 트래픽 패킷은 개수만 따로 기록.
 
 | 실행 | 저장 위치 | 파일 |
 | --- | --- | --- |
-| ① A, B 시뮬레이션 (`main_isl.py`) | `isl_routing/results/` + `~/isl_saved_runs/라우팅_혼잡단계_날짜/` | `metrics_summary.csv`, `packet_log_*.csv`, `burst_log_*.csv`, `decision_log_*.csv`, `node_log_*.csv`, `bg_scenario.csv` |
-| ② C 학습 (`rl/train_rl.py`) | `~/rl_models/routeC_날짜_s학습시드/` | `train_log.csv`, `eval_log.csv` |
+| ① 시뮬레이션 (`main_isl.py`) | `isl_routing/results/` + `~/isl_saved_runs/라우팅_혼잡단계_날짜/` | `metrics_summary.csv`, `packet_log_*.csv`, `burst_log_*.csv`, `decision_log_*.csv`, `node_log_*.csv`, `bg_scenario.csv`, `flow_summary_*.csv` |
+| ② C 학습 (`rl/train_rl.py`) | `~/rl_models/routeC_격자_날짜_s학습시드/` | `train_log.csv`, `eval_log.csv` |
+| ② C 적응 (`rl/adapt_rl.py`) | `~/rl_models/routeC_adapt_원래폴더_to_격자_날짜/` | `train_log.csv`, `eval_log.csv` (`stage` 열: 적응 전, 뒤) |
 | ③ 최종 평가 (`eval_routes.py`, `analysis/compare_runs.py`) | `~/isl_saved_runs/eval_날짜/` | `summary.csv`, `per_seed.csv`, `targets_report.csv` |
 
 - ①의 파일 이름 `*` = `라우팅_rate60pps_eps값` (예: `packet_log_routeB_rate60pps_eps0.0.csv`)
@@ -47,7 +48,7 @@
 | `episode` | 에피소드 번호 |
 | `loss_run_len` | 이 패킷이 속한 손실 구간 길이 (손실 아니면 0) |
 | `burst_id` | 연속 손실 번호 (`burst_log`와 연결, 연속 손실이 아니면 −1) |
-| `flow_id` | 주 흐름 번호 (0 = 무작위 위성 → 격자 끝점 흐름, 1 이상 = 짧은, 중간, 긴 경로 무작위 흐름, `config_isl.py`의 `P.numFlows`, 기본 4). 연속 손실은 흐름마다 따로 셈 |
+| `flow_id` | 주 흐름 번호 (0 = 측정 흐름, 1 이상 = 다른 GSL 흐름, `config_isl.py`의 `P.numFlows`, 기본 4). 연속 손실은 흐름마다 따로 셈 |
 
 ### `burst_log_*.csv` : 연속 손실 기록
 - **1줄 =** 연속 손실 1번
@@ -109,19 +110,21 @@
 | 열 | 뜻 |
 | --- | --- |
 | `episode`, `level`, `seed` | 에피소드 번호, 혼잡 단계, 시드 |
-| `onTimeRate`, `lossRate` | 기한 내 도착률, 손실률 (%, 무작위 탐험 포함) |
+| `onTimeRate`, `lossRate` | 기한 내 도착률, 손실률 (%, 흐름 4개 전체, 무작위 탐험 포함) |
+| `measuredOnTimeRate` | 측정 흐름(흐름 0)의 기한 내 도착률 (%) |
 | `burstCount`, `burstPackets`, `burstPacketRate`, `maxConsecLoss` | 연속 손실 횟수, 속한 패킷 수와 비율, 최대 연속 손실 |
 | `epsilon`, `decisions` | ε, 누적 결정 수 |
 | `burstPenalties` | 연속 손실 보상을 받은 패킷 수 |
 | `rewardHopSum`, `rewardOutcomeSum`, `rewardBurstSum` | 보상 성분별 합 (홉, 도착과 단발 손실, 연속 손실) |
-| `infeasibleMasks` | 마스크 예외 횟수 (`maskMode = 'full'`일 때만 의미 있음) |
+| `infeasibleMasks` | 마스크 예외 횟수 (`maskMode = 'full'`일 때만 의미 있음, 기본 `'link'`는 0) |
 | `meanLoss` | 학습 손실 평균 (Huber) |
 | `transitions`, `unfinished`, `bufferSize` | 만든 경험 수, 끝나지 않은 패킷 수, 버퍼 크기 |
 | `seconds` | 걸린 시간 |
 
 ### `eval_log.csv` : 검증 평가 (학습 곡선용, ε 0)
 - **1줄 =** 검증 1번 x 혼잡 단계 1개 (학습 전 1번, 그 뒤 5 에피소드마다)
-- 검증 시드 501~503 에피소드를 합친 값. 학습 곡선과 목표 판정(`analysis/learning_targets.py`)은 이 파일을 씀
+- 검증 시드 501~503 에피소드를 합친 값, **측정 흐름 기준** (검증 때 측정 흐름은 고정). 학습 곡선과 목표 판정(`analysis/learning_targets.py`)은 이 파일을 씀
+- 적응(`adapt_rl.py`)의 `eval_log.csv`는 `stage` 열이 더 있음 (적응 전, 적응 뒤 2줄씩)
 
 | 열 | 뜻 |
 | --- | --- |
@@ -141,7 +144,7 @@
 
 ### `summary.csv` : 단계 x 라우팅(x C 모델)별 합계
 - **1줄 =** 혼잡 단계 1개 x 라우팅 1개 (C는 모델마다 한 줄, `cRun` = 모델 순번)
-- `metrics_summary.csv`의 주요 지표에 아래가 더해짐
+- 지표는 측정 흐름 기준. `metrics_summary.csv`의 주요 지표에 아래가 더해짐
 
 | 열 | 뜻 |
 | --- | --- |
@@ -149,6 +152,7 @@
 | `lossRuns`, `runs_ge5`, `runs_ge10` | 손실 구간 수, 5개 이상, 10개 이상 이어진 손실 횟수 |
 | `worstEpisodeOnTime` | 가장 나쁜 평가 에피소드의 도착률 |
 | `burstPerMin`, `burstLenP95` | 1분당 연속 손실 횟수, 연속 손실 길이 95번째 백분위 |
+| `allFlowsOnTimeRate` | 흐름 4개 전체 기한 내 도착률 (참고값) |
 
 ### `per_seed.csv` : 평가 시드별 결과
 - **1줄 =** 혼잡 단계 x 라우팅(x C 모델) x 평가 시드 1개
@@ -157,7 +161,8 @@
 | 열 | 뜻 |
 | --- | --- |
 | `level`, `route`, `cRun`, `seed` | 혼잡 단계, 라우팅, C 모델 순번, 평가 시드 |
-| `onTimeRate`, `burstCount`, `burstPerMin`, `burstLenP95`, `maxConsecLoss`, `avgLatency_ms` | 그 에피소드의 지표 |
+| `onTimeRate`, `burstCount`, `burstPerMin`, `burstLenP95`, `maxConsecLoss`, `avgLatency_ms` | 그 에피소드의 측정 흐름 지표 |
+| `allFlowsOnTimeRate` | 그 에피소드의 흐름 4개 전체 기한 내 도착률 (참고값) |
 
 ### `targets_report.csv` : C 모델별 목표 판정 값 (`analysis/compare_runs.py`)
 - **1줄 =** 혼잡 단계 x C 모델 1개. 판정표는 같은 폴더의 `targets_report.md`

@@ -32,15 +32,19 @@ def plot_metrics(T, P, pngPath):
     n = len(labels)
     for i, var in enumerate(vars_):
         ax = axs[i]
-        vals = np.asarray(T[var])
+        vals = np.asarray(T[var], dtype=float)
+        ok = np.isfinite(vals)                          # 도착한 패킷이 없으면 지연, 홉 수가 NaN
         x = np.arange(1, n + 1)
-        ax.bar(x, vals, 0.55, color=C.series[:n])
+        ax.bar(x, np.where(ok, vals, 0), 0.55, color=C.series[:n])
         style_axes(ax, C)
         ax.set_xticks(x, labels)
         ax.set_title(names[i], color=C.text)
-        top = vals.max()
-        ax.set_ylim(0, 1 if top <= 0 else top * 1.25)   # 전부 0이면 축을 0~1로 고정
+        top = vals[ok].max() if ok.any() else 0
+        ax.set_ylim(0, 1 if top <= 0 else top * 1.25)   # 전부 0(또는 NaN)이면 축을 0~1로 고정
         for j in range(n):
+            if not ok[j]:
+                ax.text(x[j], 0, '도착 없음', ha='center', va='bottom', color=C.muted, fontsize=10)
+                continue
             v = int(vals[j]) if fmt[i] == '{:d}' else vals[j]
             ax.text(x[j], vals[j], fmt[i].format(v), ha='center', va='bottom', color=C.text, fontsize=10)
 
@@ -63,7 +67,7 @@ def plot_metrics(T, P, pngPath):
     ])
     ax.text(0, 1, info, va='top', fontsize=11, color=C.text, linespacing=1.6)
 
-    fig.suptitle('성능 지표 비교', fontsize=15, color=C.text)
+    fig.suptitle('성능 지표 비교' + (f' [{P.resultScope}]' if getattr(P, 'resultScope', '') else ''), fontsize=15, color=C.text)
     fig.savefig(pngPath, dpi=120, facecolor='w')
     plt.close(fig)
 
