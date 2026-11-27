@@ -10,6 +10,6 @@ for k=1:4
     title('Mean +/- sample SD (not confidence intervals)');
 end
 prefix='';if R.options.smoke,prefix='SMOKE TEST ONLY | ';end
-sgtitle(sprintf('%sStatic 6x11 | 6 dB | %d training episodes per reward | %d paired evaluation seeds',prefix,R.options.numEpisodes,numel(R.options.evaluationSeeds)));
+sgtitle(sprintf('%sStatic %dx%d | %g dB | %d DDQN training episodes | %d paired evaluation seeds',prefix,R.options.baseConfig.numPlanes,R.options.baseConfig.satsPerPlane,R.options.baseConfig.initialEnvironmentLoss_dB,R.options.numEpisodes,numel(R.options.evaluationSeeds)));
 exportgraphics(f,fullfile(R.outputDir,'comparison.png'),'Resolution',140);savefig(f,fullfile(R.outputDir,'comparison.fig'));
 end
