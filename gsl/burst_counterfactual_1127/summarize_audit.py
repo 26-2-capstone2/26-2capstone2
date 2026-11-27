@@ -1,0 +1,42 @@
+from pathlib import Path
+import csv,json,statistics as st
+root=Path(__file__).parent;out=root/'results'
+def read(name):
+    with (out/name).open(encoding='utf-8-sig',newline='') as f:return list(csv.DictReader(f))
+cases=read('cases.csv');probes=read('probe_states.csv');branches=read('all_branches.csv');assert len(cases)==30
+summary=[]
+for n in [1,3,5]:
+    rows=[r for r in cases if int(r['nStep'])==n];p=[r for r in probes if int(r['nStep'])==n]
+    summary.append({'nStep':n,'cases':len(rows),
+        'originalMeanMax':st.mean(float(r['originalMaxRun']) for r in rows),
+        'optimisticMeanLowerBound':st.mean(float(r['optimisticGlobalMax']) for r in rows),
+        'counterfactualMeanMax':st.mean(float(r['counterfactualGlobalMax']) for r in rows),
+        'alreadyAtOptimisticBound':sum(int(r['originalMaxRun'])==int(r['optimisticGlobalMax']) for r in rows),
+        'singleInterventionImprovedGlobalMax':sum(int(r['counterfactualGlobalMax'])<int(r['originalMaxRun']) for r in rows),
+        'singleInterventionWorsenedGlobalMax':sum(int(r['counterfactualGlobalMax'])>int(r['originalMaxRun']) for r in rows),
+        'QMarginBlockedProbeSteps':sum(int(r['blockedByQMargin']) for r in p),
+        'probeSteps':len(p)})
+with (out/'summary.csv').open('w',encoding='utf-8-sig',newline='') as f:
+    w=csv.DictWriter(f,fieldnames=summary[0]);w.writeheader();w.writerows(summary)
+(out/'summary.json').write_text(json.dumps({'models':summary,'branches':len(branches),'probes':len(probes)},indent=2),encoding='utf8')
+lines=['최대 연속 손실 구간 진단 (2026-11-27)','',
+'각 모델의 같은 새 평가 시드 10개, 첫 번째 최장 손실 구간을 분석. 재학습 없음.',
+'손실 시작 3초 전부터 손실 종료 후 2초까지, 각 초의 모든 가시 위성을 한 번씩 강제 선택하고 이후에는 원래 고정 DDQN 정책을 따름.',
+'같은 후보 SNR·패킷 난수·100 ms 전환 중단 적용. 전체 600초 원본 재생이 저장된 결과와 일치함을 확인.',
+'강제 선택의 최선 결과는 미래 결과를 보고 고른 사후 가정이며, 배포 가능한 새 정책의 성능이 아님.','']
+for s in summary:
+    lines.append(f"{s['nStep']}-step: 원래 최대 손실 평균 {s['originalMeanMax']:.1f}개 / 낙관적 하한 평균 {s['optimisticMeanLowerBound']:.1f}개 / 단일 선택 변경 후 평균 {s['counterfactualMeanMax']:.1f}개")
+    lines.append(f"낙관적 하한과 이미 같았던 회차 {s['alreadyAtOptimisticBound']}/10, 한 번의 선택 변경으로 전체 최대 손실이 줄어든 회차 {s['singleInterventionImprovedGlobalMax']}/10, 증가한 회차 {s['singleInterventionWorsenedGlobalMax']}/10")
+    lines.append(f"검사한 {s['probeSteps']}개 결정 중 Q마진에 의해 raw argmax 전환이 차단된 결정 {s['QMarginBlockedProbeSteps']}개")
+    lines.append('')
+lines += ['판단 범위',
+'낙관적 하한: 각 패킷의 공통 난수를 모든 가시 후보 PER와 비교해 어느 후보도 수신할 수 없었던 패킷만 손실로 둠. 전환 중단도 제거함.',
+'이 하한보다 실제 최대 손실이 작아질 수 없는지 원본 및 대체 경로의 전체 패킷 마스크로 검증함.',
+'같은 값이면 현재 시뮬레이션의 고정 채널·공통 난수·PHY 표·재전송 없음 가정에서는 위성 선택만으로 그 회차의 최대 연속 손실을 더 줄일 수 없음.',
+'이는 현실의 위성이 해당 패킷을 반드시 모두 잃는다는 뜻이 아님. 후보별 독립 오류 난수나 실제 채널·복호 특성이 다른 모델에는 그대로 일반화하지 않음.',
+'대체 선택에서 개선되지 않았다고 불가피하다고 결론 내리지 않음. 단일 행동 변경과 고정된 후속 정책만 시험했으므로 여러 번의 다른 선택으로 개선할 여지는 남음.',
+'서로 다른 지표를 사후 선택함: 대체 행동은 진단 창의 최대 손실·총 손실·전환을 사전순으로 최소화하는 것으로 고름. 다른 창 밖의 지표 악화 가능성도 전체 재생으로 기록.',
+'Q마진 차단 횟수는 지정된 검사 창에 대한 사실이며 모든 시간·다른 학습 초기값에서의 인과적 영향까지 증명하지 않음.',
+'경계값 PER=1은 유한 표본으로 얻은 현재 표의 값임. 현실의 정확한 오류 확률 1이라고 단정하지 않음.']
+(root/'진단결과.txt').write_text('\n'.join(lines),encoding='utf-8-sig')
+print(json.dumps({'summary':summary,'branches':len(branches),'probes':len(probes)},indent=2))

@@ -1,0 +1,1 @@
+PASS: static geometry; 100 training episodes; 10 disjoint paired evaluation seeds; 1080000 packet rows; shared layout/SNR/PER/draws; loss accounting; independent max-run and baseline action checks.
