@@ -1,0 +1,1 @@
+PASS: 4151 fork pairs; 4981200 independently reconstructed packet outcomes; exact original-state streak, shared PER/draws, handover interruption, chosen IDs and window metrics.
