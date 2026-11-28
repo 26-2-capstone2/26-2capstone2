@@ -180,7 +180,7 @@
 | 타깃 갱신 | `RL.targetUpdate`, `RL.tau` | 6x11 기준 학습 2,500번마다 통째로 복사 (측정 흐름 홉 ÷ 15에 비례, τ 0) |
 | ε | `RL.epsStart`, `RL.epsEnd`, `RL.epsDecaySteps` | 1.0 → 0.05, 6x11 기준 결정 40만 번 (흐름 수, 측정 흐름 홉 ÷ 15에 비례) |
 | 학습 격자 | `RL.trainGrid` | `grid:10x10` (run.py "C 학습" 기본, 평가는 다른 격자로) |
-| 학습 에피소드, 시드 | `RL.trainEpisodes`, `RL.trainSeedStart` | 100 (11/27, 이전 80), 1001부터 |
+| 학습 에피소드, 시드 | `RL.trainEpisodes`, `RL.trainSeedStart` | 80 (11/28 실험 기준), 1001부터 |
 | 학습 혼잡 단계 | `RL.trainLevelWeights` | high : severe = 1 : 2 (비율대로 무작위, `apply_level_ratio`로 바꿈) |
 | 학습 시드 (신경망 초기값) | `RL.torchSeed` | 0 (실행 인자로 바꿈) |
 | 검증 평가 | `RL.evalEvery`, `RL.valSeeds`, `RL.valLevels` | 5 에피소드마다, 501~503, high, severe |

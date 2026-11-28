@@ -77,7 +77,7 @@ def config_rl(P):
     RL.trainLevelMode = 'weighted'         # 'weighted': 아래 비율로 에피소드마다 무작위로 고름, 'cycle': base, high, severe 차례로 돌아가며 (이전 방식)
     RL.trainLevelWeights = {'high': 1, 'severe': 2}   # severe 강조 혼합, 순서는 trainSeedStart로 고정
     RL.trainSeedStart = 1001               # 학습용 시드 시작 (평가용 시드 1~20은 학습에 절대 안 씀)
-    RL.trainEpisodes = 100                 # 학습 에피소드 수 (10초짜리, 11/27 80 -> 100: 학습 쌍이 다양해져 더 길게)
+    RL.trainEpisodes = 80                  # 학습 에피소드 수 (10초짜리). 11/28 10x10 실험 기준 (11/27 밤 noBack 학습만 100)
     RL.evalSeeds = list(range(1, 21))      # 평가용 시드 1~20 (A, B와 같은 조건)
     RL.torchSeed = 0                       # 신경망 초기값, 버퍼 샘플링 난수 시드
 
