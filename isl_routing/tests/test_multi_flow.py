@@ -1,0 +1,76 @@
+# 주 흐름 여러 개 (sim/flows.py) 확인
+import os
+import sys
+import unittest
+
+import numpy as np
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from analysis.burst_summary import loss_run_lengths
+from config_isl import apply_bg_level, config_isl
+from routing.route_A import _dist_to
+from sim.bg_traffic import sample_hotspots
+from sim.build_grid import build_grid
+from sim.flows import make_flows
+from sim.run_isl_sim import run_isl_sim
+from sim.topology import flow_limits
+
+
+class MultiFlowTest(unittest.TestCase):
+    def setUp(self):
+        self.P = config_isl()
+        self.P.numFlows = 3
+        self.G = build_grid(self.P)
+
+    def test_flows(self):
+        # 흐름 0은 측정 흐름 (시험 땐 고정), 나머지는 거리 조건을 만족하고 서로 다름, 같은 시드면 같은 흐름
+        flows = make_flows(self.P, self.G, 11)
+        self.assertEqual(len(flows), 3)
+        self.assertEqual(flows[0][1], (5, 5))
+        self.assertEqual(flows[0][0], (0, 0))                     # 시험 때 측정 흐름은 (0,0) -> (5,5) 고정
+        self.assertEqual(len(set(flows)), 3)
+        far = max(_dist_to(self.G, (p, s)).max() for p in range(self.P.numPlanes) for s in range(self.P.satsPerPlane))
+        for src, dst in flows[1:]:
+            d = _dist_to(self.G, dst)[src]
+            self.assertTrue(far * self.P.otherFlowFracMin <= d <= far)
+        self.assertEqual(flows, make_flows(self.P, self.G, 11))
+        self.P.numFlows = 1
+        self.assertEqual(len(make_flows(self.P, self.G, 11)), 1)
+
+    def test_flow_limits(self):
+        # 기한 = 최소 지연 + 25, TTL = 최소 홉 + 10. (0,0) -> (5,5)는 기존과 같은 70, 20
+        self.assertEqual(flow_limits(self.P, self.G, (0, 0), (5, 5)), (70, 20))
+        self.assertEqual(flow_limits(self.P, self.G, (5, 4), (5, 5)), (32, 11))
+        self.assertEqual((self.P.deadline, self.P.ttlInit), (70, 20))   # 가장 먼 흐름 0 기준
+
+    def test_train_main_flow_is_far(self):
+        # 학습 때 측정 흐름은 가장 먼 거리 x mainFarFrac 이상인 쌍 중 무작위
+        self.P.flowZeroRandom = True
+        far = max(_dist_to(self.G, (p, s)).max() for p in range(self.P.numPlanes) for s in range(self.P.satsPerPlane))
+        for seed in range(20):
+            src, dst = make_flows(self.P, self.G, seed)[0]
+            self.assertGreaterEqual(_dist_to(self.G, dst)[src], far * self.P.mainFarFrac)
+
+    def test_burst_split_by_flow(self):
+        # 흐름 0의 마지막 손실 2개와 흐름 1의 첫 손실 2개는 이어지지 않음 (각각 길이 2)
+        status = np.array([1, 1, 4, 4, 4, 4, 1, 1])
+        flow = np.array([0, 0, 0, 0, 1, 1, 1, 1])
+        self.assertEqual(sorted(loss_run_lengths(status, flow).tolist()), [2, 2])
+
+    def test_sim_three_flows(self):
+        # 흐름마다 같은 수의 패킷, 패킷 id는 흐름별 묶음, 모든 패킷이 끝남
+        P = self.P
+        apply_bg_level(P, 'high')
+        P.simTime = 1000
+        P.routeName = 'routeB'
+        sample_hotspots(P, self.G, 3)
+        R = run_isl_sim(P, P.genRate, 0, 3, False)
+        self.assertEqual(R.numFlows, 3)
+        self.assertEqual(np.bincount(R.packetFlow).tolist(), [60, 60, 60])
+        self.assertTrue(np.all(np.diff(R.packetFlow) >= 0))
+        self.assertTrue(np.all(R.status > 0))
+
+
+if __name__ == '__main__':
+    unittest.main()
