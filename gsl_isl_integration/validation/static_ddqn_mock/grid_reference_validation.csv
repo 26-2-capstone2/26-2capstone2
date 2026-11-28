@@ -1,0 +1,34 @@
+metric,original,restored,difference,passed,constellation
+Generated packets,36000,36000,0,1,6x11
+Received packets,33681,33681,0,1,6x11
+Lost packets,2319,2319,0,1,6x11
+Packet loss ratio (%),6.44166666666667,6.44166666666667,3.5527136788005e-15,1,6x11
+On-time delivery (%),93.5583333333333,93.5583333333333,4.2632564145606e-14,1,6x11
+Maximum consecutive loss,68,68,0,1,6x11
+Handovers,148,148,0,1,6x11
+PHY loss,1431,1431,0,1,6x11
+Handover loss,888,888,0,1,6x11
+Outage loss,0,0,0,1,6x11
+Pending packets,0,0,0,1,6x11
+Generated packets,36000,36000,0,1,20x20
+Received packets,34326,34326,0,1,20x20
+Lost packets,1674,1674,0,1,20x20
+Packet loss ratio (%),4.65,4.65,0,1,20x20
+On-time delivery (%),95.35,95.35,0,1,20x20
+Maximum consecutive loss,33,33,0,1,20x20
+Handovers,142,142,0,1,20x20
+PHY loss,822,822,0,1,20x20
+Handover loss,852,852,0,1,20x20
+Outage loss,0,0,0,1,20x20
+Pending packets,0,0,0,1,20x20
+Generated packets,36000,36000,0,1,36x36
+Received packets,34411,34411,0,1,36x36
+Lost packets,1589,1589,0,1,36x36
+Packet loss ratio (%),4.41388888888889,4.41388888888889,8.88178419700125e-16,1,36x36
+On-time delivery (%),95.5861111111111,95.5861111111111,1.4210854715202e-14,1,36x36
+Maximum consecutive loss,76,76,0,1,36x36
+Handovers,114,114,0,1,36x36
+PHY loss,905,905,0,1,36x36
+Handover loss,684,684,0,1,36x36
+Outage loss,0,0,0,1,36x36
+Pending packets,0,0,0,1,36x36
