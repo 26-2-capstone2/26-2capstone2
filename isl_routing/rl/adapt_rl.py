@@ -73,7 +73,7 @@ def adapt(modelPath, numEpisodes=None, levelRatio=None):
         f.write(f'route_C 적응 ({datetime.now():%Y-%m-%d %H:%M})\n')
         f.write(f'원래 모델: {os.path.abspath(modelPath)}\n')
         f.write(f'원래 학습 격자: {model_grid(modelPath)}\n')
-        f.write(f'적응 격자 {P.topologyName} ({P.numPlanes} x {P.satsPerPlane}), 출발 {P.srcSat.tolist()} -> 도착 {P.dstSat.tolist()}\n')
+        f.write(f'적응 격자 {P.topologyName} ({P.numPlanes} x {P.satsPerPlane}), 측정 흐름 적응 {RL.flowZeroRandomTrain}, 검증 {P.flowZeroTest} (가장 먼 쌍 {P.srcSat.tolist()} -> {P.dstSat.tolist()})\n')
         f.write(f'적응 에피소드 {numEpisodes}개 x {P.simTime} step, 시드 {RL.adaptSeedStart}부터, 혼잡 단계 {RL.trainLevelWeights}, '
                 f'ε {RL.adaptEps} 고정, 학습률 {RL.adaptLr}, 학습 시작 경험 수 {RL.adaptLearnStart}\n')
         f.write(f'검증: 적응 전, 적응 뒤 2번, 검증 시드 {RL.valSeeds}, 단계 {RL.valLevels}, ε 0, 측정 흐름 기준\n')
@@ -113,7 +113,7 @@ def adapt(modelPath, numEpisodes=None, levelRatio=None):
         seed = RL.adaptSeedStart + ep
         apply_bg_level(P, level)
         G = build_grid(P)
-        P.flowZeroRandom = bool(getattr(RL, 'flowZeroRandomTrain', False))
+        P.flowZeroRandom = RL.flowZeroRandomTrain
         sample_hotspots(P, G, seed)
         collector.reset_stats()
         t0 = time.time()

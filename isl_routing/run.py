@@ -314,7 +314,8 @@ def main():
             summary.append(('학습 설정', f'State: {RL.obsDim}개, '
                                        f'결정 {RL.trainEvery}번마다 학습(흐름 {P.numFlows}개라 흐름 하나당 {perFlow}번꼴, 에피소드당 학습 횟수를 흐름 1개일 때와 같게 맞춤), '
                                        f'타깃 복사 학습 {RL.targetUpdate}마다(정답 계산용 신경망을 에피소드 약 1번마다 새로 맞춤, 너무 자주 하면 학습이 지나치게 빨리 시작됨), '
-                                       f'ε: {RL.epsDecaySteps:,}번(처음엔 전부 무작위로 움직이다가 이만큼의 결정 동안 무작위 비율을 5%까지 줄임, 에피소드 약 13)'))
+                                       f'ε: {RL.epsDecaySteps:,}번(처음엔 전부 무작위로 움직이다가 이만큼의 결정 동안 무작위 비율을 5%까지 줄임, 에피소드 약 10), '
+                                       f'γ {RL.gamma:.3f}(측정 흐름 {P.maxFlowHops}홉, 망 크기에 비례)'))
 
     topoTag = '' if topology == 'grid' else topology.replace(':', '')
     save = save_info(task, summary, topoTag)

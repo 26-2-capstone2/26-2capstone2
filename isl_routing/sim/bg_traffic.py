@@ -104,6 +104,7 @@ def sample_hotspots(P, G, seed, maxTry=500):
     weight = np.array(weight, dtype=float) / np.sum(weight)
     for _ in range(maxTry):
         K = rng.randint(P.bgNumMin, P.bgNumMax + 1)
+        K = min(len(cand), max(1, round(K * P.numPlanes * P.satsPerPlane / getattr(P, 'evRefSats', 36))))   # 위성 수에 비례 (6x6 그대로)
         idx = rng.choice(len(cand), size=K, replace=False, p=weight)
         rates = [float(x) * P.linkCapacity for x in rng.uniform(P.bgLoadMin, P.bgLoadMax, size=K)]
         picked = [cand[i] for i in idx]

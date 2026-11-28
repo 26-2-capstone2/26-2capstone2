@@ -9,7 +9,7 @@
 #   8~11  큐 증가 속도 (현재 - 10 step 전) ÷ 50, -1~1 (시작 10 step 동안 0, 없는 방향은 0)
 #   12~15 최근 큐 넘침 min(지난 시간, 300) ÷ 300     (넘침 없으면 1, 없는 방향은 1)
 #   16~19 상하좌우 각 링크 유무 (1 - 있음, 0 - 격자 끝)
-#   20~21 목적지까지 남은 거리 rem_dp, rem_ds ÷ 5, -1~1로 자름 (목적지가 반대쪽이면 음수, 망 크기와 상관없이 1칸 = 0.2)
+#   20~21 목적지까지 남은 거리 rem_dp, rem_ds (dist_feature: 기본 로그 눈금, 목적지가 반대쪽이면 음수, 망 크기와 상관없이 같은 값)
 #   22    남은 기한 ÷ 측정 흐름 기한
 #   23    남은 TTL ÷ 20
 #
@@ -48,6 +48,15 @@ class RoutingObservation:
     deadlineFallback: bool
 
 
+def dist_feature(d, RL):
+    # 남은 칸 수 -> -1~1
+    #   'log' (11/27): 부호 x log2(1 + |칸|) / log2(1 + distLogMax). 1칸 0.17, 5칸 0.43, 10칸 0.58, 먼 거리도 한 칸마다 값이 바뀜
+    #   'clip' (11/23): 칸 ÷ normDist, -1~1로 자름. 5칸 이상은 모두 1 (11/26 6x11 모델은 이 방식)
+    if getattr(RL, 'distMode', 'clip') == 'log':
+        return float(np.clip(np.sign(d) * np.log2(1 + abs(d)) / np.log2(1 + RL.distLogMax), -1.0, 1.0))
+    return float(np.clip(d / RL.normDist, -1.0, 1.0))
+
+
 def normalize(q, N, dq, sinceDrop, remDp, remDs, remDeadline, ttl, RL):
     # 원래 값 -> 관측 벡터 24개 (없는 방향은 q = -1로 들어옴)
     q = np.asarray(q, dtype=float)
@@ -58,7 +67,7 @@ def normalize(q, N, dq, sinceDrop, remDp, remDs, remDeadline, ttl, RL):
         np.where(link > 0, np.clip(np.asarray(dq, dtype=float) / RL.normDelta, -1.0, 1.0), 0.0),
         np.where(link > 0, np.minimum(np.asarray(sinceDrop, dtype=float), RL.overflowWindow) / RL.overflowWindow, 1.0),
         link,
-        [np.clip(remDp / RL.normDist, -1.0, 1.0), np.clip(remDs / RL.normDist, -1.0, 1.0), remDeadline / RL.normDeadline, ttl / RL.normTtl],
+        [dist_feature(remDp, RL), dist_feature(remDs, RL), remDeadline / RL.normDeadline, ttl / RL.normTtl],
     ])
     mode = getattr(RL, 'stateMode', 'full')
     if mode == 'noTrend':   # State 축소 실험: 큐 증가 속도(8~11), 최근 큐 넘침(12~15) 뺌
@@ -69,16 +78,21 @@ def normalize(q, N, dq, sinceDrop, remDp, remDs, remDeadline, ttl, RL):
     return obs.astype(np.float32)
 
 
-def action_mask(q, P, G, curP, curS, remDeadline, mode='full'):
+def action_mask(q, P, G, curP, curS, remDeadline, mode='full', backDir=0):
     # mode 'link': 없는 방향만 막음
+    # mode 'noBack': 없는 방향 + 들어온 링크(직전 위성 쪽)를 막음 (두 위성 사이 왕복 차단, 11/27)
+    #   들어온 링크밖에 없으면 그 방향은 열어 둠
     # mode 'full': 링크/큐 조건과 기한 내 도착의 낙관적인 최소 지연을 함께 확인
     #   모든 큐가 꽉 차거나 기한상 가능한 방향이 없으면 빈 마스크 대신 기존 후보로 되돌림
     q = np.asarray(q, dtype=float)
     link = q >= 0
-    if mode == 'link':
+    if mode in ('link', 'noBack'):
         if not link.any():
             raise ValueError(f'({curP}, {curS})에서 선택할 수 있는 링크가 없습니다')
-        return ActionMask(link.astype(np.float32), False)
+        mask = link.copy()
+        if mode == 'noBack' and backDir and link.sum() > 1:
+            mask[backDir - 1] = False
+        return ActionMask(mask.astype(np.float32), False)
     mask = link & (q < P.queueMax)
     if not mask.any():
         mask = link
@@ -123,10 +137,10 @@ def raw_from_sim(curP, curS, queueLen, G, P, RL, hist=None, t=0):
     return q, N, dq, sinceDrop, Lnow, Nnow
 
 
-def obs_from_sim(curP, curS, queueLen, G, P, RL, remDeadline, ttl, hist=None, t=0):
+def obs_from_sim(curP, curS, queueLen, G, P, RL, remDeadline, ttl, hist=None, t=0, backDir=0):
     # 실행용: 신경망 입력과 결정 기록용 원래 값을 이름 붙인 구조로 반환
     q, N, dq, sinceDrop, Lnow, Nnow = raw_from_sim(curP, curS, queueLen, G, P, RL, hist, t)
     remDp, remDs = displacement(G, curP, curS, G.dstSat[0], G.dstSat[1])   # 원형이면 짧은 쪽 방향
     obs = normalize(q, N, dq, sinceDrop, remDp, remDs, remDeadline, ttl, RL)
-    mask = action_mask(q, P, G, curP, curS, remDeadline, getattr(RL, 'maskMode', 'full'))
+    mask = action_mask(q, P, G, curP, curS, remDeadline, getattr(RL, 'maskMode', 'full'), backDir)
     return RoutingObservation(obs, mask.values, q, Nnow, Lnow, mask.deadlineFallback)

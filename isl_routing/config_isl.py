@@ -61,11 +61,14 @@ def config_isl():
     P.processingDelay = 0                  # 처리 지연 (step)
 
     # ---- 패킷 ----
-    # 기한, TTL은 흐름마다 그 흐름 거리로 정함 (sim/topology.flow_limits): 기한 = 최소 지연 + 여유, TTL = 최소 홉 + 여유
-    #   6x6 (0,0) -> (5,5)는 45 + 25 = 70, 10 + 10 = 20
+    # 기한, TTL은 흐름마다 그 흐름 거리에 비례 (sim/topology.flow_limits, 11/27)
+    #   기한 = max(최소 지연 + 25, 최소 지연 x 70/45), TTL = max(최소 홉 + 10, 최소 홉 x 2)
+    #   6x6 (0,0) -> (5,5)는 70, 20 그대로. 6x11 측정 흐름 124, 30, 36x36은 490, 140 (예전 +25, +10 고정이면 340, 80)
     #   P.deadline, P.ttlInit = 끝점에서 가장 먼 출발 위성 기준 값 (관측 정규화, 홉 보상 기준). config 끝에서 자동 계산
-    P.deadlineMargin = 25                  # 기한 여유 (step)
-    P.ttlMargin = 10                       # TTL 여유 (홉)
+    P.deadlineScale = 70 / 45              # 기한 = 최소 지연 x 이 값 (6x6 측정 흐름 비율)
+    P.ttlScale = 2                         # TTL = 최소 홉 x 이 값 (6x6: 20 / 10)
+    P.deadlineMargin = 25                  # 기한 최소 여유 (step), 짧은 흐름용
+    P.ttlMargin = 10                       # TTL 최소 여유 (홉), 짧은 흐름용
     P.packetSize = 160                     # 패킷 크기 (Byte)
 
     # ---- 연속 손실 ----
@@ -85,14 +88,16 @@ def config_isl():
     # ---- 실험 ----
     P.genRate = 60                         # 1초마다 생성하는 패킷 수 (일정 간격)
     P.numFlows = 4                         # 주 흐름 수 (흐름마다 초당 genRate개): 흐름 0 = 측정 흐름 + 다른 GSL 흐름 3개 (sim/flows.py)
-    P.mainFarFrac = 0.9                    # 학습 때 측정 흐름: 최소 지연이 (시험 측정 흐름 srcSat -> dstSat의 최소 지연 x 이 값) 이상인 쌍 중 무작위 (시험 때는 srcSat -> dstSat 고정)
+    P.flowZeroTest = 'far'                 # 검증, 최종 평가의 측정 흐름 (sim/flows.py): 'far' 먼 쌍 중 시드로 무작위, 'fixed' srcSat -> dstSat 고정
+    P.flowZeroRandom = P.flowZeroTest      # 지금 쓰는 방식 (학습 때는 train_rl이 RL.flowZeroRandomTrain = 'any'로 바꿈)
+    P.mainFarFrac = 0.9                    # 'far': 최소 지연이 (가장 먼 쌍 srcSat -> dstSat의 최소 지연 x 이 값) 이상인 쌍 중 무작위
     P.otherFlowFracMin = 0.25              # 다른 GSL 흐름: 최소 지연 (가장 먼 거리 x 이 값) ~ 가장 먼 거리
     P.otherFlowBands = 3                   # 다른 GSL 흐름 거리 구간 수 (흐름마다 구간을 고르게 뽑아 짧은, 중간, 먼 흐름이 섞이게)
     P.epsilonList = [0, 0.1]               # 무작위 선택 확률 (0: 성능 측정용, 0.1: 데이터 수집용)
     P.simTime = 10000                      # 에피소드 1개의 길이 (step = 10초). 에피소드마다 큐가 비어 있는 상태로 시작
                                            #   학습 안정화 계획: 에피소드당 결정 약 7천~8천 번으로 줄여 학습 곡선을 촘촘하게 봄
     P.numEpisodes = 20                     # 에피소드 개수 = 최종 평가 시드 1~20 (총 시뮬레이션 = simTime x numEpisodes)
-    P.maxDrainTime = 500                   # 생성 종료 후 남은 패킷 처리 최대 step [설정]
+    P.maxDrainTime = 500                   # 생성 종료 후 남은 패킷 처리 최대 step의 최소값. 실제 값은 update_limits가 측정 흐름 기한과 비교해 큰 쪽
     P.randomSeed = 1                       # 난수 시드                             [설정]
     P.stepTime = 1e-3                      # 1 step = 1 ms (초 단위)
 
@@ -119,7 +124,7 @@ def config_isl():
     P.evRefSats = 36                       # 'event' 핫스팟 간격(EVENT_LEVELS)의 기준 위성 수 (6x6). 위성이 많으면 그 비율만큼 더 자주 발생
     P.bgScenarioSeed = 1                   # 첫 에피소드의 시나리오 시드. 에피소드 e는 시드+e를 씀 (None이면 실행마다 무작위 시작 시드)
                                            # 실행할 때 python main_isl.py 7 처럼 시작 시드를 직접 줄 수도 있음
-    P.bgNumMin, P.bgNumMax = 2, 5          # 핫스팟(과부하 송신 큐) 개수 범위
+    P.bgNumMin, P.bgNumMax = 2, 5          # 핫스팟(과부하 송신 큐) 개수 범위, 6x6 기준 (위성 수에 비례해 늘림, P.evRefSats)
     P.bgLoadMin, P.bgLoadMax = 0.7, 2.0    # 핫스팟별 세기 = 부하 x 링크 용량 (1.8 이상이면 큐가 금방 가득 참)
     P.bgBlockLoad = 1.8                    # 이 부하 이상이면 큐를 가득 채워 막는 것으로 간주 (우회 가능 여부 확인에 사용)
     P.bgRelWeight = 3.0                    # 주 흐름과 관련 있는 큐(목적지 쪽 방향)를 뽑을 가중치 (1.0이면 완전 균등)
@@ -127,7 +132,7 @@ def config_isl():
     P.bgOnMean = 150                       # ON 평균 길이 (step)
     P.bgOffMean = 750                      # OFF 평균 길이 (step)
     P.bgTtl = 20                           # 배경 패킷 TTL
-    P.bgPoolSize = 20000                   # 동시에 존재할 수 있는 배경 패킷 수 (srcDrop > 0이면 키울 것)
+    P.bgPoolSize = 20000                   # 동시에 존재할 수 있는 배경 패킷 수의 최소값. 실제 값은 update_limits가 링크 수 x 100과 비교해 큰 쪽 (srcDrop > 0이면 경고)
     P.bgFlows = []                         # 아래 3개는 sample_hotspots가 채움 (직접 쓰지 않음)
     P.bgOnRate = []
     P.bgSeed = 0

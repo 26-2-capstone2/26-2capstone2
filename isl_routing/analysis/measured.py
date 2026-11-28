@@ -1,6 +1,6 @@
 # 측정 흐름만 골라내기 - 결과 지표와 그래프를 측정 흐름(흐름 0) 기준으로 계산할 때 사용
 #
-# 흐름 0 = 측정 흐름 (검증, 평가 때 srcSat -> dstSat 고정). 흐름 1 ~ numFlows-1 = 다른 GSL 흐름 (트래픽 역할)
+# 흐름 0 = 측정 흐름 (검증, 평가 때 P.flowZeroTest: 먼 쌍 중 시드로 무작위, sim/flows.py). 흐름 1 ~ numFlows-1 = 다른 GSL 흐름 (트래픽 역할)
 # measured_view(R): 시뮬레이션 결과 R(에피소드 1개 또는 merge_episodes로 합친 것)에서 측정 흐름 패킷만 남긴 복사본
 #   패킷 배열(status, genTime, endTime, hops, packetEpisode, packetFlow)과 결정 기록(decisionLog)을 함께 줄이고
 #   패킷 번호를 0부터 다시 매김 -> compute_metrics, plot_analysis, plot_bursts를 그대로 쓸 수 있음

@@ -1,14 +1,15 @@
 # 주 흐름 여러 개 - 에피소드마다 실시간 UDP 흐름 목록(출발 위성, 도착 위성)을 정함
 #
-# 흐름 0 = 측정 흐름: 성능(도착률, 연속 손실)을 재는 흐름. 우리 GSL에서 들어와 망의 가장 먼 곳까지 가는 장거리 흐름
-#   검증, 최종 평가 (P.flowZeroRandom = False): P.srcSat -> P.dstSat 고정 (격자에서 가장 먼 쌍, 6x6이면 (0,0) -> (5,5))
-#   학습 (P.flowZeroRandom = True):          최소 지연이 "측정 흐름의 최소 지연 x P.mainFarFrac" 이상인 쌍 중 무작위
-#     -> 시험과 같은 장거리를 연습하되, 출발 위성이 매번 바뀌어 경로 하나를 외우지 못하게 함
+# 흐름 0 = 측정 흐름: 성능(도착률, 연속 손실)을 재는 흐름. 출발, 도착은 P.flowZeroRandom으로 정함 (11/27)
+#   'any' (학습, RL.flowZeroRandomTrain): 모든 쌍 중 무작위 -> 짧은, 먼 경로를 고루 배움
+#   'far' (검증, 최종 평가, P.flowZeroTest): 최소 지연이 "가장 먼 쌍(P.srcSat -> P.dstSat) x P.mainFarFrac" 이상인 쌍 중 시드로 무작위
+#   'fixed' 또는 False: P.srcSat -> P.dstSat 고정 (격자에서 가장 먼 쌍, 6x6이면 (0,0) -> (5,5), 11/25~11/27 시험 방식)
+#   True는 'far'와 같음 (예전 설정 호환)
 # 흐름 1 ~ numFlows-1 = 다른 GSL 흐름: 다른 지역 지상국 사용자의 트래픽 (C가 같이 라우팅, 보조 지표)
 #   최소 지연이 "가장 먼 거리 x P.otherFlowFracMin" ~ 가장 먼 거리인 쌍 중 무작위
 #   거리 구간을 P.otherFlowBands개로 나눠 흐름마다 구간을 고르게 뽑음 (짧은, 중간, 먼 흐름이 골고루 섞이게.
 #   쌍을 그냥 뽑으면 중간 거리 쌍이 가장 많아 그쪽으로 쏠림)
-# 모든 흐름 공통: 최소 홉 수가 측정 흐름(P.srcSat -> P.dstSat)의 최소 홉 수 이하, 최소 지연이 (기한 - DEADLINE_MARGIN) 이하인 쌍만 씀
+# 모든 흐름 공통: 최소 홉 수, 최소 지연이 가장 먼 쌍(P.srcSat -> P.dstSat) 이하인 쌍만 씀
 #   (TTL, 기한은 측정 흐름 기준으로 정해지므로, 다른 흐름도 같거나 더 넉넉한 홉, 시간 여유를 갖게 함)
 #   "가장 먼 거리" = 이 조건을 만족하는 쌍 중 최소 지연이 가장 큰 값 (6x6, Starlink는 측정 흐름과 같음)
 #   흐름끼리 출발 위성, 도착 위성이 겹치지 않게 뽑음
@@ -78,9 +79,8 @@ _CANDS = {}
 
 
 def flow_candidates(P, G):
-    # 반환: 가장 먼 거리(step), 측정 흐름 학습 후보, 다른 GSL 흐름 후보 (각각 배열 (출발 p, 출발 s, 도착 p, 도착 s, 지연))
+    # 반환: 가장 먼 거리(step), 먼 쌍 후보('far'), 다른 GSL 흐름 후보, 모든 쌍 후보('any') (각각 배열 (출발 p, 출발 s, 도착 p, 도착 s, 지연))
     # 망 구조와 설정이 같으면 한 번만 계산해 보관
-    from sim.topology import DEADLINE_MARGIN
     key = (_grid_key(G), tuple(int(x) for x in P.srcSat), tuple(int(x) for x in P.dstSat), int(P.deadline),
            float(getattr(P, 'mainFarFrac', 0.9)), float(getattr(P, 'otherFlowFracMin', 0.25)))
     if key in _CANDS:
@@ -90,8 +90,7 @@ def flow_candidates(P, G):
     dst0 = (int(P.dstSat[0]), int(P.dstSat[1]))
     hopLimit = hops[dst0[0], dst0[1], src0[0], src0[1]]           # 측정 흐름의 최소 홉 수
     mainDelay = float(delay[dst0[0], dst0[1], src0[0], src0[1]])   # 측정 흐름(시험)의 최소 지연
-    delayLimit = P.deadline - DEADLINE_MARGIN                      # 기한 여유를 측정 흐름과 같거나 더 넉넉하게
-    ok = np.isfinite(delay) & (delay > 0) & (delay <= delayLimit) & (hops <= hopLimit)
+    ok = np.isfinite(delay) & (delay > 0) & (delay <= mainDelay) & (hops <= hopLimit)   # 측정 흐름보다 멀지 않은 쌍 (기한, TTL 상한 안)
     maxDelay = float(delay[ok].max())
     farMin = mainDelay * float(getattr(P, 'mainFarFrac', 0.9))
     otherMin = maxDelay * float(getattr(P, 'otherFlowFracMin', 0.25))
@@ -100,7 +99,7 @@ def flow_candidates(P, G):
         dp, ds, sp, ss = np.nonzero(mask)
         return np.column_stack([sp, ss, dp, ds, delay[dp, ds, sp, ss]])
 
-    out = (maxDelay, table(ok & (delay >= farMin)), table(ok & (delay >= otherMin)))
+    out = (maxDelay, table(ok & (delay >= farMin)), table(ok & (delay >= otherMin)), table(ok))
     _CANDS[key] = out
     return out
 
@@ -109,18 +108,21 @@ def make_flows(P, G, seed):
     # 반환: [((출발 p, 출발 s), (도착 p, 도착 s)), ...] 길이 P.numFlows (0번 = 측정 흐름)
     fixed = ((int(P.srcSat[0]), int(P.srcSat[1])), (int(P.dstSat[0]), int(P.dstSat[1])))
     numFlows = int(getattr(P, 'numFlows', 1))
-    zeroRandom = bool(getattr(P, 'flowZeroRandom', False))
-    if numFlows <= 1 and not zeroRandom:
+    mode = {True: 'far', False: 'fixed', None: 'fixed'}.get(getattr(P, 'flowZeroRandom', False), getattr(P, 'flowZeroRandom', 'fixed'))
+    if mode not in ('fixed', 'far', 'any'):
+        raise ValueError(f"P.flowZeroRandom은 'fixed', 'far', 'any' 중 하나: {mode}")
+    if numFlows <= 1 and mode == 'fixed':
         return [fixed]
     rng = np.random.RandomState(int(seed) + 300000)   # 배경 트래픽 난수와 다른 난수열
 
     def pair(row):
         return (int(row[0]), int(row[1])), (int(row[2]), int(row[3]))
 
-    maxDelay, main, other = flow_candidates(P, G)
-    if zeroRandom:
+    maxDelay, far, other, every = flow_candidates(P, G)
+    if mode != 'fixed':
+        main = far if mode == 'far' else every
         if not len(main):
-            raise ValueError('측정 흐름 학습 후보(측정 흐름 거리 근처 쌍)가 없습니다')
+            raise ValueError(f'측정 흐름 후보({mode})가 없습니다')
         flows = [pair(main[rng.randint(len(main))])]
     else:
         flows = [fixed]

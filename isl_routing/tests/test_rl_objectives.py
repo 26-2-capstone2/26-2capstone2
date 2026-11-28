@@ -90,7 +90,16 @@ class ObjectiveTests(unittest.TestCase):
         queue = np.zeros(G.numLinks, dtype=int)
         observed = obs_from_sim(1, 0, queue, G, P, RL, 43, 20)
         self.assertEqual(observed.values.shape, (24,))
-        np.testing.assert_array_equal(observed.mask, [0, 1, 1, 1])   # 'link': 없는 방향(상)만 막음
+        np.testing.assert_array_equal(observed.mask, [0, 1, 1, 1])   # 'noBack', 막 생성(들어온 방향 없음): 없는 방향(상)만 막음
+        back = obs_from_sim(1, 0, queue, G, P, RL, 43, 20, backDir=3)
+        np.testing.assert_array_equal(back.mask, [0, 1, 0, 1])       # 좌에서 들어옴 -> 좌도 막음
+        corner = action_mask([-1, 0, -1, -1], P, G, 0, 0, 43, 'noBack', backDir=2)
+        np.testing.assert_array_equal(corner.values, [0, 1, 0, 0])   # 들어온 링크밖에 없으면 열어 둠
+        from rl.rl_state import dist_feature
+        f = [dist_feature(d, RL) for d in (0, 1, 5, 6, 9, 10, -10)]
+        self.assertEqual(f[0], 0.0)
+        self.assertTrue(f[1] < f[2] < f[3] < f[4] < f[5] < 1.0)        # 'log': 5칸 넘어도 한 칸마다 값이 바뀜
+        self.assertAlmostEqual(f[6], -f[5])
         RL.maskMode = 'full'
         observed = obs_from_sim(1, 0, queue, G, P, RL, 43, 20)
         np.testing.assert_array_equal(observed.mask, [0, 1, 0, 1])

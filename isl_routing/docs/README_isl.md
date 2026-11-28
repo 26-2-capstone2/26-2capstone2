@@ -97,12 +97,12 @@ python run.py
 | `P.numFlows`, `P.genRate` | 주 흐름 4개, 흐름마다 초당 60개 |
 | `P.mainFarFrac` | 학습 때 측정 흐름: 시험 측정 흐름 최소 지연의 0.9배 이상인 쌍 중 무작위 |
 | `P.otherFlowFracMin`, `P.otherFlowBands` | 다른 GSL 흐름: 가장 먼 거리의 0.25~1배, 3구간으로 고르게 |
-| `P.deadlineMargin`, `P.ttlMargin` | 흐름마다 기한 = 최소 지연 + 25, TTL = 최소 홉 + 10 (6x6 (0,0) → (5,5)는 70, 20) |
+| `P.deadlineScale`, `P.ttlScale`, `P.deadlineMargin`, `P.ttlMargin` | 흐름마다 기한 = max(최소 지연 x 70/45, + 25), TTL = max(최소 홉 x 2, + 10) (6x6 (0,0) → (5,5)는 70, 20, 망 크기 비례) |
 | `P.deadline`, `P.ttlInit` | 측정 흐름의 기한, TTL (자동 계산, 관측 정규화와 홉 보상 기준. 6x6: 70, 20) |
 | `P.bgMode` | `'event'` 지금 배경 트래픽 (기본), `'hotspot'` 이전 방식 |
 | `EVENT_LEVELS`, `P.evRefSats` | 혼잡 단계별 핫스팟 발생 간격, 지속 시간 (6x6 = 위성 36개 기준, 위성 수에 비례해 더 자주) |
 | `RL.trainGrid`, `RL.trainEpisodes` | 학습 격자 10x10, 학습 80 에피소드 |
-| `RL.lr`, `RL.epsDecaySteps` | 학습률 0.0001, ε 감소 결정 40만 번 (흐름 하나당 10만) |
+| `RL.lr`, `RL.epsDecaySteps`, `RL.gamma` | 학습률 0.0001, ε 감소 결정 40만 번, γ 0.95 (6x11 기준, 측정 흐름 홉에 비례) |
 | `RL.adaptEpisodes`, `RL.adaptLr`, `RL.adaptEps` | 적응 5 에피소드, 학습률 0.00001, ε 0.05 고정 |
 
 모든 변수 설명은 [`variables_isl.md`](variables_isl.md) 참고.

@@ -43,8 +43,8 @@
 | 패킷 번호 | `packet_id` | 0부터 |
 | 패킷 크기 | `P.packetSize` | 160 Byte |
 | 초당 생성 수 (흐름마다) | `P.genRate` | 60 |
-| 기한 여유 | `P.deadlineMargin` | 25 step (흐름 기한 = 그 흐름의 최소 지연 + 25) |
-| TTL 여유 | `P.ttlMargin` | 10 (흐름 TTL = 그 흐름의 최소 홉 + 10) |
+| 기한 | `P.deadlineScale`, `P.deadlineMargin` | 흐름 기한 = max(최소 지연 x 70/45, 최소 지연 + 25). 6x6 측정 흐름 70, 6x11 124, 36x36 490 (망 크기 비례, 11/27) |
+| TTL | `P.ttlScale`, `P.ttlMargin` | 흐름 TTL = max(최소 홉 x 2, 최소 홉 + 10). 6x6 측정 흐름 20, 6x11 30, 36x36 140 |
 | 흐름별 기한, TTL (자동) | `P.mainDeadlines`, `P.mainTtls` | 에피소드마다 흐름별로 계산 (6x6 (0,0) → (5,5): 70, 20) |
 | 측정 흐름 기한, TTL (자동) | `P.deadline`, `P.ttlInit` | 6x6: 70 step, 20 / 10x10: 106, 28 / 6x11: 105, 25 (관측 정규화, 홉 보상 기준) |
 | 현재 위성, 홉 수, 생성 시각 | `curP`, `curS`, `hops`, `genTime` | |
@@ -55,7 +55,7 @@
 | --- | --- | --- |
 | 주 흐름 수 | `P.numFlows` | 4 |
 | 측정 흐름(흐름 0) 출발, 도착 (자동) | `P.srcSat`, `P.dstSat` | (0,0) → 격자 맨 끝 모서리 (궤도면 수-1, 위성 수-1). 6x6 (5,5), 6x11 (5,10). 시험(검증, 최종 평가) 때 고정 |
-| 학습 때 측정 흐름 무작위 | `P.flowZeroRandom` (`RL.flowZeroRandomTrain`) | 학습, 적응 때 True: 시험 측정 흐름 최소 지연 x `P.mainFarFrac` 이상인 쌍 중 무작위 |
+| 측정 흐름 출발, 도착 | `P.flowZeroRandom`, `RL.flowZeroRandomTrain`, `P.flowZeroTest` | 학습, 적응: `'any'` 모든 쌍 중 무작위. 검증, 최종 평가: `'far'` 최소 지연이 가장 먼 쌍 x `P.mainFarFrac`(0.9) 이상인 쌍 중 시드로 무작위 (11/27). `'fixed'`는 (0,0) -> 끝 모서리 고정 |
 | 학습 측정 흐름 거리 비율 | `P.mainFarFrac` | 0.9 |
 | 다른 GSL 흐름 거리 | `P.otherFlowFracMin` | 0.25 (가장 먼 거리의 0.25 ~ 1배) |
 | 다른 GSL 흐름 거리 구간 수 | `P.otherFlowBands` | 3 (짧은, 중간, 먼 흐름이 고르게 섞이게 구간마다 고르게 뽑음) |
@@ -90,7 +90,7 @@
 | 시작 시드 | `P.bgScenarioSeed` | 1 (에피소드 e는 시드 + e) |
 | 주 흐름 지역 가중치 | `P.bgRelWeight` | 3.0 (주 흐름의 출발 → 도착 직선 근처) |
 | 막힘 기준 (기존 방식) | `P.bgBlockLoad` | 1.8 |
-| 배경 TTL, 동시 배경 패킷 최대 수 | `P.bgTtl`, `P.bgPoolSize` | 20, 20000 |
+| 배경 TTL, 동시 배경 패킷 최대 수 | `P.bgTtl`, `P.bgPoolSize` | 20, max(20000, 링크 수 x 100) (6x11 26,400, 20x20 160,000, 36x36 518,400, 11/27. 자리가 모자라면 경고) |
 | 자동으로 채워지는 값 | `P.bgFlows`, `P.bgOnRate`, `P.bgSeed`, `P.bgEvents` | |
 | 배경 경로 | XY 경로 (목적지 쪽 좌/우 먼저, 부하를 보지 않음) | |
 
@@ -110,7 +110,7 @@
 
 | 변수 | 코드 | 값 |
 | --- | --- | --- |
-| 핫스팟 개수 | `P.bgNumMin` ~ `P.bgNumMax` (`BG_LEVELS`) | base 2~5, high 3~6, severe 4~7 |
+| 핫스팟 개수 | `P.bgNumMin` ~ `P.bgNumMax` (`BG_LEVELS`) | 6x6 기준 base 2~5, high 3~6, severe 4~7 (위성 수 ÷ 36배로 늘림, hotspot 방식만) |
 | 핫스팟 세기 | `P.bgLoadMin` ~ `P.bgLoadMax` | 링크 용량의 0.7 ~ 2.0배 |
 | 켜짐 / 꺼짐 평균 | `P.bgOnMean`, `P.bgOffMean` (`BG_LEVELS`) | base 150/750, high 300/600, severe 450/450 step |
 | 관련 큐 최소 개수 | `P.bgMinRelevant` | 1 |
@@ -121,7 +121,7 @@
 | --- | --- | --- |
 | 에피소드 길이 | `P.simTime` | 10000 step (10초) |
 | 에피소드 개수 (= 평가 시드 1~20) | `P.numEpisodes` | 20 |
-| 남은 패킷 처리 한도 | `P.maxDrainTime` | 500 step |
+| 남은 패킷 처리 한도 | `P.maxDrainTime` | max(500, 측정 흐름 기한) step |
 | 무작위 선택 확률 (main_isl) | `P.epsilonList` | 0 (성능 측정), 0.1 (데이터 수집) |
 | 무작위 선택 시드 | `P.randomSeed` | 1 (에피소드 e는 randomSeed + e) |
 | 애니메이션 길이, 간격 | `P.animDuration`, `P.animFrameInterval` | 200 step, 2 step |
@@ -168,19 +168,19 @@
 | 변수 | 코드 | 값 |
 | --- | --- | --- |
 | 관측 수, 행동 수 | `RL.obsDim`, `RL.numActions` | 15 (`RL.stateMode = 'coarse'`), 4 |
-| 관측 정규화 | `RL.normDist`, `RL.normDeadline` | 남은 거리 ÷ 5칸 (-1~1로 자름, 망 크기와 상관없이 1칸 = 0.2, 11/23), 남은 기한 ÷ `P.deadline` (측정 흐름 기한, 6x6: 70) |
-| 행동 마스크 | `RL.maskMode` | `'link'` (없는 방향만 막음) |
+| 관측 정규화 | `RL.distMode`, `RL.distLogMax`, `RL.normDeadline` | 남은 거리: 부호 x log2(1 + 칸) / log2(65) (1칸 0.17, 5칸 0.43, 10칸 0.58, 망 크기와 상관없이 같은 값, 11/27. 이전 `'clip'`은 ÷ 5칸 후 자름이라 5칸 이상이 모두 1), 남은 기한 ÷ `P.deadline` (측정 흐름 기한, 6x6: 70) |
+| 행동 마스크 | `RL.maskMode` | `'noBack'` (없는 방향 + 방금 온 위성 쪽을 막음, 그 방향밖에 없으면 열어 둠, 11/27. 이전 `'link'`는 없는 방향만) |
 | 보상 | `RL.rewardOnTime`, `RL.rewardSingleLoss` | 기한 내 도착 +0.5, 단발 손실 −0.1 |
 | 연속 손실 보상 | `RL.burstBase`, `RL.burstStep`, `RL.burstMax` | k번째 패킷 −min(1.0, 0.2 + 0.1 x (k − 3)), 구간 전체에 적용 (7차, 11/26 되돌림) |
 | 홉 보상 | `RL.rewardHopScale`, `RL.rewardHopQueue` | −링크 지연 ÷ 기한 (큐 항목 없음, `rewardHopQueue = False`) |
 | 신경망 | `RL.hidden` | 15 → 64 → 64 → 4 |
-| 학습률, 할인율 | `RL.lr`, `RL.gamma` | 0.0001, 0.95 |
+| 학습률, 할인율 | `RL.lr`, `RL.gamma`, `RL.refHops` | 0.0001, 0.95^(15 ÷ 측정 흐름 최소 홉): 6x11 0.95, 36x36 0.989 (출발점에서 보이는 도착 보상이 망 크기와 상관없이 같게) |
 | 리플레이 버퍼, 배치 | `RL.bufferSize`, `RL.batchSize` | 100만, 64 |
-| 학습 시작, 학습 빈도 | `RL.learnStart`, `RL.trainEvery` | 경험 20만 개 이후, 결정 16번마다 (흐름 수에 비례, 흐름 하나당 5만, 4번) |
-| 타깃 갱신 | `RL.targetUpdate`, `RL.tau` | 학습 2,500번마다 통째로 복사 (τ 0) |
-| ε | `RL.epsStart`, `RL.epsEnd`, `RL.epsDecaySteps` | 1.0 → 0.05, 결정 40만 번 (흐름 하나당 10만) |
+| 학습 시작, 학습 빈도 | `RL.learnStart`, `RL.trainEvery` | 6x11 기준 경험 20만 개 이후 (흐름 수, 측정 흐름 홉 ÷ 15에 비례), 결정 16번마다 (흐름 수에 비례) |
+| 타깃 갱신 | `RL.targetUpdate`, `RL.tau` | 6x11 기준 학습 2,500번마다 통째로 복사 (측정 흐름 홉 ÷ 15에 비례, τ 0) |
+| ε | `RL.epsStart`, `RL.epsEnd`, `RL.epsDecaySteps` | 1.0 → 0.05, 6x11 기준 결정 40만 번 (흐름 수, 측정 흐름 홉 ÷ 15에 비례) |
 | 학습 격자 | `RL.trainGrid` | `grid:10x10` (run.py "C 학습" 기본, 평가는 다른 격자로) |
-| 학습 에피소드, 시드 | `RL.trainEpisodes`, `RL.trainSeedStart` | 80, 1001부터 |
+| 학습 에피소드, 시드 | `RL.trainEpisodes`, `RL.trainSeedStart` | 100 (11/27, 이전 80), 1001부터 |
 | 학습 혼잡 단계 | `RL.trainLevelWeights` | high : severe = 1 : 2 (비율대로 무작위, `apply_level_ratio`로 바꿈) |
 | 학습 시드 (신경망 초기값) | `RL.torchSeed` | 0 (실행 인자로 바꿈) |
 | 검증 평가 | `RL.evalEvery`, `RL.valSeeds`, `RL.valLevels` | 5 에피소드마다, 501~503, high, severe |

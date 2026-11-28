@@ -25,6 +25,7 @@ class MultiFlowTest(unittest.TestCase):
 
     def test_flows(self):
         # 흐름 0은 측정 흐름 (시험 땐 고정), 나머지는 거리 조건을 만족하고 서로 다름, 같은 시드면 같은 흐름
+        self.P.flowZeroRandom = 'fixed'
         flows = make_flows(self.P, self.G, 11)
         self.assertEqual(len(flows), 3)
         self.assertEqual(flows[0][1], (5, 5))
@@ -39,10 +40,25 @@ class MultiFlowTest(unittest.TestCase):
         self.assertEqual(len(make_flows(self.P, self.G, 11)), 1)
 
     def test_flow_limits(self):
-        # 기한 = 최소 지연 + 25, TTL = 최소 홉 + 10. (0,0) -> (5,5)는 기존과 같은 70, 20
+        # 기한 = max(최소 지연 + 25, x 70/45), TTL = max(최소 홉 + 10, x 2). (0,0) -> (5,5)는 기존과 같은 70, 20
         self.assertEqual(flow_limits(self.P, self.G, (0, 0), (5, 5)), (70, 20))
-        self.assertEqual(flow_limits(self.P, self.G, (5, 4), (5, 5)), (32, 11))
+        self.assertEqual(flow_limits(self.P, self.G, (5, 4), (5, 5)), (32, 11))   # 짧은 흐름은 최소 여유
         self.assertEqual((self.P.deadline, self.P.ttlInit), (70, 20))   # 가장 먼 흐름 0 기준
+
+    def test_size_scaling(self):
+        # 망이 커지면 기한, TTL, γ가 측정 흐름 거리에 비례. 6x11은 11/27 학습 설정(γ 0.95, 학습 일정) 그대로
+        from rl.config_rl import config_rl
+        from sim.topology import apply_topology
+        out = {}
+        for name in ('grid:6x11', 'grid:36x36'):
+            P = apply_topology(config_isl(), name)
+            out[name] = (P, config_rl(P))
+        P, RL = out['grid:6x11']
+        self.assertEqual((P.deadline, P.ttlInit, RL.gamma, RL.learnStart), (124, 30, 0.95, 200000))
+        P, RL = out['grid:36x36']
+        self.assertEqual((P.deadline, P.ttlInit), (490, 140))
+        self.assertAlmostEqual(RL.gamma ** P.maxFlowHops, 0.95 ** 15)   # 출발점에서 보이는 도착 보상 할인이 같음
+        self.assertGreaterEqual(P.maxDrainTime, P.deadline)
 
     def test_train_main_flow_is_far(self):
         # 학습 때 측정 흐름은 가장 먼 거리 x mainFarFrac 이상인 쌍 중 무작위
@@ -51,6 +67,12 @@ class MultiFlowTest(unittest.TestCase):
         for seed in range(20):
             src, dst = make_flows(self.P, self.G, seed)[0]
             self.assertGreaterEqual(_dist_to(self.G, dst)[src], far * self.P.mainFarFrac)
+        # 'any' (학습): 모든 쌍 중 무작위 -> 짧은 쌍도 나오고, 출발과 도착이 여러 곳
+        self.P.flowZeroRandom = 'any'
+        pairs = [make_flows(self.P, self.G, seed)[0] for seed in range(200)]
+        dists = [_dist_to(self.G, dst)[src] for src, dst in pairs]
+        self.assertLess(min(dists), far * 0.5)
+        self.assertGreater(len({dst for _, dst in pairs}), 10)
 
     def test_burst_split_by_flow(self):
         # 흐름 0의 마지막 손실 2개와 흐름 1의 첫 손실 2개는 이어지지 않음 (각각 길이 2)

@@ -22,16 +22,17 @@ def set_agent(agent, RL, explore=False, collector=None):
     STATE.infeasibleMasks = 0
 
 
-def route_C(curP, curS, queueLen, G, P, t=0, remDeadline=None, ttl=None, hops=None, hist=None, **packet):
+def route_C(curP, curS, queueLen, G, P, t=0, remDeadline=None, ttl=None, hops=None, hist=None, backDir=0, **packet):
     # 입력: 현재 위성 (curP,curS), 링크별 큐 길이 queueLen, 그리드 G, 설정 P, 남은 기한 remDeadline, 남은 TTL ttl
     #       hist: 링크별 최근 큐 길이, 마지막 넘침 시각 (sim/link_history.py, 관측의 큐 증가 속도, 이웃 부하, 최근 넘침에 사용)
+    #       backDir: 패킷이 들어온 방향 (maskMode 'noBack'이면 그 방향을 막음, 0 = 막 생성)
     # 출력: nextDir 방향(1 상, 2 하, 3 좌, 4 우)
     #       choiceType 1 주 경로, 2 대체 경로, 3 그 외 방향 (B와 같은 기준, 결과 비교용)
     #       L, N 4방향 링크 점유율 / 이웃 부하 (없는 방향은 -1)
     if STATE.agent is None:
         raise RuntimeError('route_C: set_agent()로 에이전트를 먼저 붙여야 함')
 
-    observed = obs_from_sim(curP, curS, queueLen, G, P, STATE.RL, remDeadline, ttl, hist, t)
+    observed = obs_from_sim(curP, curS, queueLen, G, P, STATE.RL, remDeadline, ttl, hist, t, backDir)
     STATE.infeasibleMasks += int(observed.deadlineFallback)
     action = STATE.agent.act(observed.values, observed.mask, explore=STATE.explore)   # 0 상, 1 하, 2 좌, 3 우
     nextDir = action + 1

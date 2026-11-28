@@ -64,7 +64,7 @@ def validate(agent, RL, P, collector):
         G = build_grid(P)
         status, runs, latency = [], [], []
         for seed in RL.valSeeds:
-            P.flowZeroRandom = False   # 검증은 측정 흐름(흐름 0)을 srcSat -> dstSat로 고정
+            P.flowZeroRandom = P.flowZeroTest   # 검증은 최종 평가와 같은 측정 흐름 방식 ('far': 먼 쌍, 시드로 정해짐)
             sample_hotspots(P, G, seed)
             R = run_isl_sim(P, P.genRate, 0, seed, False)
             main = R.packetFlow == 0                     # 측정 흐름 (검증 지표는 측정 흐름 기준)
@@ -111,8 +111,8 @@ def train(numEpisodes=None, simTime=None, torchSeed=None, levelRatio=None):
         f.write(f'에피소드 {numEpisodes}개 x {P.simTime} step, 혼잡 단계 {RL.trainLevelMode} {RL.trainLevelWeights if RL.trainLevelMode == "weighted" else RL.trainLevels}, 시드 {RL.trainSeedStart}부터, '
                 f'학습 시드(신경망 초기값) {RL.torchSeed}\n')
         f.write(f'검증 평가: {RL.evalEvery} 에피소드마다, 검증 시드 {RL.valSeeds}, 단계 {RL.valLevels}, ε 0\n')
-        f.write(f'망 구조 {P.topologyName} ({P.numPlanes} x {P.satsPerPlane}), 흐름 {P.numFlows}개, 측정 흐름 {P.srcSat.tolist()} -> {P.dstSat.tolist()}\n')
-        f.write(f'기한, TTL: 흐름마다 최소 지연 + {P.deadlineMargin}, 최소 홉 + {P.ttlMargin} (측정 흐름: {P.deadline}, {P.ttlInit}), 큐 {P.queueMax}, 링크 용량 {P.linkCapacity}, 초당 {P.genRate}개, '
+        f.write(f'망 구조 {P.topologyName} ({P.numPlanes} x {P.satsPerPlane}), 흐름 {P.numFlows}개, 측정 흐름 학습 {RL.flowZeroRandomTrain}, 검증 {P.flowZeroTest} (가장 먼 쌍 {P.srcSat.tolist()} -> {P.dstSat.tolist()} x {P.mainFarFrac} 이상)\n')
+        f.write(f'기한, TTL: 흐름마다 max(최소 지연 x {P.deadlineScale:.3f}, + {P.deadlineMargin}), max(최소 홉 x {P.ttlScale}, + {P.ttlMargin}) (가장 먼 쌍: {P.deadline}, {P.ttlInit}),큐 {P.queueMax}, 링크 용량 {P.linkCapacity}, 초당 {P.genRate}개, '
                 f'배경 트래픽 {getattr(P, "bgMode", "hotspot")}\n')
         f.write('강화학습 설정: ' + ', '.join(f'{k}={v}' for k, v in vars(RL).items()) + '\n')
 
@@ -152,7 +152,7 @@ def train(numEpisodes=None, simTime=None, torchSeed=None, levelRatio=None):
         seed = RL.trainSeedStart + ep
         apply_bg_level(P, level)
         G = build_grid(P)
-        P.flowZeroRandom = bool(getattr(RL, 'flowZeroRandomTrain', False))   # 학습 때만 측정 흐름도 먼 쌍 중 무작위
+        P.flowZeroRandom = RL.flowZeroRandomTrain   # 학습 때 측정 흐름 ('any': 모든 쌍 중 무작위)
         sample_hotspots(P, G, seed)
         collector.reset_stats()
         maskFallbackStart = C_STATE.infeasibleMasks
