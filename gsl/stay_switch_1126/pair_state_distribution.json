@@ -1,0 +1,22 @@
+{
+  "frozenParent": {
+    "cases": 92,
+    "medianPriorStreak": 0.0,
+    "maxPriorStreak": 192
+  },
+  "pairedTraining": {
+    "cases": 92,
+    "medianPriorStreak": 52.5,
+    "maxPriorStreak": 360
+  },
+  "earlyTraining": {
+    "cases": 69,
+    "medianPriorStreak": 60,
+    "maxPriorStreak": 360
+  },
+  "lateTraining": {
+    "cases": 23,
+    "medianPriorStreak": 1,
+    "maxPriorStreak": 62
+  }
+}

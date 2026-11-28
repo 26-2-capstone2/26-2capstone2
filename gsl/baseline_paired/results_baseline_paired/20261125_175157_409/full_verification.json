@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "baselineTrainingEpisodes": 0,
+  "pairedEvaluationRuns": 10,
+  "totalVerifiedPacketRecords": 720000,
+  "sameChannelAndGeometry": true,
+  "samePacketDraws": true,
+  "ddqnRetrained": false
+}

@@ -1,0 +1,7 @@
+이번 변경은 실험용이며 기존 모델을 대체하지 않음.
+MATLAB에서 gsl 폴더의 main_gsl_q_replay.m 실행: 저장된 비교 그래프와 수정 모델의 패킷 결과가 열림. 재학습하지 않음.
+실험결과.txt: 결과와 해석.
+results_uniform / results_prioritized: 각 100회 학습 + 기존 10회 평가의 모델, 전체 로그.
+validation_new_seeds: 새 시드 10개씩 평가한 전체 패킷 및 Q 기록.
+new_seed_comparison.fig / q_replay_comparison.fig: 그래프만 직접 열 수 있음.
+보상식과 기존 모델은 그대로 보존함. 이 변경의 개선 효과는 확인되지 않아 채택하지 않음.

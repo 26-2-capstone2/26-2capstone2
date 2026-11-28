@@ -1,0 +1,10 @@
+root=fileparts(fileparts(mfilename('fullpath')));
+addpath(root,fullfile(root,'three_constellations'),fullfile(root,'ddqn_6x11'),fullfile(root,'q_context_1126'));
+addpath(fileparts(mfilename('fullpath')));R=open_saved_gsl_stay_switch(false);
+S=load(fullfile(R.outputDir,'agent.mat'),'checkpoint');C=S.checkpoint;
+assert(height(R.training)==100&&height(R.runs)==10);
+assert(C.rareCount>0&&C.rareSamplesUsed>0);
+assert(C.rareSamplesUsed+C.normalSamplesUsed==C.updateCount*64);
+P=readtable(fullfile(R.outputDir,'training_pairs.csv'));assert(C.rareCount==2*height(P));
+verify_training_pairs(R.outputDir);
+fprintf('SAVED STAY/SWITCH REOPEN PASS | %d training pairs | %d rare samples | %d updates.\n',height(P),C.rareSamplesUsed,C.updateCount);

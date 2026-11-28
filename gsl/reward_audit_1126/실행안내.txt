@@ -1,0 +1,9 @@
+보상 점검 결과: 보상점검결과.txt
+MATLAB에서 상위 gsl 폴더의 main_gsl_reward_audit.m 실행: 저장된 실제 사례 및 점수 재계산 그래프를 표시함.
+학습/정책/보상 변경 및 재시뮬레이션 없이 열림.
+reward_alignment_actual.fig: 실제 시뮬레이터 사례 그래프.
+full_episode_audit/full_episode_pairs.csv: 92쌍의 600초 전체 결과와 보상 차이 구성요소.
+full_episode_audit/component_traces.csv: 원래 보상과 일치함을 확인한 초별 보상 구성요소.
+fixed_trajectory_rescoring.csv: 같은 행동 경로의 점수만 재계산한 자료이며, 새 보상으로 학습한 성능 결과가 아님.
+synthetic_formula_counterexample.csv: 공식 성질을 확인하기 위한 합성 예시이며 실제 GSL 성능 결과가 아님.
+기존 보상 및 학습 모델은 변경하지 않음.

@@ -1,0 +1,128 @@
+{
+  "scope": "92 correlated training-state pairs from 49 seeds, full 600-second episode metrics; fixed parent policy after first action",
+  "weights": {
+    "onTime": 1,
+    "burst": 0.3,
+    "handover": 0.1
+  },
+  "gamma": 0.95,
+  "rescoring": {
+    "original": {
+      "cases": 92,
+      "preferLongerFullMax": 8,
+      "preferMoreFullLoss": 12,
+      "dominatedOnLossAndMax": 10,
+      "preferStay": 54,
+      "preferSwitch": 38,
+      "ties": 0
+    },
+    "no_extra_HO": {
+      "cases": 92,
+      "preferLongerFullMax": 1,
+      "preferMoreFullLoss": 6,
+      "dominatedOnLossAndMax": 2,
+      "preferStay": 27,
+      "preferSwitch": 52,
+      "ties": 13
+    },
+    "no_discount": {
+      "cases": 92,
+      "preferLongerFullMax": 8,
+      "preferMoreFullLoss": 11,
+      "dominatedOnLossAndMax": 9,
+      "preferStay": 51,
+      "preferSwitch": 39,
+      "ties": 2
+    },
+    "no_extra_HO_no_discount": {
+      "cases": 92,
+      "preferLongerFullMax": 1,
+      "preferMoreFullLoss": 5,
+      "dominatedOnLossAndMax": 1,
+      "preferStay": 27,
+      "preferSwitch": 52,
+      "ties": 13
+    },
+    "onTime_only_no_discount": {
+      "cases": 92,
+      "preferLongerFullMax": 5,
+      "preferMoreFullLoss": 0,
+      "dominatedOnLossAndMax": 0,
+      "preferStay": 29,
+      "preferSwitch": 48,
+      "ties": 15
+    },
+    "burst_only_no_discount": {
+      "cases": 92,
+      "preferLongerFullMax": 0,
+      "preferMoreFullLoss": 9,
+      "dominatedOnLossAndMax": 4,
+      "preferStay": 29,
+      "preferSwitch": 50,
+      "ties": 13
+    },
+    "no_burst": {
+      "cases": 92,
+      "preferLongerFullMax": 20,
+      "preferMoreFullLoss": 22,
+      "dominatedOnLossAndMax": 22,
+      "preferStay": 66,
+      "preferSwitch": 25,
+      "ties": 1
+    }
+  },
+  "capActiveInTheseEpisodes": false,
+  "example": {
+    "seed": "20269137",
+    "time_s": "599",
+    "stayFullLoss": "1239",
+    "switchFullLoss": "1238",
+    "stayFullMaxRun": "62",
+    "switchFullMaxRun": "36",
+    "stayHO": "116",
+    "switchHO": "117",
+    "stayReturn": "-0.1625",
+    "switchReturn": "-0.165666666666667",
+    "switchMinusStayReturn": "-0.00316666666666671",
+    "successContribution": "0.0166666666666667",
+    "burstContribution": "0.0801666666666666",
+    "HOContribution": "-0.1",
+    "stayMergedBy_s": "600",
+    "switchMergedBy_s": "600"
+  },
+  "discountWeights": {
+    "10": 0.5987369392383787,
+    "20": 0.3584859224085419,
+    "30": 0.21463876394293727,
+    "60": 0.046069798986951946
+  },
+  "syntheticFormulaCounterexample": [
+    {
+      "pattern": "1",
+      "lostPackets": "40",
+      "maxLossRun": "20",
+      "sumPacketStreaks": "230",
+      "onTimeFraction": "0.333333333333333",
+      "burstCost": "0.0638888888888889",
+      "reward": "0.314166666666667"
+    },
+    {
+      "pattern": "2",
+      "lostPackets": "40",
+      "maxLossRun": "14",
+      "sumPacketStreaks": "287",
+      "onTimeFraction": "0.333333333333333",
+      "burstCost": "0.0797222222222222",
+      "reward": "0.309416666666667"
+    }
+  ],
+  "handoverExtraCostInSuccessfulPacketUnits": 6.0,
+  "runExtraPenaltiesNoDiscount": {
+    "6": 0.00175,
+    "20": 0.0175,
+    "48": 0.098,
+    "60": 0.1525
+  },
+  "originalRewardAndModelsUnchanged": true,
+  "rescoringCaveat": "Same trajectories only. Scores do not predict behavior or performance after retraining with changed weights."
+}

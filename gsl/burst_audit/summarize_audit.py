@@ -1,0 +1,91 @@
+import csv,json,math,statistics,sys
+from pathlib import Path
+out=Path(sys.argv[1])
+def read(p):
+    with p.open(encoding='utf-8-sig',newline='') as f:return list(csv.DictReader(f))
+decisions=read(out/'all_decisions_with_Q.csv');bursts=read(out/'burst_evidence.csv');A=read(out/'no_margin_ablation.csv')
+assert len(decisions)==6000 and len(A)==10
+longest=[b for b in bursts if b['isLongest']=='1'];assert len(longest)==10
+assert all(float(a['originalMaxRun'])==float(a['noMarginMaxRun']) for a in A)
+assert sum(int(b['marginBlocks']) for b in longest)==0
+for d in decisions:
+    retained=int(d['chosenID'])==int(d['previousID']);assert retained==bool(int(d['retained']))
+    if d['marginBlockedSwitch']=='1':
+        assert d['maxQ_ID']!=d['previousID'] and retained and float(d['Qgap'])<.02
+    if d['reason']=='retain_Q_argmax':assert d['maxQ_ID']==d['chosenID']
+records=0
+for r,a in enumerate(A,1):
+    P=read(out/f'repeat_{r:02}'/'no_margin_packets.csv')
+    lost=ho=phy=0;streak=maxrun=0
+    for n,p in enumerate(P,1):
+        assert int(p['packetID'])==n and float(p['outcome_pending'])==0
+        v=lambda k:float(p[k])
+        assert v('lost')==v('phy_loss')+v('handover_loss')+v('outage_loss')
+        lost+=int(v('lost'));ho+=int(v('handover_loss'));phy+=int(v('phy_loss'))
+        streak=streak+1 if v('lost') else 0;maxrun=max(maxrun,streak)
+    assert n==36000 and maxrun==int(a['noMarginMaxRun'])
+    assert math.isclose(lost/360,float(a['noMarginLoss_pct']),abs_tol=1e-9)
+    assert ho==int(a['noMarginHandovers'])*6 and lost==ho+phy;records+=n
+report={'status':'PASS','exactOriginalReplay':True,'frozenNetwork':True,'decisionsAudited':6000,'newAblationPacketsVerified':records,'noMarginBlocksInLongestBursts':True,'longestRunsUnchangedWithoutMargin':True}
+(out/'full_verification.json').write_text(json.dumps(report,indent=2),encoding='utf8')
+mean=lambda k:statistics.mean(float(a[k]) for a in A)
+text=f'''# 연속 손실 구간의 DDQN 선택 감사
+
+## 결론
+
+**긴 손실이 주로 Q값 전환 마진 때문에 연결을 유지해서 생겼다는 가설은 이번 기록에서 지지되지 않았다.** 동결 모델로 원래 6,000개 선택과 36만 패킷의 수신/손실을 정확히 재생한 뒤 확인했다.
+
+- 각 회차 최장 손실 10개 구간에서 전환 마진에 의해 차단된 선택: **0건**.
+- 10개 구간 중 9개에서는 구간에 걸친 초단위 선택 시점에 같은 위성을 유지하지 않았다. 9회차만 590초에 한 번 유지했다.
+- Q 마진 0.02만 제거하고 같은 모델·입력으로 다시 평가해도 **10회 모두 최대 연속 손실 길이가 그대로**였다.
+- 따라서 마진 제거만으로 이번 연속 손실 문제가 해결되지는 않는다.
+
+## 실제로 확인된 사례
+
+### 3회차 598초 — 신호가 나쁜 위성으로 오히려 전환
+
+현재 위성 34는 SNR 0.580 dB, 현재 PHY 표 PER 약 97.08%, Q 16.3089였다. DDQN은 위성 45(SNR 0.105 dB, 표 PER 100%, Q 16.3656)를 더 높게 평가해 전환했다. Q 차이 0.0567은 마진 0.02보다 커서 전환이 허용됐다.
+
+이후 599초에는 다시 위성 34로 전환했다. 연속 68개 손실은 PHY 56개와 핸드오버 12개로 구성됐다. 같은 전체 실험에서 최대 SNR 정책의 최장 손실은 30개였다. 여기서는 연결 유지가 아니라 **열악한 순간의 후보 점수 판단과 전환 중단이 겹친 것**을 확인했다.
+
+![3회차 사례](case_repeat_03.png)
+
+### 9회차 590초 — 실제로 유지한 사례도 있음
+
+위성 56을 유지했으며 SNR -0.693 dB, 표 PER 100%, Q 16.6356이었다. 최고 SNR 후보 13은 0.670 dB, PER 약 94.12%, Q 16.3885였다. **현재 위성 자체가 Q 최댓값이어서 유지**한 것이고 외부 전환 마진이 막은 것이 아니다. 이 구간의 68개 손실은 PHY 62개와 핸드오버 6개였다.
+
+### 10회차 약 20.68~23.08초 — 후보 전반의 신호 악화
+
+최장 145개 손실은 DDQN과 최대 SNR에서 동일했다. DDQN은 21·22·23초에도 위성을 바꿨다. 21초에는 최고 SNR 후보도 표 PER 100%, 22초에는 최고 후보 PER 약 99.75%였다. 145개 중 PHY 127개·핸드오버 18개이며, 그 구간의 같은 Packet ID는 두 정책에서 모두 손실됐다.
+
+**현재 표의 100%는 지정한 송수신 조건의 유한 표본 측정·보간 결과이지 실제 환경의 절대 확률이 아니다.** 신호가 매우 나쁜 조건에서 선택만으로 피하기 어려운 손실임을 보여준다.
+
+![10회차 사례](case_repeat_10.png)
+
+## 전환 마진 제거 진단 — 재학습 없음
+
+| 10회 평균 | 원래 Q 마진 0.02 | Q 마진 0 |
+|---|---:|---:|
+| 손실률 % | {mean('originalLoss_pct'):.4f} | {mean('noMarginLoss_pct'):.4f} |
+| 회차별 최대 연속 손실 개 | {mean('originalMaxRun'):.1f} | {mean('noMarginMaxRun'):.1f} |
+| 핸드오버 회 | {mean('originalHandovers'):.1f} | {mean('noMarginHandovers'):.1f} |
+
+원래 마진은 전체 6,000개 선택 중 {sum(int(a['blockedDecisions']) for a in A)}건의 전환을 막았다. 그러나 최장 손실 구간에서는 직접 차단하지 않았고 제거 실험에서도 최대 연속 손실이 변하지 않았다. 이는 해당 동결 모델과 10개 테스트의 진단 결과이며 재학습 시 결과까지 증명하지는 않는다.
+
+## 다음에 보완할 부분
+
+1. 낮은 SNR 구간에서 현재 성공 가능성이 더 낮은 후보를 Q값이 더 높게 평가한 이유를 다룬다. 후보 신호가 매우 나쁠 때 점수 오차가 긴 손실로 이어질 수 있다.
+2. 보상 가중치 탓이라고 단정하지 않는다. 연속 손실 보상 변경·학습량·상태 구성의 영향은 각각 별도 실험으로 확인해야 한다. 현재 입력에는 남은 시뮬레이션 시간이 없으며 종료 직전 효과도 검토 후보지만 이번 감사만으로 원인으로 확정하지 않는다.
+3. 모든 후보가 나쁜 구간과 선택 오류로 피할 수 있었던 구간을 분리한다. 위험 구간의 PER 제한 같은 규칙은 새 정책 변경이므로 이번 감사에서는 적용하지 않았다.
+
+## 파일
+
+- `all_decisions_with_Q.csv`: 6,000개 시점의 이전/선택/최고 SNR/최고 Q 위성, 점수 차이, 마진 차단, 손실 수.
+- `burst_evidence.csv`: 30개 이상 연속 손실 구간과 각 회차 최장 구간의 원인·선택 요약.
+- `repeat_XX/candidate_Q.csv`: 모든 후보의 SNR·PER·변화 추세·Q값.
+- `no_margin_ablation.csv`: 마진만 제거한 10회 성적. 각 폴더에 전체 36,000개 진단 패킷도 저장.
+- `oneStepMaxSNRLossCount`와 `oneStepAlternativeLosses`는 원래 DDQN 상태에서 해당 1초만 다른 후보를 골랐을 때의 진단값이다. 이어지는 상태를 누적한 완전한 대안 정책의 성적과 혼동하지 않는다.
+
+원래 학습 모델·보상·정책·기존 결과 파일은 변경하지 않았다. 감사 코드는 재학습을 수행하지 않는다.
+'''
+(out/'RESULTS.md').write_text(text,encoding='utf8');print(json.dumps(report));print(text.split('## 실제로 확인된 사례')[0])

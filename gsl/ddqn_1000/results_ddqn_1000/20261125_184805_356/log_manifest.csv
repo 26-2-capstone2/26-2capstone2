@@ -1,0 +1,11 @@
+repeat,seed,packetFile,packetRows,islInputRows
+1,20269301,repeat_01/packets.csv,36000,34576
+2,20269302,repeat_02/packets.csv,36000,34758
+3,20269303,repeat_03/packets.csv,36000,34287
+4,20269304,repeat_04/packets.csv,36000,34384
+5,20269305,repeat_05/packets.csv,36000,34356
+6,20269306,repeat_06/packets.csv,36000,34358
+7,20269307,repeat_07/packets.csv,36000,34499
+8,20269308,repeat_08/packets.csv,36000,34531
+9,20269309,repeat_09/packets.csv,36000,34639
+10,20269310,repeat_10/packets.csv,36000,34652

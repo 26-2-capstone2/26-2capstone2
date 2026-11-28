@@ -1,0 +1,147 @@
+quadratic TRAIN 1/100 | loss 84.703% | max 1286 | HO 575
+quadratic TRAIN 2/100 | loss 86.800% | max 1026 | HO 569
+quadratic TRAIN 3/100 | loss 86.064% | max 1807 | HO 569
+quadratic TRAIN 4/100 | loss 84.167% | max 914 | HO 577
+quadratic TRAIN 5/100 | loss 84.711% | max 1691 | HO 578
+quadratic TRAIN 6/100 | loss 84.442% | max 1208 | HO 574
+quadratic TRAIN 7/100 | loss 79.383% | max 1146 | HO 572
+quadratic TRAIN 8/100 | loss 82.183% | max 846 | HO 570
+quadratic TRAIN 9/100 | loss 80.503% | max 1395 | HO 572
+quadratic TRAIN 10/100 | loss 77.831% | max 911 | HO 569
+quadratic TRAIN 11/100 | loss 79.286% | max 1026 | HO 571
+quadratic TRAIN 12/100 | loss 81.919% | max 1326 | HO 561
+quadratic TRAIN 13/100 | loss 77.431% | max 786 | HO 568
+quadratic TRAIN 14/100 | loss 75.800% | max 966 | HO 564
+quadratic TRAIN 15/100 | loss 76.533% | max 849 | HO 579
+quadratic TRAIN 16/100 | loss 70.394% | max 906 | HO 576
+quadratic TRAIN 17/100 | loss 72.464% | max 621 | HO 577
+quadratic TRAIN 18/100 | loss 68.364% | max 486 | HO 553
+quadratic TRAIN 19/100 | loss 70.050% | max 666 | HO 565
+quadratic TRAIN 20/100 | loss 70.953% | max 606 | HO 571
+quadratic TRAIN 21/100 | loss 68.922% | max 606 | HO 567
+quadratic TRAIN 22/100 | loss 68.414% | max 426 | HO 563
+quadratic TRAIN 23/100 | loss 63.322% | max 606 | HO 551
+quadratic TRAIN 24/100 | loss 63.542% | max 546 | HO 560
+quadratic TRAIN 25/100 | loss 64.111% | max 547 | HO 554
+quadratic TRAIN 26/100 | loss 63.989% | max 546 | HO 548
+quadratic TRAIN 27/100 | loss 66.975% | max 786 | HO 553
+quadratic TRAIN 28/100 | loss 60.981% | max 426 | HO 538
+quadratic TRAIN 29/100 | loss 64.183% | max 557 | HO 525
+quadratic TRAIN 30/100 | loss 61.164% | max 666 | HO 535
+quadratic TRAIN 31/100 | loss 61.997% | max 666 | HO 530
+quadratic TRAIN 32/100 | loss 60.250% | max 606 | HO 532
+quadratic TRAIN 33/100 | loss 58.600% | max 726 | HO 534
+quadratic TRAIN 34/100 | loss 54.697% | max 606 | HO 508
+quadratic TRAIN 35/100 | loss 53.914% | max 546 | HO 509
+quadratic TRAIN 36/100 | loss 49.383% | max 306 | HO 498
+quadratic TRAIN 37/100 | loss 54.678% | max 486 | HO 503
+quadratic TRAIN 38/100 | loss 52.100% | max 366 | HO 497
+quadratic TRAIN 39/100 | loss 50.997% | max 429 | HO 494
+quadratic TRAIN 40/100 | loss 57.947% | max 606 | HO 509
+quadratic TRAIN 41/100 | loss 52.658% | max 426 | HO 498
+quadratic TRAIN 42/100 | loss 44.500% | max 306 | HO 461
+quadratic TRAIN 43/100 | loss 45.575% | max 547 | HO 492
+quadratic TRAIN 44/100 | loss 43.628% | max 426 | HO 459
+quadratic TRAIN 45/100 | loss 46.767% | max 486 | HO 446
+quadratic TRAIN 46/100 | loss 47.094% | max 306 | HO 460
+quadratic TRAIN 47/100 | loss 44.597% | max 426 | HO 443
+quadratic TRAIN 48/100 | loss 45.286% | max 366 | HO 473
+quadratic TRAIN 49/100 | loss 41.222% | max 381 | HO 423
+quadratic TRAIN 50/100 | loss 41.372% | max 325 | HO 450
+quadratic TRAIN 51/100 | loss 38.458% | max 306 | HO 422
+quadratic TRAIN 52/100 | loss 37.447% | max 306 | HO 404
+quadratic TRAIN 53/100 | loss 35.547% | max 186 | HO 398
+quadratic TRAIN 54/100 | loss 35.936% | max 366 | HO 399
+quadratic TRAIN 55/100 | loss 33.881% | max 367 | HO 384
+quadratic TRAIN 56/100 | loss 34.622% | max 246 | HO 390
+quadratic TRAIN 57/100 | loss 36.044% | max 246 | HO 417
+quadratic TRAIN 58/100 | loss 31.636% | max 189 | HO 363
+quadratic TRAIN 59/100 | loss 34.219% | max 186 | HO 377
+quadratic TRAIN 60/100 | loss 32.011% | max 246 | HO 372
+quadratic TRAIN 61/100 | loss 30.308% | max 186 | HO 364
+quadratic TRAIN 62/100 | loss 28.922% | max 195 | HO 347
+quadratic TRAIN 63/100 | loss 26.369% | max 186 | HO 320
+quadratic TRAIN 64/100 | loss 28.650% | max 306 | HO 342
+quadratic TRAIN 65/100 | loss 21.647% | max 246 | HO 278
+quadratic TRAIN 66/100 | loss 25.733% | max 186 | HO 328
+quadratic TRAIN 67/100 | loss 27.997% | max 186 | HO 317
+quadratic TRAIN 68/100 | loss 23.556% | max 186 | HO 304
+quadratic TRAIN 69/100 | loss 21.903% | max 186 | HO 297
+quadratic TRAIN 70/100 | loss 21.903% | max 186 | HO 288
+quadratic TRAIN 71/100 | loss 17.400% | max 126 | HO 264
+quadratic TRAIN 72/100 | loss 18.594% | max 186 | HO 261
+quadratic TRAIN 73/100 | loss 13.569% | max 247 | HO 237
+quadratic TRAIN 74/100 | loss 13.058% | max 126 | HO 215
+quadratic TRAIN 75/100 | loss 15.725% | max 192 | HO 245
+quadratic TRAIN 76/100 | loss 14.097% | max 127 | HO 233
+quadratic TRAIN 77/100 | loss 12.483% | max 126 | HO 201
+quadratic TRAIN 78/100 | loss 9.217% | max 126 | HO 176
+quadratic TRAIN 79/100 | loss 11.211% | max 126 | HO 227
+quadratic TRAIN 80/100 | loss 9.114% | max 87 | HO 186
+quadratic TRAIN 81/100 | loss 8.833% | max 66 | HO 167
+quadratic TRAIN 82/100 | loss 11.803% | max 68 | HO 197
+quadratic TRAIN 83/100 | loss 12.008% | max 186 | HO 177
+quadratic TRAIN 84/100 | loss 8.300% | max 186 | HO 176
+quadratic TRAIN 85/100 | loss 7.342% | max 66 | HO 165
+quadratic TRAIN 86/100 | loss 8.342% | max 126 | HO 162
+quadratic TRAIN 87/100 | loss 8.572% | max 68 | HO 162
+quadratic TRAIN 88/100 | loss 6.856% | max 126 | HO 151
+quadratic TRAIN 89/100 | loss 8.619% | max 66 | HO 178
+quadratic TRAIN 90/100 | loss 10.136% | max 126 | HO 186
+quadratic TRAIN 91/100 | loss 10.619% | max 126 | HO 197
+quadratic TRAIN 92/100 | loss 7.614% | max 126 | HO 174
+quadratic TRAIN 93/100 | loss 8.453% | max 126 | HO 166
+quadratic TRAIN 94/100 | loss 9.764% | max 66 | HO 195
+quadratic TRAIN 95/100 | loss 10.058% | max 126 | HO 159
+quadratic TRAIN 96/100 | loss 9.194% | max 66 | HO 197
+quadratic TRAIN 97/100 | loss 7.044% | max 67 | HO 161
+quadratic TRAIN 98/100 | loss 9.475% | max 126 | HO 184
+quadratic TRAIN 99/100 | loss 9.331% | max 126 | HO 178
+quadratic TRAIN 100/100 | loss 8.375% | max 126 | HO 158
+EVAL quadratic_Q0.02 repeat 1 | loss 6.442% | max 68 | HO 148
+EVAL quadratic_Q0.02 repeat 2 | loss 4.069% | max 17 | HO 130
+EVAL quadratic_Q0.02 repeat 3 | loss 3.525% | max 9 | HO 139
+EVAL quadratic_Q0.02 repeat 4 | loss 5.692% | max 69 | HO 145
+EVAL quadratic_Q0.02 repeat 5 | loss 8.031% | max 66 | HO 178
+EVAL quadratic_Q0.02 repeat 6 | loss 5.225% | max 115 | HO 134
+EVAL quadratic_Q0.02 repeat 7 | loss 5.278% | max 53 | HO 137
+EVAL quadratic_Q0.02 repeat 8 | loss 3.969% | max 10 | HO 134
+EVAL quadratic_Q0.02 repeat 9 | loss 5.828% | max 26 | HO 163
+EVAL quadratic_Q0.02 repeat 10 | loss 5.258% | max 22 | HO 152
+EVAL MaxSNR_0dB repeat 1 | loss 7.417% | max 68 | HO 221
+EVAL Elevation_4deg repeat 1 | loss 50.306% | max 990 | HO 0
+EVAL MaxSNR_0dB repeat 2 | loss 5.939% | max 17 | HO 255
+EVAL Elevation_4deg repeat 2 | loss 33.797% | max 490 | HO 0
+EVAL MaxSNR_0dB repeat 3 | loss 5.022% | max 9 | HO 236
+EVAL Elevation_4deg repeat 3 | loss 35.933% | max 549 | HO 0
+EVAL MaxSNR_0dB repeat 4 | loss 7.161% | max 69 | HO 246
+EVAL Elevation_4deg repeat 4 | loss 38.339% | max 726 | HO 0
+EVAL MaxSNR_0dB repeat 5 | loss 9.281% | max 66 | HO 268
+EVAL Elevation_4deg repeat 5 | loss 39.997% | max 675 | HO 0
+EVAL MaxSNR_0dB repeat 6 | loss 6.675% | max 115 | HO 238
+EVAL Elevation_4deg repeat 6 | loss 32.372% | max 841 | HO 0
+EVAL MaxSNR_0dB repeat 7 | loss 6.586% | max 53 | HO 228
+EVAL Elevation_4deg repeat 7 | loss 36.358% | max 842 | HO 0
+EVAL MaxSNR_0dB repeat 8 | loss 5.436% | max 10 | HO 236
+EVAL Elevation_4deg repeat 8 | loss 35.414% | max 1063 | HO 0
+EVAL MaxSNR_0dB repeat 9 | loss 6.758% | max 26 | HO 228
+EVAL Elevation_4deg repeat 9 | loss 36.197% | max 676 | HO 0
+EVAL MaxSNR_0dB repeat 10 | loss 6.850% | max 21 | HO 259
+EVAL Elevation_4deg repeat 10 | loss 39.361% | max 1084 | HO 0
+         policy             metric       n      mean      std       min       max  
+    _________________    ____________    __    ______    ______    ______    ______
+
+    "quadratic_Q0.02"    "loss_pct"      10    5.3317    1.3176     3.525    8.0306
+    "quadratic_Q0.02"    "maxLossRun"    10      45.5    34.484         9       115
+    "quadratic_Q0.02"    "onTime_pct"    10    94.668    1.3176    91.969    96.475
+    "quadratic_Q0.02"    "handovers"     10       146    15.011       130       178
+    "MaxSNR_0dB"         "loss_pct"      10    6.7125    1.1745    5.0222    9.2806
+    "MaxSNR_0dB"         "maxLossRun"    10      45.4    34.561         9       115
+    "MaxSNR_0dB"         "onTime_pct"    10    93.287    1.1745    90.719    94.978
+    "MaxSNR_0dB"         "handovers"     10     241.5     15.16       221       268
+    "Elevation_4deg"     "loss_pct"      10    37.807    4.9805    32.372    50.306
+    "Elevation_4deg"     "maxLossRun"    10     793.6     206.7       490      1084
+    "Elevation_4deg"     "onTime_pct"    10    62.193    4.9805    49.694    67.628
+    "Elevation_4deg"     "handovers"     10         0         0         0         0
+
+COMPLETE | C:\Users\succe\Desktop\Codex\1125\GSL_research_1126\gsl\static_reward_1128\results_policy_comparison\20261128_010145_246

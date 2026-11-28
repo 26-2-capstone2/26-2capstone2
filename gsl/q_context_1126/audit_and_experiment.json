@@ -1,0 +1,52 @@
+{
+  "targetAudit": {
+    "formula": "r + gamma * Q_target(next, argmax Q_online(next)); terminal/no candidates => r",
+    "gamma": 0.95,
+    "terminalBranchAndVariableCandidateOffsetsVerified": true,
+    "arithmeticBugFound": false,
+    "behaviorGateVsGreedyTarget": {
+      "gateQMargin": 0.02,
+      "oneBackupDifferenceUpperBound": 0.019,
+      "observedGateEventsIn1000Eval": 59,
+      "maxObservedQDifference": 0.01950073242189987,
+      "note": "One-backup bound only; repeated training effects are not bounded by this number."
+    }
+  },
+  "representationAudit": {
+    "originalInputDim": 11,
+    "newInputDim": 12,
+    "addedFeature": "maximum present-time estimated success among visible candidates",
+    "evidence": "original candidate score invariant when only another non-serving candidate quality changes; synthetic structural test, not proof of the observed failure cause",
+    "remainingLimitations": [
+      "no remaining episode time in state",
+      "one max summary does not describe full candidate set",
+      "stochastic future channel not fully observed"
+    ]
+  },
+  "experiment": {
+    "episodes": 100,
+    "trainingSeeds": [
+      20269101,
+      20269200
+    ],
+    "originalTestSeeds": [
+      20269301,
+      20269310
+    ],
+    "freshValidationSeeds": [
+      20275001,
+      20275010
+    ],
+    "rewardUnchanged": true,
+    "uniformReplay": true,
+    "prioritizedReplay": false,
+    "manualQAdjustment": false,
+    "networkInitialization": "copy original seeded 11-input weights; append zero new-input column",
+    "control": "previously verified 100-episode original model; do not compare training budget to 1000 episodes"
+  },
+  "preservedSHA256": {
+    "C:/Users/succe/Desktop/codex/1123/gsl/three_constellations/GSLSelectionEpisode.m": "8c09a67e0088f519724a3b0188492e58b1ecca1f61acc57204640f034bf1d9da",
+    "C:/Users/succe/Desktop/codex/1123/gsl/ddqn_6x11/GSLTrendDoubleDQN.m": "86705b8450891032de217b73369f5c2f7368027a21e28cddc1542cfcaceb306a",
+    "C:/Users/succe/Desktop/codex/1123/gsl/ddqn_1000/results_ddqn_1000/20261125_184805_356/agent.mat": "124c89664cee909b11336b88faf30b8d9f21049de224d3f926501505196c5991"
+  }
+}

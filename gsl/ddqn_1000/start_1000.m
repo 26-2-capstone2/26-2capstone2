@@ -1,0 +1,12 @@
+root=fileparts(fileparts(mfilename('fullpath')));
+addpath(root,fullfile(root,'three_constellations'),fullfile(root,'ddqn_6x11'));
+taskRoot=fileparts(mfilename('fullpath'));addpath(taskRoot);
+O=configGSLTrendDDQN();O.numEpisodes=1000;
+pool=20269101:20270200;
+pool=pool(~ismember(pool,O.evaluationSeeds));
+O.trainingSeeds=pool(1:1000);
+assert(isequal(O.trainingSeeds(1:100),20269101:20269200));
+assert(isempty(intersect(O.trainingSeeds,O.evaluationSeeds)));
+O.root=taskRoot;O.resultRoot=fullfile(taskRoot,'results_ddqn_1000');
+fprintf('1000 EPISODE RUN | frozen 10 test seeds excluded from training | epsilon decay unchanged\n');
+R=run_gsl_ddqn_1000(O);

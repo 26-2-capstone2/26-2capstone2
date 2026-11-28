@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "comparison": "byte-identical saved CSV, independent of table-import source metadata",
+  "sha256": {
+    "training.csv": "fb44f0999f60020c844e65705b59d915d944f07a848a6807893f34336f19f3d2",
+    "runs.csv": "6c79cd12e22685c5db2a198a2a43e9b87f0beae905f1e0b1a8d72a8e6f411e1e"
+  }
+}

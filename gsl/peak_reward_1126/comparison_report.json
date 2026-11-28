@@ -1,0 +1,214 @@
+{
+  "summary": [
+    {
+      "cohort": "original",
+      "mode": "control",
+      "metric": "loss_pct",
+      "mean": 4.374166666666666,
+      "sampleSD": 0.49988175899574533,
+      "minimum": 3.66666666666667,
+      "maximum": 5.23055555555556
+    },
+    {
+      "cohort": "original",
+      "mode": "control",
+      "metric": "maxLossRun",
+      "mean": 61.4,
+      "sampleSD": 48.98344391503907,
+      "minimum": 16.0,
+      "maximum": 184.0
+    },
+    {
+      "cohort": "original",
+      "mode": "control",
+      "metric": "onTime_pct",
+      "mean": 95.62583333333333,
+      "sampleSD": 0.49988175899574355,
+      "minimum": 94.7694444444444,
+      "maximum": 96.3333333333333
+    },
+    {
+      "cohort": "original",
+      "mode": "control",
+      "metric": "handovers",
+      "mean": 161.6,
+      "sampleSD": 16.540858502508264,
+      "minimum": 143.0,
+      "maximum": 191.0
+    },
+    {
+      "cohort": "original",
+      "mode": "peak",
+      "metric": "loss_pct",
+      "mean": 4.232777777777777,
+      "sampleSD": 0.436036991421046,
+      "minimum": 3.50277777777778,
+      "maximum": 4.94166666666667
+    },
+    {
+      "cohort": "original",
+      "mode": "peak",
+      "metric": "maxLossRun",
+      "mean": 78.8,
+      "sampleSD": 51.40211841721874,
+      "minimum": 20.0,
+      "maximum": 190.0
+    },
+    {
+      "cohort": "original",
+      "mode": "peak",
+      "metric": "onTime_pct",
+      "mean": 95.76722222222223,
+      "sampleSD": 0.43603699142105007,
+      "minimum": 95.0583333333333,
+      "maximum": 96.4972222222222
+    },
+    {
+      "cohort": "original",
+      "mode": "peak",
+      "metric": "handovers",
+      "mean": 141.7,
+      "sampleSD": 8.57710129744698,
+      "minimum": 129.0,
+      "maximum": 158.0
+    },
+    {
+      "cohort": "fresh",
+      "mode": "control",
+      "metric": "loss_pct",
+      "mean": 4.596666666666668,
+      "sampleSD": 0.6112062215549603,
+      "minimum": 3.66944444444444,
+      "maximum": 5.75277777777778
+    },
+    {
+      "cohort": "fresh",
+      "mode": "control",
+      "metric": "maxLossRun",
+      "mean": 36.8,
+      "sampleSD": 25.624640918893327,
+      "minimum": 8.0,
+      "maximum": 70.0
+    },
+    {
+      "cohort": "fresh",
+      "mode": "control",
+      "metric": "onTime_pct",
+      "mean": 95.40333333333331,
+      "sampleSD": 0.6112062215549549,
+      "minimum": 94.2472222222222,
+      "maximum": 96.3305555555555
+    },
+    {
+      "cohort": "fresh",
+      "mode": "control",
+      "metric": "handovers",
+      "mean": 180.6,
+      "sampleSD": 14.072826455422678,
+      "minimum": 162.0,
+      "maximum": 208.0
+    },
+    {
+      "cohort": "fresh",
+      "mode": "peak",
+      "metric": "loss_pct",
+      "mean": 4.1930555555555555,
+      "sampleSD": 0.7553265924862365,
+      "minimum": 3.05555555555556,
+      "maximum": 5.66944444444444
+    },
+    {
+      "cohort": "fresh",
+      "mode": "peak",
+      "metric": "maxLossRun",
+      "mean": 46.6,
+      "sampleSD": 39.44672919830546,
+      "minimum": 8.0,
+      "maximum": 129.0
+    },
+    {
+      "cohort": "fresh",
+      "mode": "peak",
+      "metric": "onTime_pct",
+      "mean": 95.80694444444444,
+      "sampleSD": 0.755326592486238,
+      "minimum": 94.3305555555555,
+      "maximum": 96.9444444444444
+    },
+    {
+      "cohort": "fresh",
+      "mode": "peak",
+      "metric": "handovers",
+      "mean": 145.6,
+      "sampleSD": 15.514867421641446,
+      "minimum": 118.0,
+      "maximum": 175.0
+    }
+  ],
+  "pairedDifferences": [
+    {
+      "cohort": "original",
+      "metric": "loss_pct",
+      "peakMinusControl": -0.1413888888888891,
+      "pairedCI95Lower": -0.2348529038026796,
+      "pairedCI95Upper": -0.04792487397509859
+    },
+    {
+      "cohort": "original",
+      "metric": "maxLossRun",
+      "peakMinusControl": 17.4,
+      "pairedCI95Lower": -1.0062923471898628,
+      "pairedCI95Upper": 35.80629234718986
+    },
+    {
+      "cohort": "original",
+      "metric": "onTime_pct",
+      "peakMinusControl": 0.14138888888889056,
+      "pairedCI95Lower": 0.047924873975102936,
+      "pairedCI95Upper": 0.2348529038026782
+    },
+    {
+      "cohort": "original",
+      "metric": "handovers",
+      "peakMinusControl": -19.9,
+      "pairedCI95Lower": -27.268522853666525,
+      "pairedCI95Upper": -12.531477146333472
+    },
+    {
+      "cohort": "fresh",
+      "metric": "loss_pct",
+      "peakMinusControl": -0.4036111111111119,
+      "pairedCI95Lower": -0.5671717541175246,
+      "pairedCI95Upper": -0.2400504681046992
+    },
+    {
+      "cohort": "fresh",
+      "metric": "maxLossRun",
+      "peakMinusControl": 9.8,
+      "pairedCI95Lower": -7.738161496676021,
+      "pairedCI95Upper": 27.338161496676022
+    },
+    {
+      "cohort": "fresh",
+      "metric": "onTime_pct",
+      "peakMinusControl": 0.4036111111111225,
+      "pairedCI95Lower": 0.2400504681047056,
+      "pairedCI95Upper": 0.5671717541175394
+    },
+    {
+      "cohort": "fresh",
+      "metric": "handovers",
+      "peakMinusControl": -35.0,
+      "pairedCI95Lower": -45.41029260010869,
+      "pairedCI95Upper": -24.58970739989131
+    }
+  ],
+  "peakObjectiveIdentitiesVerified": 20,
+  "preservedOriginalHashes": "PASS",
+  "limitations": [
+    "one training initialization per arm",
+    "original seed cohort previously used; fresh cohort is additional held-out evaluation",
+    "both arms use new common protocol; not an isolated comparison to historical 12-input model",
+    "CI describes evaluation-seed variation, not training-seed variation"
+  ]
+}

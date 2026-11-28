@@ -1,0 +1,204 @@
+{
+  "trainingEpisodesPerMethod": 100,
+  "control": "12-input context model with ordinary replay",
+  "change": "paired stay/switch simulator transitions and 8/64 rare replay quota",
+  "original10": {
+    "context": {
+      "loss_pct": 4.238333333333334,
+      "maxLossRun": 56.8,
+      "onTime_pct": 95.76166666666666,
+      "handovers": 124.4,
+      "worstRunAcrossTen": 145,
+      "meanPHYloss": 779.4,
+      "meanHOloss": 746.4
+    },
+    "paired": {
+      "loss_pct": 4.408333333333333,
+      "maxLossRun": 71.3,
+      "onTime_pct": 95.59166666666668,
+      "handovers": 122.8,
+      "worstRunAcrossTen": 139,
+      "meanPHYloss": 850.2,
+      "meanHOloss": 736.8
+    }
+  },
+  "fresh10": {
+    "context": {
+      "loss_pct": 3.9938888888888884,
+      "maxLossRun": 36.5,
+      "onTime_pct": 96.00611111111112,
+      "handovers": 128.4,
+      "worstRunAcrossTen": 82,
+      "meanPHYloss": 667.4,
+      "meanHOloss": 770.4
+    },
+    "paired": {
+      "loss_pct": 4.17888888888889,
+      "maxLossRun": 82.3,
+      "onTime_pct": 95.82111111111111,
+      "handovers": 126.0,
+      "worstRunAcrossTen": 247,
+      "meanPHYloss": 748.4,
+      "meanHOloss": 756.0
+    }
+  },
+  "pairedDifferences": [
+    {
+      "cohort": "original10",
+      "metric": "loss_pct",
+      "pairedMinusParent": 0.1699999999999992,
+      "lower95": 0.09102090291718191,
+      "upper95": 0.24897909708281651
+    },
+    {
+      "cohort": "original10",
+      "metric": "maxLossRun",
+      "pairedMinusParent": 14.5,
+      "lower95": -0.3310814505872557,
+      "upper95": 29.331081450587256
+    },
+    {
+      "cohort": "original10",
+      "metric": "onTime_pct",
+      "pairedMinusParent": -0.16999999999997756,
+      "lower95": -0.24897909708278435,
+      "upper95": -0.09102090291717077
+    },
+    {
+      "cohort": "original10",
+      "metric": "handovers",
+      "pairedMinusParent": -1.6,
+      "lower95": -4.749015220045784,
+      "upper95": 1.549015220045784
+    },
+    {
+      "cohort": "fresh10",
+      "metric": "loss_pct",
+      "pairedMinusParent": 0.18500000000000205,
+      "lower95": 0.12498935778283479,
+      "upper95": 0.2450106422171693
+    },
+    {
+      "cohort": "fresh10",
+      "metric": "maxLossRun",
+      "pairedMinusParent": 45.8,
+      "lower95": 11.378850630745475,
+      "upper95": 80.22114936925452
+    },
+    {
+      "cohort": "fresh10",
+      "metric": "onTime_pct",
+      "pairedMinusParent": -0.18500000000001932,
+      "lower95": -0.24501064221719582,
+      "upper95": -0.12498935778284281
+    },
+    {
+      "cohort": "fresh10",
+      "metric": "handovers",
+      "pairedMinusParent": -2.4,
+      "lower95": -6.203295529117447,
+      "upper95": 1.403295529117448
+    }
+  ],
+  "QDiagnostics": {
+    "context": {
+      "sampledReturnNotExactExpectedQ": true,
+      "meanAbsRealizedReturnResidual": 0.47890850688537295,
+      "unitPERWithBetterAlternative": 2
+    },
+    "paired": {
+      "sampledReturnNotExactExpectedQ": true,
+      "meanAbsRealizedReturnResidual": 0.5235738096247655,
+      "unitPERWithBetterAlternative": 11
+    }
+  },
+  "trainingReplay": {
+    "primaryTransitions": 60000,
+    "pairedCases": 92,
+    "extraSimulatorTransitions": 184,
+    "episode": "100",
+    "rareTransitions": "184",
+    "rareSamplesUsed": "59392",
+    "normalSamplesUsed": "416576",
+    "updates": "7437"
+  },
+  "staySwitchDiagnostic": {
+    "allEligible": {
+      "cases": 92,
+      "stayHigher60sReturn": 54,
+      "switchHigher60sReturn": 38,
+      "returnTies": 0,
+      "stayHigherImmediateReward": 70,
+      "switchHigherImmediateReward": 22,
+      "switchLessWindowLoss": 48,
+      "stayLessWindowLoss": 29,
+      "sameWindowLoss": 15,
+      "meanSwitchMinusStayReturn": -0.07465267032410565
+    },
+    "full60SecondsOnly": {
+      "cases": 57,
+      "stayHigher60sReturn": 31,
+      "switchHigher60sReturn": 26,
+      "returnTies": 0,
+      "stayHigherImmediateReward": 43,
+      "switchHigherImmediateReward": 14,
+      "switchLessWindowLoss": 29,
+      "stayLessWindowLoss": 19,
+      "sameWindowLoss": 9,
+      "meanSwitchMinusStayReturn": -0.08557109530336278
+    },
+    "shorterNearEnd": {
+      "cases": 35,
+      "stayHigher60sReturn": 23,
+      "switchHigher60sReturn": 12,
+      "returnTies": 0,
+      "stayHigherImmediateReward": 27,
+      "switchHigherImmediateReward": 8,
+      "switchLessWindowLoss": 19,
+      "stayLessWindowLoss": 10,
+      "sameWindowLoss": 6,
+      "meanSwitchMinusStayReturn": -0.056871235357886886
+    },
+    "trainingSeedCount": 49,
+    "allPoorTimePoints": 95,
+    "noValidStayCases": 3,
+    "note": "Conditional on fixed parent follow-up policy and this realized channel. Nearby times are correlated; cases are not independent trials.",
+    "burstComparison": {
+      "staySmallerWindowMaxRun": 20,
+      "switchSmallerWindowMaxRun": 41,
+      "same": 31
+    },
+    "objectiveDisagreements": {
+      "higherRewardHasMoreWindowLoss": 12,
+      "higherRewardHasLongerWindowBurst": 13,
+      "note": "Compared up to 60 seconds; reward is discounted and also penalizes handovers, so this is a tradeoff, not an arithmetic error."
+    }
+  },
+  "parentAndRewardUnchanged": true,
+  "initialAcquisitionLossesAcrossTen": {
+    "context": 155,
+    "paired": 594
+  },
+  "pairStateDistribution": {
+    "frozenParent": {
+      "cases": 92,
+      "medianPriorStreak": 0.0,
+      "maxPriorStreak": 192
+    },
+    "pairedTraining": {
+      "cases": 92,
+      "medianPriorStreak": 52.5,
+      "maxPriorStreak": 360
+    },
+    "earlyTraining": {
+      "cases": 69,
+      "medianPriorStreak": 60,
+      "maxPriorStreak": 360
+    },
+    "lateTraining": {
+      "cases": 23,
+      "medianPriorStreak": 1,
+      "maxPriorStreak": 62
+    }
+  }
+}

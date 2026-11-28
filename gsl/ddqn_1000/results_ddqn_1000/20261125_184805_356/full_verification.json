@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "scope": "GS to first satellite only",
+  "trainingEpisodes": 1000,
+  "evaluationRuns": 10,
+  "packetRecords": 360000,
+  "trainTestSeedsDisjoint": true,
+  "allRepeatsSaved": true
+}

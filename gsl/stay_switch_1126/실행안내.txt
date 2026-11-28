@@ -1,0 +1,8 @@
+실행: 상위 gsl 폴더에서 main_gsl_stay_switch.m 실행(F5).
+재학습 없이 유지/전환 진단 그래프, 모델 비교 그래프, 저장된 패킷 재생 창이 열림.
+실험결과.txt: 비교 방법, 수치, 학습 변경, 한계 및 채택하지 않은 이유.
+stay_switch_diagnostics/pairs.csv: 학습 환경 92개 시점에서 첫 1초 유지/전환 후 같은 정책을 따른 비교.
+results_paired: 100회 학습 모델, 92쌍의 학습 경험, 기존 10회 평가 전체 기록.
+validation_new_seeds: 새 시드 10개씩의 전체 기록. 평가에서는 분기나 학습을 하지 않음.
+initial_acquisition_audit.csv: 첫 연결 1초에서 발생한 부작용 집계.
+보상, PHY 및 기존 모델은 변경하지 않음. 이번 변경은 성능 악화로 채택하지 않음.

@@ -1,0 +1,53 @@
+{
+  "scope": "ground station to first satellite",
+  "arms": [
+    "control",
+    "peak"
+  ],
+  "episodesPerArm": 100,
+  "trainingSeeds": [
+    20269101,
+    20269200
+  ],
+  "evaluationSeeds": [
+    20269301,
+    20269310
+  ],
+  "freshValidationSeeds": [
+    20278001,
+    20278010
+  ],
+  "primaryContrast": "same 14 inputs/protocol, old accumulated streak versus new running-maximum increment cost",
+  "commonProtocolChangesFromPrevious12Input": [
+    "input 13 running maximum, input 14 remaining episode time",
+    "gamma 1 for finite fixed 600-step objective",
+    "remove explicit HO cost; physical 100 ms interruptions remain",
+    "center receive reward to negative loss fraction; equivalent to subtracting constant 1 in current no-late configuration"
+  ],
+  "peakReward": "-lossFraction - 0.3*(runningMax_after-runningMax_before)/60",
+  "peakEpisodeIdentity": "sum reward = -(lostPackets+0.3*maxConsecutiveLoss)/60",
+  "controlReward": "-lossFraction - 0.3*mean(min(currentStreak/60,10))",
+  "unchanged": [
+    "6x11 geometry and 6dB",
+    "Toolbox PHY",
+    "60pps x160bytes x600s",
+    "same core seeded neural weights, new input columns zero",
+    "100 episodes, batch64, warmup512, replay20000, trainEvery8",
+    "learningRate3e-4, gradient clipping5, target update100",
+    "epsilon 48000 decisions to .05",
+    "Q margin .02",
+    "uniform replay only; no paired or prioritized replay"
+  ],
+  "limitations": [
+    "one initialization per arm",
+    "scalar objective trades total losses against maximum with fixed coefficient .3; not lexicographic peak minimization",
+    "old12/gamma.95/extraHO.1 is only a historical reference; common protocol also changed",
+    "gamma1 long-horizon Q may need more learning; performance not guaranteed",
+    "late packets are zero in current scenario; new reward targets actual loss, deadline arrival is separately evaluated"
+  ],
+  "preservedSHA256": {
+    "C:/Users/succe/Desktop/codex/1123/gsl/three_constellations/GSLSelectionEpisode.m": "8c09a67e0088f519724a3b0188492e58b1ecca1f61acc57204640f034bf1d9da",
+    "C:/Users/succe/Desktop/codex/1123/gsl/q_context_1126/results_context/20261126_003447_332/agent.mat": "4f6e5c838144b6a957e7e062ab4f24581e8a5d7c3ed58eeee352a88c069067fd",
+    "C:/Users/succe/Desktop/codex/1123/gsl/ddqn_6x11/results_ddqn_6x11/20261123_160855_135/agent.mat": "58b27bd0a7b4a0f9ad0909e5b93ca279b36726e0cddfa17c40e38a7787559869"
+  }
+}

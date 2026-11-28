@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "exactOriginalReplay": true,
+  "frozenNetwork": true,
+  "decisionsAudited": 6000,
+  "newAblationPacketsVerified": 360000,
+  "noMarginBlocksInLongestBursts": true,
+  "longestRunsUnchangedWithoutMargin": true
+}
