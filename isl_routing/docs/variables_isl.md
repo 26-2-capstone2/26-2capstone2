@@ -169,7 +169,7 @@
 | --- | --- | --- |
 | 관측 수, 행동 수 | `RL.obsDim`, `RL.numActions` | 15 (`RL.stateMode = 'coarse'`), 4 |
 | 관측 정규화 | `RL.distMode`, `RL.distLogMax`, `RL.normDeadline` | 남은 거리: 부호 x log2(1 + 칸) / log2(65) (1칸 0.17, 5칸 0.43, 10칸 0.58, 망 크기와 상관없이 같은 값, 11/27. 이전 `'clip'`은 ÷ 5칸 후 자름이라 5칸 이상이 모두 1), 남은 기한 ÷ `P.deadline` (측정 흐름 기한, 6x6: 70) |
-| 행동 마스크 | `RL.maskMode` | `'noBack'` (없는 방향 + 방금 온 위성 쪽을 막음, 그 방향밖에 없으면 열어 둠, 11/27. 이전 `'link'`는 없는 방향만) |
+| 행동 마스크 | `RL.maskMode` (환경 변수 `RL_MASK_MODE`) | `'link'` (없는 방향만 막음, 11/28 실험 기준). `'noBack'`은 방금 온 위성 쪽도 막음 (11/27 밤 10x10 학습) |
 | 보상 | `RL.rewardOnTime`, `RL.rewardSingleLoss` | 기한 내 도착 +0.5, 단발 손실 −0.1 |
 | 연속 손실 보상 | `RL.burstBase`, `RL.burstStep`, `RL.burstMax` | k번째 패킷 −min(1.0, 0.2 + 0.1 x (k − 3)), 구간 전체에 적용 (7차, 11/26 되돌림) |
 | 홉 보상 | `RL.rewardHopScale`, `RL.rewardHopQueue` | −링크 지연 ÷ 기한 (큐 항목 없음, `rewardHopQueue = False`) |

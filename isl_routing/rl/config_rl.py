@@ -22,7 +22,8 @@ def config_rl(P):
     RL.nbrDelay = 30                       # coarse 이웃 부하: 30 step 전 값
                                            # full 24개: 큐 4 + 이웃 부하 4 + 큐 증가 속도 4 + 최근 큐 넘침 4 + 링크 유무 4 + 남은 거리 2 + 남은 기한 1 + 남은 TTL 1
     RL.numActions = 4                      # 행동 4개 : 상, 하, 좌, 우
-    RL.maskMode = os.environ.get('RL_MASK_MODE', 'noBack')   # 'noBack': 없는 방향 + 방금 온 위성 쪽을 막음 (두 위성 사이 왕복 차단, 11/27)
+    RL.maskMode = os.environ.get('RL_MASK_MODE', 'link')     # 'link': 없는 방향만 막음 (11/28 실험 기준)
+                                           # 'noBack': 없는 방향 + 방금 온 위성 쪽을 막음 (두 위성 사이 왕복 차단, 11/27 밤 10x10 학습)
                                            # 환경 변수 RL_MASK_MODE로 바꿈 (모델에 마스크가 저장되지 않아 학습, 적응, 평가 모두 같은 값으로 실행해야 함)
                                            # 'link': 없는 방향만 막음 (11/26 6x11 모델까지)
                                            # 'full': 예전 방식, 꽉 찬 큐와 기한 안에 못 가는 방향도 막음 (비교용)

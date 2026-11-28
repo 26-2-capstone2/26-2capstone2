@@ -90,7 +90,8 @@ class ObjectiveTests(unittest.TestCase):
         queue = np.zeros(G.numLinks, dtype=int)
         observed = obs_from_sim(1, 0, queue, G, P, RL, 43, 20)
         self.assertEqual(observed.values.shape, (24,))
-        np.testing.assert_array_equal(observed.mask, [0, 1, 1, 1])   # 'noBack', 막 생성(들어온 방향 없음): 없는 방향(상)만 막음
+        np.testing.assert_array_equal(observed.mask, [0, 1, 1, 1])   # 막 생성(들어온 방향 없음): 없는 방향(상)만 막음
+        RL.maskMode = 'noBack'
         back = obs_from_sim(1, 0, queue, G, P, RL, 43, 20, backDir=3)
         np.testing.assert_array_equal(back.mask, [0, 1, 0, 1])       # 좌에서 들어옴 -> 좌도 막음
         corner = action_mask([-1, 0, -1, -1], P, G, 0, 0, 43, 'noBack', backDir=2)
