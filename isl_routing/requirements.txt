@@ -5,3 +5,5 @@ numpy>=1.24
 matplotlib>=3.7
 pillow>=10.0      # 애니메이션 GIF 저장
 torch>=2.0        # 강화학습 (route_C) 학습, 평가에만 필요. CPU 버전으로 충분함
+
+pandas>=2.2.3  # External GSL packet CSV interface
